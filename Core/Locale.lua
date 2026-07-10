@@ -38,6 +38,8 @@ NS.L = {
     BARS_ICON         = "Afficher l'icône",
     BARS_FONTSIZE     = "Taille du texte",
     BARS_TEXTURE      = "Texture de barre",
+    BARS_WINDOW       = "N'afficher que les barres à moins de",
+    BARS_WINDOW_DESC  = "Réduit l'encombrement : les barres lointaines restent masquées jusqu'à approcher.",
 
     -- Voix
     VOICE_TITLE       = "Voix",
@@ -46,6 +48,8 @@ NS.L = {
     VOICE_CHANNEL     = "Canal audio",
     VOICE_LEAD        = "Avance des annonces (s)",
     VOICE_LEAD_DESC   = "Joue l'annonce quelques instants avant l'incantation.",
+    VOICE_MINGAP      = "Espacement mini entre annonces (s)",
+    VOICE_MINGAP_DESC = "Évite l'empilement : une nouvelle annonce est ignorée si une vient d'être jouée.",
     VOICE_PREVIEW     = "Tester une annonce",
     VOICE_PLAY        = "Jouer",
     VOICE_PACK        = "Pack vocal : VoixFrancaise02 (Melune)",

@@ -101,6 +101,7 @@ function NS.UI.CreateBarGroup(name, cfg)
         b.duration = math.max(0.1, data.duration or 1)
         b.endTime = data.endTime or (GetTime() + b.duration)
         b.showTime = (data.showTime ~= false)
+        b.ignoreWindow = data.ignoreWindow and true or false
 
         local col = data.color or NS.Theme:Severity(data.severity or 1)
         b.fill:SetVertexColor(col[1], col[2], col[3], data.fillAlpha or 0.55)
@@ -128,13 +129,17 @@ function NS.UI.CreateBarGroup(name, cfg)
     function g:Layout()
         if not self.anchor then return end
         local cfg = self.cfg
+        local window = cfg.showWindow or 0   -- 0 = tout afficher ; >0 = seulement si reste <= window
+        local now = GetTime()
         wipe(self.order)
         for _, b in pairs(self.active) do self.order[#self.order + 1] = b end
         table.sort(self.order, function(x, y) return (x.endTime or 0) < (y.endTime or 0) end)
         local grow = cfg.grow == "up" and 1 or -1
         local shown = 0
-        for i, b in ipairs(self.order) do
-            if i <= cfg.maxBars then
+        for _, b in ipairs(self.order) do
+            local remaining = (b.endTime or now) - now
+            local eligible = b.ignoreWindow or window <= 0 or remaining <= window
+            if eligible and shown < cfg.maxBars then
                 shown = shown + 1
                 b:ClearAllPoints()
                 local off = (shown - 1) * (cfg.height + cfg.spacing) * grow
@@ -172,7 +177,9 @@ function NS.UI.CreateBarGroup(name, cfg)
                 end
             end
         end
-        if removed then self:Layout() end
+        -- recalcule la disposition si une barre a disparu, ou en continu quand la
+        -- fenêtre « barres < X s » est active (des barres entrent/sortent avec le temps)
+        if removed or (cfg.showWindow and cfg.showWindow > 0) then self:Layout() end
     end
 
     function g:Restyle()

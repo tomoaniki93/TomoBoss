@@ -11,9 +11,9 @@ function NS.UI.InitBossBars()
     g.demoFn = function(self, on)
         if on then
             local now = GetTime()
-            self:AddOrUpdate("__demo1", { name = "Frappe de mine",      duration = 40, endTime = now + 12, severity = 0, icon = 135834 })
-            self:AddOrUpdate("__demo2", { name = "Piétinement glacial",  duration = 40, endTime = now + 24, severity = 1, icon = 135843 })
-            self:AddOrUpdate("__demo3", { name = "Surcharge glaciaire",  duration = 40, endTime = now + 36, severity = 2, icon = 135838 })
+            self:AddOrUpdate("__demo1", { name = "Frappe de mine",      duration = 40, endTime = now + 12, severity = 0, icon = 135834, ignoreWindow = true })
+            self:AddOrUpdate("__demo2", { name = "Piétinement glacial",  duration = 40, endTime = now + 24, severity = 1, icon = 135843, ignoreWindow = true })
+            self:AddOrUpdate("__demo3", { name = "Surcharge glaciaire",  duration = 40, endTime = now + 36, severity = 2, icon = 135838, ignoreWindow = true })
         else
             self:Remove("__demo1"); self:Remove("__demo2"); self:Remove("__demo3")
         end

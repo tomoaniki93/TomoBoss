@@ -281,6 +281,12 @@ function Config:BuildBars(page)
     slider(L.BARS_MAX,      "maxBars",  1,   12,  1, function(v) return string.format("%d", v) end)
     slider(L.BARS_SPACING,  "spacing",  0,   14,  1, function(v) return string.format("%d px", v) end)
     slider(L.BARS_FONTSIZE, "fontSize", 8,   22,  1, function(v) return string.format("%d", v) end)
+    slider(L.BARS_WINDOW,   "showWindow", 0, 60, 1, function(v)
+        if v < 1 then return "Toujours" else return string.format("%d s", v) end
+    end)
+    local winDesc = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(winDesc, 11, "muted"); winDesc:SetText(L.BARS_WINDOW_DESC)
+    lay:Add(winDesc, 18)
 
     lay:Gap(2)
     local growLbl = page:CreateFontString(nil, "OVERLAY")
@@ -343,6 +349,16 @@ function Config:BuildVoice(page)
     local leadDesc = page:CreateFontString(nil, "OVERLAY")
     NS.Theme:Font(leadDesc, 11, "muted"); leadDesc:SetText(L.VOICE_LEAD_DESC)
     lay:Add(leadDesc, 20)
+
+    local gap = NS.Theme:CreateSlider(page, {
+        label = L.VOICE_MINGAP, min = 0, max = 2, step = 0.1, value = v.minGap, width = 300,
+        fmt = function(val) if val < 0.05 then return "Désactivé" else return string.format("%.1f s", val) end end,
+    })
+    gap:SetCallback(function(val) v.minGap = val end)
+    lay:Add(gap, 44)
+    local gapDesc = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(gapDesc, 11, "muted"); gapDesc:SetText(L.VOICE_MINGAP_DESC)
+    lay:Add(gapDesc, 20)
 
     -- Aperçu d'une annonce
     local prevLbl = page:CreateFontString(nil, "OVERLAY")

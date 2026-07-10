@@ -5,8 +5,9 @@ local NS = select(2, ...)
 local Voice = NS.Voice or {}
 NS.Voice = Voice
 
-local lastPlay = {}          -- id -> GetTime() du dernier passage (anti-doublon)
-local DEDUPE = 0.20          -- fenêtre anti-doublon (s)
+local lastPlay = {}          -- id -> GetTime() du dernier passage (anti-doublon même annonce)
+local lastAnyPlay = 0        -- GetTime() de la dernière annonce (espacement global)
+local DEDUPE = 0.20          -- fenêtre anti-doublon (s) pour une même annonce
 
 local function cfg()
     return NS.db and NS.db.profile and NS.db.profile.voice or nil
@@ -20,6 +21,7 @@ function Voice:Resolve(id)
 end
 
 -- Joue une annonce par id. Renvoie true si un son a été lancé.
+-- opts.force ignore l'anti-doublon ET l'espacement global (utilisé par le décompte).
 function Voice:Play(id, opts)
     opts = opts or {}
     local c = cfg()
@@ -32,8 +34,16 @@ function Voice:Play(id, opts)
     end
 
     local now = GetTime()
-    if not opts.force and lastPlay[id] and (now - lastPlay[id]) < DEDUPE then
-        return false
+    if not opts.force then
+        -- anti-doublon de la même annonce
+        if lastPlay[id] and (now - lastPlay[id]) < DEDUPE then
+            return false
+        end
+        -- espacement minimum entre deux annonces quelconques (anti-empilement)
+        local minGap = (c and c.minGap) or 0
+        if minGap > 0 and (now - lastAnyPlay) < minGap then
+            return false
+        end
     end
     lastPlay[id] = now
 
@@ -48,6 +58,7 @@ function Voice:Play(id, opts)
     local channel = (c and c.channel) or "Master"
     if PlaySoundFile then
         PlaySoundFile(path, channel)
+        lastAnyPlay = now
         return true
     end
     return false

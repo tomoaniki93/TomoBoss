@@ -16,16 +16,18 @@ NS.defaults = {
             channel   = "Master",   -- Master | SFX | Dialog | Music | Ambience
             lead      = 0.0,        -- avance des annonces (s)
             countdown = true,       -- voix du décompte de pull
+            minGap    = 0.5,        -- espacement minimum entre deux annonces (s ; 0 = désactivé)
         },
 
         bars = {
-            width    = 220,
-            height   = 26,
-            maxBars  = 8,
-            spacing  = 4,
-            grow     = "down",      -- "down" | "up"
-            showIcon = true,
-            fontSize = 13,
+            width      = 220,
+            height     = 26,
+            maxBars    = 8,
+            spacing    = 4,
+            grow       = "down",    -- "down" | "up"
+            showIcon   = true,
+            fontSize   = 13,
+            showWindow = 0,         -- n'afficher que les barres à < X s (0 = toutes)
         },
 
         countdown = {
