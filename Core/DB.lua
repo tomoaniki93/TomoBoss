@@ -36,6 +36,30 @@ NS.defaults = {
         flash = {
             enabled = true,
         },
+
+        interrupts = {
+            enabled    = true,
+            showSelfCD = true,
+            width      = 190,
+            height     = 24,
+            maxBars    = 6,
+            spacing    = 2,
+            grow       = "down",
+            showIcon   = true,
+            fontSize   = 13,
+        },
+
+        trash = {
+            enabled     = true,
+            voiceOnKick = false,
+            width       = 200,
+            height      = 24,
+            maxBars     = 6,
+            spacing     = 2,
+            grow        = "down",
+            showIcon    = true,
+            fontSize    = 13,
+        },
     },
 }
 
@@ -65,6 +89,8 @@ function NS:ApplyScale()
         self.UI.TimerBars and self.UI.TimerBars.anchor,
         self.UI.Countdown and self.UI.Countdown.anchor,
         self.UI.FlashText and self.UI.FlashText.anchor,
+        self.InterruptTracker and self.InterruptTracker.group and self.InterruptTracker.group.anchor,
+        self.TrashCD and self.TrashCD.group and self.TrashCD.group.anchor,
     }
     for _, a in ipairs(anchors) do if a then a:SetScale(s) end end
 end

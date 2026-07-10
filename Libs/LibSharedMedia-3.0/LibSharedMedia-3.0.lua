@@ -134,21 +134,21 @@ if locale == "koKR" then
 elseif locale == "zhCN" then
 	LOCALE_MASK = lib.LOCALE_BIT_zhCN
 --
-	SML_MT_font["伤害数字"]		= [[Fonts\ARKai_C.ttf]]
-	SML_MT_font["默认"]			= [[Fonts\ARKai_T.ttf]]
-	SML_MT_font["聊天"]			= [[Fonts\ARHei.ttf]]
+	SML_MT_font["zhCN Damage"]		= [[Fonts\ARKai_C.ttf]]
+	SML_MT_font["zhCN Default"]			= [[Fonts\ARKai_T.ttf]]
+	SML_MT_font["zhCN Chat"]			= [[Fonts\ARHei.ttf]]
 --
-	lib.DefaultMedia["font"] = "默认" -- someone from zhCN please adjust if needed
+	lib.DefaultMedia["font"] = "zhCN Default" -- someone from zhCN please adjust if needed
 --
 elseif locale == "zhTW" then
 	LOCALE_MASK = lib.LOCALE_BIT_zhTW
 --
-	SML_MT_font["提示訊息"]		= [[Fonts\bHEI00M.ttf]]
-	SML_MT_font["聊天"]			= [[Fonts\bHEI01B.ttf]]
-	SML_MT_font["傷害數字"]		= [[Fonts\bKAI00M.ttf]]
-	SML_MT_font["預設"]			= [[Fonts\bLEI00D.ttf]]
+	SML_MT_font["zhTW Tooltip"]		= [[Fonts\bHEI00M.ttf]]
+	SML_MT_font["zhTW Chat"]			= [[Fonts\bHEI01B.ttf]]
+	SML_MT_font["zhTW Damage"]		= [[Fonts\bKAI00M.ttf]]
+	SML_MT_font["zhTW Default"]			= [[Fonts\bLEI00D.ttf]]
 --
-	lib.DefaultMedia["font"] = "預設" -- someone from zhTW please adjust if needed
+	lib.DefaultMedia["font"] = "zhTW Default" -- someone from zhTW please adjust if needed
 
 elseif locale == "ruRU" then
 	LOCALE_MASK = lib.LOCALE_BIT_ruRU

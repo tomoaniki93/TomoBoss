@@ -12,24 +12,22 @@ local function cfg()
     return NS.db and NS.db.profile and NS.db.profile.voice or nil
 end
 
--- Résout un id (ou une clé d'origine chinoise) vers l'entrée du catalogue.
-function Voice:Resolve(idOrLegacy)
-    if type(idOrLegacy) ~= "string" or idOrLegacy == "" then return nil end
-    if self.Catalog[idOrLegacy] then return idOrLegacy, self.Catalog[idOrLegacy] end
-    local id = self.ByLegacy and self.ByLegacy[idOrLegacy]
-    if id and self.Catalog[id] then return id, self.Catalog[id] end
+-- Résout un id vers l'entrée du catalogue.
+function Voice:Resolve(id)
+    if type(id) ~= "string" or id == "" then return nil end
+    if self.Catalog[id] then return id, self.Catalog[id] end
     return nil
 end
 
 -- Joue une annonce par id. Renvoie true si un son a été lancé.
-function Voice:Play(idOrLegacy, opts)
+function Voice:Play(id, opts)
     opts = opts or {}
     local c = cfg()
     if not (c and c.enabled) and not opts.force then return false end
 
-    local id, entry = self:Resolve(idOrLegacy)
+    local id, entry = self:Resolve(id)
     if not id then
-        NS:Debug("Voice:Play — id inconnu:", tostring(idOrLegacy))
+        NS:Debug("Voice:Play — id inconnu:", tostring(id))
         return false
     end
 

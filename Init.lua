@@ -11,7 +11,7 @@ local function PrintHelp()
     NS:Print("|cff33e6a6" .. L.HELP_HEADER .. "|r")
     for _, line in ipairs({
         L.HELP_OPTIONS, L.HELP_PULL, L.HELP_PULLSTOP, L.HELP_TEST, L.HELP_TESTSTOP,
-        L.HELP_LOCK, L.HELP_RESET, L.HELP_VOICE,
+        L.HELP_LOCK, L.HELP_RESET, L.HELP_VOICE, L.HELP_KICKS,
     }) do
         print("  |cff8a968f•|r " .. line)
     end
@@ -45,6 +45,8 @@ local function HandleSlash(input)
         else
             NS:Print("/tmb voix <id>")
         end
+    elseif cmd == "kicks" or cmd == "interruptions" then
+        if NS.InterruptTracker then NS.InterruptTracker:PrintTally() end
     elseif cmd == "help" or cmd == "aide" then
         PrintHelp()
     else
@@ -88,10 +90,19 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         NS:InitDB()
 
     elseif event == "PLAYER_LOGIN" then
+        -- crée l'instance des barres de boss (via la fabrique BarGroup)
+        NS.UI.InitBossBars()
+
         -- crée les ancres pour pouvoir les rendre déplaçables
         NS.UI.TimerBars:EnsureAnchor()
         NS.UI.Countdown:EnsureAnchor()
         NS.UI.FlashText:EnsureAnchor()
+
+        -- initialise les modules (crée leurs groupes de barres + événements)
+        NS.InterruptTracker:Init()
+        NS.TrashCD:Init()
+        NS.InterruptTracker.group:EnsureAnchor()
+        NS.TrashCD.group:EnsureAnchor()
 
         NS.UI.Mover:Register("bars", NS.UI.TimerBars.anchor, L.MOVER_BARS,
             { point = "CENTER", x = -280, y = 80 }, function(on) NS.UI.TimerBars:ShowDemo(on) end)
@@ -99,6 +110,10 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             { point = "CENTER", x = 0, y = 160 }, function(on) NS.UI.Countdown:ShowDemo(on) end)
         NS.UI.Mover:Register("flash", NS.UI.FlashText.anchor, L.MOVER_FLASH,
             { point = "CENTER", x = 0, y = 240 }, function(on) NS.UI.FlashText:ShowDemo(on) end)
+        NS.UI.Mover:Register("interrupts", NS.InterruptTracker.group.anchor, L.MOVER_INTERRUPTS,
+            { point = "CENTER", x = 300, y = -60 }, function(on) NS.InterruptTracker.group:ShowDemo(on) end)
+        NS.UI.Mover:Register("trash", NS.TrashCD.group.anchor, L.MOVER_TRASH,
+            { point = "CENTER", x = -300, y = -60 }, function(on) NS.TrashCD.group:ShowDemo(on) end)
 
         NS:ApplyScale()
         NS.UI.Countdown:ApplyScale()

@@ -24,6 +24,39 @@ local function Layout(page, x, top)
     return o
 end
 
+-- Options communes d'un groupe de barres (largeur, hauteur, etc.).
+local function BarOptions(page, lay, group, barcfg)
+    local function slider(label, key, min, max, step, fmt)
+        local s = NS.Theme:CreateSlider(page, { label = label, min = min, max = max, step = step, value = barcfg[key], width = 300, fmt = fmt })
+        s:SetCallback(function(v)
+            barcfg[key] = (step >= 1) and math.floor(v + 0.5) or v
+            if group then group:Restyle() end
+        end)
+        lay:Add(s, 46)
+    end
+    slider(L.BARS_WIDTH,    "width",    120, 360, 2, function(v) return string.format("%d px", v) end)
+    slider(L.BARS_HEIGHT,   "height",   14,  40,  1, function(v) return string.format("%d px", v) end)
+    slider(L.BARS_MAX,      "maxBars",  1,   12,  1, function(v) return string.format("%d", v) end)
+    slider(L.BARS_SPACING,  "spacing",  0,   14,  1, function(v) return string.format("%d px", v) end)
+    slider(L.BARS_FONTSIZE, "fontSize", 8,   22,  1, function(v) return string.format("%d", v) end)
+
+    local growLbl = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(growLbl, 12, "muted"); growLbl:SetText(L.BARS_GROW)
+    lay:Add(growLbl, 16)
+    local grow = NS.Theme:CreateDropdown(page, {
+        width = 200,
+        items = { { value = "down", text = L.BARS_GROW_DOWN }, { value = "up", text = L.BARS_GROW_UP } },
+        onSelect = function(v) barcfg.grow = v; if group then group:Restyle() end end,
+    })
+    grow:SetValue(barcfg.grow)
+    lay:Add(grow, 32)
+
+    local icon = NS.Theme:CreateCheck(page, L.BARS_ICON)
+    icon:SetChecked(barcfg.showIcon)
+    icon:SetCallback(function(v) barcfg.showIcon = v; if group then group:Restyle() end end)
+    lay:Add(icon, 22)
+end
+
 --------------------------------------------------------------------------
 -- Construction de la fenêtre.
 --------------------------------------------------------------------------
@@ -97,11 +130,13 @@ end
 --------------------------------------------------------------------------
 function Config:BuildTabs(rail)
     local defs = {
-        { key = "general",   label = L.TAB_GENERAL,   build = "BuildGeneral" },
-        { key = "bars",      label = L.TAB_BARS,      build = "BuildBars" },
-        { key = "voice",     label = L.TAB_VOICE,     build = "BuildVoice" },
-        { key = "countdown", label = L.TAB_COUNTDOWN, build = "BuildCountdown" },
-        { key = "about",     label = L.TAB_ABOUT,     build = "BuildAbout" },
+        { key = "general",   label = L.TAB_GENERAL,    build = "BuildGeneral" },
+        { key = "bars",      label = L.TAB_BARS,       build = "BuildBars" },
+        { key = "voice",     label = L.TAB_VOICE,      build = "BuildVoice" },
+        { key = "countdown", label = L.TAB_COUNTDOWN,  build = "BuildCountdown" },
+        { key = "interrupts",label = L.TAB_INTERRUPTS, build = "BuildInterrupts" },
+        { key = "trash",     label = L.TAB_TRASH,      build = "BuildTrash" },
+        { key = "about",     label = L.TAB_ABOUT,      build = "BuildAbout" },
     }
 
     local y = -14
@@ -367,6 +402,62 @@ function Config:BuildCountdown(page)
 end
 
 --------------------------------------------------------------------------
+-- Page : Interruptions
+--------------------------------------------------------------------------
+function Config:BuildInterrupts(page)
+    local c = NS.db.profile.interrupts
+    local IT = NS.InterruptTracker
+    local lay = Layout(page)
+    lay:Add(NS.Theme:SectionTitle(page, L.INT_TITLE), 20)
+
+    local en = NS.Theme:CreateCheck(page, L.INT_ENABLED)
+    en:SetChecked(c.enabled)
+    en:SetCallback(function(v) c.enabled = v; if IT and IT.UpdateEnv then IT:UpdateEnv() end end)
+    lay:Add(en, 20)
+
+    local desc = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(desc, 11, "muted"); desc:SetText(L.INT_ENABLED_DESC)
+    lay:Add(desc, 18)
+
+    local self_cd = NS.Theme:CreateCheck(page, L.INT_SELFCD)
+    self_cd:SetChecked(c.showSelfCD)
+    self_cd:SetCallback(function(v) c.showSelfCD = v end)
+    lay:Add(self_cd, 24)
+
+    BarOptions(page, lay, IT and IT.group, c)
+
+    local kicks = NS.Theme:CreateButton(page, L.INT_KICKS_BTN, 200, 26)
+    kicks:SetScript("OnClick", function() if IT then IT:PrintTally() end end)
+    lay:Add(kicks, 30)
+end
+
+--------------------------------------------------------------------------
+-- Page : TrashCD
+--------------------------------------------------------------------------
+function Config:BuildTrash(page)
+    local c = NS.db.profile.trash
+    local TC = NS.TrashCD
+    local lay = Layout(page)
+    lay:Add(NS.Theme:SectionTitle(page, L.TRASH_TITLE), 20)
+
+    local en = NS.Theme:CreateCheck(page, L.TRASH_ENABLED)
+    en:SetChecked(c.enabled)
+    en:SetCallback(function(v) c.enabled = v; if TC and TC.UpdateEnv then TC:UpdateEnv() end end)
+    lay:Add(en, 20)
+
+    local desc = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(desc, 11, "muted"); desc:SetText(L.TRASH_ENABLED_DESC)
+    lay:Add(desc, 18)
+
+    local vk = NS.Theme:CreateCheck(page, L.TRASH_VOICE_KICK)
+    vk:SetChecked(c.voiceOnKick)
+    vk:SetCallback(function(v) c.voiceOnKick = v end)
+    lay:Add(vk, 24)
+
+    BarOptions(page, lay, TC and TC.group, c)
+end
+
+--------------------------------------------------------------------------
 -- Page : À propos
 --------------------------------------------------------------------------
 function Config:BuildAbout(page)
@@ -391,7 +482,7 @@ function Config:BuildAbout(page)
 
     local cmds = {
         L.HELP_OPTIONS, L.HELP_PULL, L.HELP_PULLSTOP, L.HELP_TEST,
-        L.HELP_LOCK, L.HELP_RESET, L.HELP_VOICE,
+        L.HELP_LOCK, L.HELP_RESET, L.HELP_VOICE, L.HELP_KICKS,
     }
     for _, c in ipairs(cmds) do
         local fs = page:CreateFontString(nil, "OVERLAY")

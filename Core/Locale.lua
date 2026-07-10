@@ -88,4 +88,22 @@ NS.L = {
     HELP_LOCK         = "/tmb lock | unlock — verrouille/déverrouille les éléments",
     HELP_RESET        = "/tmb reset — réinitialise les positions",
     HELP_VOICE        = "/tmb voix <id> — teste une annonce vocale",
+    HELP_KICKS        = "/tmb kicks — affiche le décompte d'interruptions (clé M+)",
+
+    -- Interruptions
+    TAB_INTERRUPTS    = "Interruptions",
+    INT_TITLE         = "Suivi des interruptions",
+    INT_ENABLED       = "Activer le suivi",
+    INT_ENABLED_DESC  = "Affiche qui interrompt, en donjon 5 joueurs.",
+    INT_SELFCD        = "Barre de recharge de votre interruption",
+    INT_KICKS_BTN     = "Afficher le décompte (M+)",
+    MOVER_INTERRUPTS  = "Interruptions",
+
+    -- TrashCD
+    TAB_TRASH         = "TrashCD",
+    TRASH_TITLE       = "TrashCD — incantations des packs",
+    TRASH_ENABLED     = "Activer TrashCD",
+    TRASH_ENABLED_DESC= "Barres pour les capacités importantes des packs (donjon 5).",
+    TRASH_VOICE_KICK  = "Annonce vocale sur incantation interruptible",
+    MOVER_TRASH       = "TrashCD",
 }
