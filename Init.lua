@@ -104,6 +104,22 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         NS.InterruptTracker.group:EnsureAnchor()
         NS.TrashCD.group:EnsureAnchor()
 
+        -- groupe d'anneaux (affichage radial : entrées personnalisées, boss ou trash)
+        NS.UI.Rings = NS.UI.CreateRingGroup("Rings", NS.db.profile.rings)
+        NS.UI.Rings.demoFn = function(g, on)
+            if on then
+                local now = GetTime()
+                g:AddOrUpdate("__r1", { name = "Anneau démo", duration = 12, endTime = now + 8, severity = 1, icon = 135808 })
+                g:AddOrUpdate("__r2", { name = "Danger",      duration = 12, endTime = now + 5, severity = 2, icon = 135807 })
+            else
+                g:Remove("__r1"); g:Remove("__r2")
+            end
+        end
+        NS.UI.Rings:EnsureAnchor()
+
+        -- entrées personnalisées (moteur + trash désormais prêts)
+        NS.Custom:Init()
+
         NS.UI.Mover:Register("bars", NS.UI.TimerBars.anchor, L.MOVER_BARS,
             { point = "CENTER", x = -280, y = 80 }, function(on) NS.UI.TimerBars:ShowDemo(on) end)
         NS.UI.Mover:Register("countdown", NS.UI.Countdown.anchor, L.MOVER_COUNTDOWN,
@@ -114,6 +130,8 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             { point = "CENTER", x = 300, y = -60 }, function(on) NS.InterruptTracker.group:ShowDemo(on) end)
         NS.UI.Mover:Register("trash", NS.TrashCD.group.anchor, L.MOVER_TRASH,
             { point = "CENTER", x = -300, y = -60 }, function(on) NS.TrashCD.group:ShowDemo(on) end)
+        NS.UI.Mover:Register("rings", NS.UI.Rings.anchor, L.MOVER_RINGS,
+            { point = "CENTER", x = 0, y = -160 }, function(on) NS.UI.Rings:ShowDemo(on) end)
 
         NS:ApplyScale()
         NS.UI.Countdown:ApplyScale()

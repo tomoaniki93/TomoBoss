@@ -159,10 +159,25 @@ function TC:OnCastStart(unit, isChannel)
     if interruptible and cfg().voiceOnKick then
         NS.Voice:Play("interrupt-now")
     end
+
+    -- extras d'entrées personnalisées liées à ce mob (voix dédiée / anneau)
+    if NS.Custom and NS.Custom.TrashExtras then
+        local c = NS.Custom:TrashExtras(self:CurrentMapID(), npc, liveName, sid)
+        if c and c.display then
+            if c.display.sound and c.voice then NS.Voice:Play(c.voice) end
+            if c.display.ring and NS.UI.Rings then
+                NS.UI.Rings:AddOrUpdate("u:" .. unit, {
+                    name = displayName, icon = texture or DEFAULT_ICON,
+                    color = color, duration = duration, endTime = endTime,
+                })
+            end
+        end
+    end
 end
 
 function TC:OnCastEnd(unit)
     if self.group then self.group:Remove("u:" .. tostring(unit)) end
+    if NS.UI.Rings then NS.UI.Rings:Remove("u:" .. tostring(unit)) end
 end
 
 --------------------------------------------------------------------------

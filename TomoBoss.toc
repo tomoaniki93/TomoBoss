@@ -2,7 +2,7 @@
 ## Title: |cff33e6a6Tomo|r|cffe6edeaBoss|r
 ## Notes: Minuteurs de boss + voix française (inspiré d'EXBoss). Commande : /tmb
 ## Author: Tomo
-## Version: 1.5.0
+## Version: 1.6.0
 ## SavedVariables: TomoBossDB
 ## X-Category: Combat
 ## X-Voice-Pack: VoixFrancaise02 (Melune)
@@ -39,6 +39,7 @@ Engine\Encounters\nexus_point_xenas.lua
 # ── Interface (widgets)
 UI\Mover.lua
 UI\BarGroup.lua
+UI\RingGroup.lua
 UI\TimerBars.lua
 UI\Countdown.lua
 UI\FlashText.lua
@@ -48,6 +49,10 @@ Data\Interrupts.lua
 Modules\InterruptTracker.lua
 Modules\TrashCD.lua
 Data\TrashCD.lua
+
+# ── Personnalisation (partage + entrées custom, après moteur et trash)
+Custom\Share.lua
+Custom\Custom.lua
 
 # ── Pull + options
 Engine\PullCountdown.lua

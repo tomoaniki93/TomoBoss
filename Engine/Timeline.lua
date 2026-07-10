@@ -164,6 +164,36 @@ local function isPhaseEvent(ev)
     return ev.phase == true or ev.voice == "phase-change"
 end
 
+-- Affichage par défaut (événements intégrés) : barre + son, pas d'anneau.
+local DEFAULT_DISPLAY = { bar = true, sound = true }
+local function dispOf(ev) return ev.display or DEFAULT_DISPLAY end
+
+-- Rend une occurrence sur les widgets choisis (barre et/ou anneau).
+local function RenderOcc(occ)
+    local ev = occ.ev
+    local d = dispOf(ev)
+    local args = { name = NameFor(ev), icon = IconFor(ev), duration = occ.duration, endTime = occ.fireAt, severity = ev.severity }
+    if d.bar then NS.UI.TimerBars:AddOrUpdate(occ.key, args)
+    else NS.UI.TimerBars:Remove(occ.key) end
+    if NS.UI.Rings then
+        if d.ring then NS.UI.Rings:AddOrUpdate(occ.key, args)
+        else NS.UI.Rings:Remove(occ.key) end
+    end
+end
+
+-- Retire une occurrence de tous les widgets.
+local function RemoveOcc(occ)
+    NS.UI.TimerBars:Remove(occ.key)
+    if NS.UI.Rings then NS.UI.Rings:Remove(occ.key) end
+end
+
+-- Annonce vocale (si activée pour cette occurrence) + flash central en sévérité 2.
+local function AnnounceOcc(occ)
+    local ev = occ.ev
+    if dispOf(ev).sound then NS.Voice:Play(ev.voice) end
+    if ev.severity == 2 then NS.UI.FlashText:Show(NameFor(ev), "danger", 2.2) end
+end
+
 -- Cadre pour la synchronisation sur les incantations réelles des boss.
 function T:EnsureCastFrame()
     if self.castFrame then return self.castFrame end
@@ -216,10 +246,7 @@ function T:Start(encounterID, isDemo)
         self.occ[#self.occ + 1] = occ
         -- les événements de phase sont des déclencheurs : pas de barre prédictive
         if not isPhaseEvent(ev) then
-            NS.UI.TimerBars:AddOrUpdate(occ.key, {
-                name = NameFor(ev), icon = IconFor(ev),
-                duration = occ.duration, endTime = occ.fireAt, severity = ev.severity,
-            })
+            RenderOcc(occ)
         end
     end
 
@@ -274,10 +301,7 @@ function T:Tick()
             -- annonce vocale (+ flash) juste avant l'impact
             if not occ.voiced and now >= (occ.fireAt - lead) then
                 occ.voiced = true
-                NS.Voice:Play(ev.voice)
-                if ev.severity == 2 then
-                    NS.UI.FlashText:Show(NameFor(ev), "danger", 2.2)
-                end
+                AnnounceOcc(occ)
             end
 
             -- l'occurrence est passée : planifier la suivante
@@ -291,11 +315,8 @@ function T:Tick()
                 occ.voiced = false
             end
 
-            -- maintient la barre à jour
-            NS.UI.TimerBars:AddOrUpdate(occ.key, {
-                name = NameFor(ev), icon = IconFor(ev),
-                duration = occ.duration, endTime = occ.fireAt, severity = ev.severity,
-            })
+            -- maintient les widgets à jour
+            RenderOcc(occ)
         end
     end
 end
@@ -312,7 +333,7 @@ function T:OnPhaseTransition(phaseOcc)
             occ.dormant = true
             occ.cycleIndex = 1
             occ.voiced = false
-            NS.UI.TimerBars:Remove(occ.key)
+            RemoveOcc(occ)
         end
     end
     NS:Debug("Transition de phase — capacités mises en dormance jusqu'à réobservation.")
@@ -400,16 +421,10 @@ function T:OnBossCast(unit, spellID, isChannel)
     -- n'annonce que si la pré-alerte du Tick ne l'a pas déjà fait pour cette occurrence
     -- (sinon le cast réel se contente de recaler la barre, sans doublon vocal)
     if not wasVoiced then
-        NS.Voice:Play(ev.voice)
-        if ev.severity == 2 then
-            NS.UI.FlashText:Show(NameFor(ev), "danger", 2.2)
-        end
+        AnnounceOcc(occ)
     end
 
-    NS.UI.TimerBars:AddOrUpdate(occ.key, {
-        name = NameFor(ev), icon = IconFor(ev),
-        duration = occ.duration, endTime = occ.fireAt, severity = ev.severity,
-    })
+    RenderOcc(occ)
 end
 
 --------------------------------------------------------------------------

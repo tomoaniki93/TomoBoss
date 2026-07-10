@@ -136,6 +136,7 @@ function Config:BuildTabs(rail)
         { key = "countdown", label = L.TAB_COUNTDOWN,  build = "BuildCountdown" },
         { key = "interrupts",label = L.TAB_INTERRUPTS, build = "BuildInterrupts" },
         { key = "trash",     label = L.TAB_TRASH,      build = "BuildTrash" },
+        { key = "custom",    label = L.TAB_CUSTOM,     build = "BuildCustom" },
         { key = "about",     label = L.TAB_ABOUT,      build = "BuildAbout" },
     }
 
@@ -471,6 +472,239 @@ function Config:BuildTrash(page)
     lay:Add(vk, 24)
 
     BarOptions(page, lay, TC and TC.group, c)
+end
+
+--------------------------------------------------------------------------
+-- Page : Personnalisé (création d'entrées + import/export)
+--------------------------------------------------------------------------
+function Config:BuildCustom(page)
+    local title = NS.Theme:SectionTitle(page, L.CUSTOM_TITLE)
+    title:SetPoint("TOPLEFT", 18, -16)
+    local intro = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(intro, 11, "muted"); intro:SetText(L.CUSTOM_INTRO)
+    intro:SetPoint("TOPLEFT", 18, -38)
+
+    -- bascule Éditeur / Import-Export
+    local editorBtn = NS.Theme:CreateButton(page, "Éditeur", 110, 24)
+    editorBtn:SetPoint("TOPLEFT", 18, -58)
+    local ieBtn = NS.Theme:CreateButton(page, L.CUSTOM_IE_TITLE, 130, 24)
+    ieBtn:SetPoint("LEFT", editorBtn, "RIGHT", 8, 0)
+
+    local editorView = CreateFrame("Frame", nil, page)
+    editorView:SetPoint("TOPLEFT", 0, -90); editorView:SetPoint("BOTTOMRIGHT", 0, 0)
+    local ieView = CreateFrame("Frame", nil, page)
+    ieView:SetPoint("TOPLEFT", 0, -90); ieView:SetPoint("BOTTOMRIGHT", 0, 0)
+    ieView:Hide()
+
+    local function showEditor(which)
+        editorView:SetShown(which == "editor")
+        ieView:SetShown(which == "ie")
+        editorBtn.text:SetTextColor(which == "editor" and NS.Theme:Color("mint") or NS.Theme:Color("text"))
+        ieBtn.text:SetTextColor(which == "ie" and NS.Theme:Color("mint") or NS.Theme:Color("text"))
+    end
+    editorBtn:SetScript("OnClick", function() showEditor("editor") end)
+    ieBtn:SetScript("OnClick", function() showEditor("ie") end)
+
+    self:BuildCustomEditor(editorView)
+    self:BuildCustomIE(ieView)
+    showEditor("editor")
+end
+
+function Config:BuildCustomEditor(view)
+    local cf = {}
+    self._cf = cf
+
+    -- helper : label + editbox à une position (grille)
+    local function field(x, y, labelText, w)
+        local lbl = view:CreateFontString(nil, "OVERLAY")
+        NS.Theme:Font(lbl, 11, "muted"); lbl:SetText(labelText)
+        lbl:SetPoint("TOPLEFT", x, y)
+        local eb = NS.Theme:CreateEditBox(view, w or 128, 20)
+        eb:SetPoint("TOPLEFT", x + 100, y + 3)
+        return eb
+    end
+
+    local LX, RX = 16, 258
+    local ys = { -6, -32, -58, -84, -110, -136 }
+
+    -- Type (dropdown)
+    local kindLbl = view:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(kindLbl, 11, "muted"); kindLbl:SetText(L.CF_KIND); kindLbl:SetPoint("TOPLEFT", LX, ys[1])
+    cf.kind = NS.Theme:CreateDropdown(view, { width = 128,
+        items = { { value = "boss", text = L.CF_KIND_BOSS }, { value = "trash", text = L.CF_KIND_TRASH } } })
+    cf.kind:SetPoint("TOPLEFT", LX + 100, ys[1] + 2); cf.kind:SetValue("boss", L.CF_KIND_BOSS)
+
+    cf.zone        = field(LX, ys[2], L.CF_ZONE)
+    cf.encounterID = field(LX, ys[3], L.CF_ENCOUNTER)
+    cf.mapID       = field(LX, ys[4], L.CF_MAPID)
+    cf.npcID       = field(LX, ys[5], L.CF_NPCID)
+    cf.spellID     = field(LX, ys[6], L.CF_SPELLID)
+
+    cf.name        = field(RX, ys[1], L.CF_NAME)
+
+    -- Incantation (dropdown)
+    local ctLbl = view:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(ctLbl, 11, "muted"); ctLbl:SetText(L.CF_CASTTYPE); ctLbl:SetPoint("TOPLEFT", RX, ys[2])
+    cf.castType = NS.Theme:CreateDropdown(view, { width = 128,
+        items = { { value = "cast", text = "Incantation" }, { value = "channel", text = "Canalisation" } } })
+    cf.castType:SetPoint("TOPLEFT", RX + 100, ys[2] + 2); cf.castType:SetValue("cast", "Incantation")
+
+    cf.castDuration = field(RX, ys[3], L.CF_CASTDUR)
+    cf.firstSeen    = field(RX, ys[4], L.CF_FIRST)
+    cf.cd           = field(RX, ys[5], L.CF_CD)
+    cf.severity     = field(RX, ys[6], L.CF_SEVERITY)
+
+    -- valeurs par défaut pratiques
+    cf.castDuration:SetText("2"); cf.firstSeen:SetText("5"); cf.cd:SetText("30"); cf.severity:SetText("1")
+
+    -- Voix (dropdown large)
+    local vLbl = view:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(vLbl, 11, "muted"); vLbl:SetText(L.CF_VOICE); vLbl:SetPoint("TOPLEFT", LX, -166)
+    local vItems = { { value = "", text = L.CF_VOICE_NONE } }
+    for _, it in ipairs(NS.Voice:BuildList()) do vItems[#vItems + 1] = it end
+    cf.voice = NS.Theme:CreateDropdown(view, { width = 300, items = vItems })
+    cf.voice:SetPoint("TOPLEFT", LX + 100, -164); cf.voice:SetValue("", L.CF_VOICE_NONE)
+
+    -- Affichage (cases)
+    local dLbl = view:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(dLbl, 11, "muted"); dLbl:SetText(L.CF_DISPLAY); dLbl:SetPoint("TOPLEFT", LX, -194)
+    cf.dBar = NS.Theme:CreateCheck(view, L.CF_DISP_BAR);  cf.dBar:SetPoint("TOPLEFT", LX + 70, -190);  cf.dBar:SetChecked(true)
+    cf.dRing = NS.Theme:CreateCheck(view, L.CF_DISP_RING); cf.dRing:SetPoint("LEFT", cf.dBar, "RIGHT", 60, 0); cf.dRing:SetChecked(false)
+    cf.dSound = NS.Theme:CreateCheck(view, L.CF_DISP_SOUND); cf.dSound:SetPoint("LEFT", cf.dRing, "RIGHT", 60, 0); cf.dSound:SetChecked(true)
+
+    -- Enregistrer
+    local save = NS.Theme:CreateButton(view, L.CUSTOM_ADD, 180, 26)
+    save:SetPoint("TOPLEFT", LX, -222)
+    save:SetScript("OnClick", function() Config:SaveCustomEntry() end)
+
+    -- Liste des entrées (défilable)
+    local listLbl = view:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(listLbl, 12, "mint"); listLbl:SetText(L.CUSTOM_LIST); listLbl:SetPoint("TOPLEFT", LX, -256)
+
+    local panel = NS.Theme:CreatePanel(view, { bg = NS.Theme.colors.bg1, border = NS.Theme.colors.line })
+    panel:SetPoint("TOPLEFT", LX, -272); panel:SetPoint("BOTTOMRIGHT", -16, 8)
+    local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 4, -4); scroll:SetPoint("BOTTOMRIGHT", -24, 4)
+    local child = CreateFrame("Frame", nil, scroll)
+    child:SetSize(400, 10)
+    scroll:SetScrollChild(child)
+    self._customListChild = child
+    self:RefreshCustomList()
+end
+
+function Config:SaveCustomEntry()
+    local cf = self._cf
+    local kind = cf.kind:GetValue() or "boss"
+    local spellID = tonumber(cf.spellID:GetText())
+    local encounterID = tonumber(cf.encounterID:GetText())
+    local mapID = tonumber(cf.mapID:GetText())
+    local npcID = tonumber(cf.npcID:GetText())
+
+    if not spellID or (kind == "boss" and not encounterID) or (kind == "trash" and not (mapID and npcID)) then
+        NS:Print(L.CF_INVALID)
+        return
+    end
+
+    local cd = {}
+    for tok in (cf.cd:GetText() or ""):gmatch("[^,%s]+") do
+        local n = tonumber(tok); if n then cd[#cd + 1] = n end
+    end
+    if #cd == 0 then cd = { 30 } end
+
+    local nameText = cf.name:GetText()
+    local voiceVal = cf.voice:GetValue()
+
+    NS.Custom:Add({
+        kind = kind,
+        zone = cf.zone:GetText(),
+        name = (nameText ~= "" and nameText or nil),
+        encounterID = encounterID, mapID = mapID, npcID = npcID, spellID = spellID,
+        castType = cf.castType:GetValue() or "cast",
+        castDuration = tonumber(cf.castDuration:GetText()) or 2,
+        firstSeenSec = tonumber(cf.firstSeen:GetText()) or 5,
+        cdSeriesSec = cd,
+        severity = NS.clamp(tonumber(cf.severity:GetText()) or 1, 0, 2),
+        voice = (voiceVal ~= "" and voiceVal or nil),
+        display = { bar = cf.dBar:GetChecked(), ring = cf.dRing:GetChecked(), sound = cf.dSound:GetChecked() },
+    })
+    NS:Print(L.CF_SAVED)
+    self:RefreshCustomList()
+end
+
+function Config:RefreshCustomList()
+    local child = self._customListChild
+    if not child then return end
+    child.rows = child.rows or {}
+    for _, r in ipairs(child.rows) do r:Hide() end
+
+    local entries = NS.Custom:GetAll()
+    local rowH, y = 22, -2
+    for i, e in ipairs(entries) do
+        local r = child.rows[i]
+        if not r then
+            r = CreateFrame("Frame", nil, child); r:SetHeight(rowH)
+            r.text = r:CreateFontString(nil, "OVERLAY"); NS.Theme:Font(r.text, 11, "text")
+            r.text:SetPoint("LEFT", 4, 0); r.text:SetPoint("RIGHT", -30, 0); r.text:SetJustifyH("LEFT")
+            r.text:SetWordWrap(false)
+            r.del = NS.Theme:CreateButton(r, "X", 20, 18); r.del:SetPoint("RIGHT", -2, 0)
+            child.rows[i] = r
+        end
+        r:ClearAllPoints(); r:SetPoint("TOPLEFT", 0, y); r:SetPoint("RIGHT", 0, 0)
+        local nm = e.name or ("sort " .. tostring(e.spellID))
+        local link = (e.kind == "boss") and ("enc " .. tostring(e.encounterID)) or ("npc " .. tostring(e.npcID))
+        r.text:SetText(string.format("|cff8a968f[%s]|r %s  ·  %s  ·  %s", e.kind or "?", nm, e.zone or "?", link))
+        r.del._id = e.id
+        r.del:SetScript("OnClick", function(self)
+            NS.Custom:Remove(self._id)
+            NS:Print(NS.L.CUSTOM_RELOAD)
+            Config:RefreshCustomList()
+        end)
+        r:Show(); y = y - rowH
+    end
+
+    if #entries == 0 then
+        if not child.none then
+            child.none = child:CreateFontString(nil, "OVERLAY")
+            NS.Theme:Font(child.none, 11, "muted"); child.none:SetPoint("TOPLEFT", 4, -2)
+        end
+        child.none:SetText(NS.L.CUSTOM_NONE); child.none:Show()
+    elseif child.none then
+        child.none:Hide()
+    end
+    child:SetHeight(math.max(10, #entries * rowH + 4))
+end
+
+function Config:BuildCustomIE(view)
+    local hint = view:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(hint, 11, "muted"); hint:SetWidth(460); hint:SetJustifyH("LEFT")
+    hint:SetText(L.CUSTOM_IE_HINT); hint:SetPoint("TOPLEFT", 18, -6)
+
+    local box = NS.Theme:CreateMultiLineEditBox(view, 470, 200)
+    box:SetPoint("TOPLEFT", 18, -40)
+    self._ieBox = box
+
+    local exportBtn = NS.Theme:CreateButton(view, L.CUSTOM_EXPORT, 150, 26)
+    exportBtn:SetPoint("TOPLEFT", 18, -252)
+    exportBtn:SetScript("OnClick", function()
+        local s = NS.Custom:ExportString()
+        if s then box:SetText(s); box:Focus() else NS:Print(L.CUSTOM_EXPORT_MT) end
+    end)
+
+    local importBtn = NS.Theme:CreateButton(view, L.CUSTOM_IMPORT, 170, 26)
+    importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 8, 0)
+    importBtn:SetScript("OnClick", function()
+        local ok, res = NS.Custom:ApplyImport(box:GetText(), "append")
+        if ok then NS:Print(tostring(res) .. " " .. L.CUSTOM_IMPORT_OK); Config:RefreshCustomList()
+        else NS:Print(L.CUSTOM_IMPORT_ERR, tostring(res)) end
+    end)
+
+    local importRep = NS.Theme:CreateButton(view, L.CUSTOM_IMPORT_REP, 180, 26)
+    importRep:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -8)
+    importRep:SetScript("OnClick", function()
+        local ok, res = NS.Custom:ApplyImport(box:GetText(), "replace")
+        if ok then NS:Print(tostring(res) .. " " .. L.CUSTOM_IMPORT_OK); Config:RefreshCustomList()
+        else NS:Print(L.CUSTOM_IMPORT_ERR, tostring(res)) end
+    end)
 end
 
 --------------------------------------------------------------------------

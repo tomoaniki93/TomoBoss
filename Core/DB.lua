@@ -62,6 +62,19 @@ NS.defaults = {
             showIcon    = true,
             fontSize    = 13,
         },
+
+        rings = {
+            size     = 44,
+            spacing  = 8,
+            maxRings = 6,
+            grow     = "right",     -- "right" | "left"
+            showName = true,
+            fontSize = 11,
+        },
+
+        custom = {
+            entries = {},           -- entrées boss/trash créées par l'utilisateur
+        },
     },
 }
 
@@ -93,6 +106,7 @@ function NS:ApplyScale()
         self.UI.FlashText and self.UI.FlashText.anchor,
         self.InterruptTracker and self.InterruptTracker.group and self.InterruptTracker.group.anchor,
         self.TrashCD and self.TrashCD.group and self.TrashCD.group.anchor,
+        self.UI.Rings and self.UI.Rings.anchor,
     }
     for _, a in ipairs(anchors) do if a then a:SetScale(s) end end
 end

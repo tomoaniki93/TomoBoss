@@ -269,24 +269,50 @@ function Theme:CreateDropdown(parent, opts)
     local list = CreateFrame("Frame", nil, f)
     list:SetFrameStrata("FULLSCREEN_DIALOG")
     list:SetToplevel(true)
+    list:SetClipsChildren(true)
     self:Skin(list, { bg = C.bg1, border = C.mintLo })
     list:Hide()
     f.list = list
 
+    -- contenu défilable (molette) pour les longues listes (ex. catalogue vocal)
+    local content = CreateFrame("Frame", nil, list)
+    content:SetPoint("TOPLEFT", 0, 0)
+    content:SetPoint("TOPRIGHT", 0, 0)
+    list.content = content
+    list._offset = 0
+    list:EnableMouseWheel(true)
+
     f.items = opts.items or {}
     f._value = nil
+
+    local ROWH = 22
+    local MAXH = 300
+
+    list:SetScript("OnMouseWheel", function(self, delta)
+        local maxOff = math.max(0, (self._contentH or 0) - self:GetHeight())
+        self._offset = math.min(maxOff, math.max(0, self._offset - delta * ROWH * 3))
+        content:ClearAllPoints()
+        content:SetPoint("TOPLEFT", 0, self._offset)
+        content:SetPoint("TOPRIGHT", 0, self._offset)
+    end)
 
     local function rebuild()
         if list.buttons then for _, b in ipairs(list.buttons) do b:Hide() end end
         list.buttons = list.buttons or {}
         local n = #f.items
-        local rowH = 22
-        list:SetSize(f:GetWidth(), math.max(rowH, n * rowH) + 6)
+        local contentH = math.max(ROWH, n * ROWH) + 6
+        list._contentH = contentH
+        list._offset = 0
+        content:ClearAllPoints()
+        content:SetPoint("TOPLEFT", 0, 0)
+        content:SetPoint("TOPRIGHT", 0, 0)
+        content:SetHeight(contentH)
+        list:SetSize(f:GetWidth(), math.min(contentH, MAXH))
         for i, item in ipairs(f.items) do
             local b = list.buttons[i]
             if not b then
-                b = CreateFrame("Button", nil, list)
-                b:SetHeight(rowH)
+                b = CreateFrame("Button", nil, content)
+                b:SetHeight(ROWH)
                 b.hl = b:CreateTexture(nil, "BACKGROUND")
                 b.hl:SetTexture(WHITE); b.hl:SetAllPoints(b)
                 b.hl:SetVertexColor(C.mint[1], C.mint[2], C.mint[3], 0.15); b.hl:Hide()
@@ -298,8 +324,8 @@ function Theme:CreateDropdown(parent, opts)
                 list.buttons[i] = b
             end
             b:ClearAllPoints()
-            b:SetPoint("TOPLEFT", 3, -3 - (i - 1) * rowH)
-            b:SetPoint("RIGHT", -3, 0)
+            b:SetPoint("TOPLEFT", content, "TOPLEFT", 3, -3 - (i - 1) * ROWH)
+            b:SetPoint("RIGHT", content, "RIGHT", -3, 0)
             b.t:SetText(item.text)
             b:SetScript("OnClick", function()
                 f:SetValue(item.value, item.text)
@@ -335,11 +361,51 @@ function Theme:CreateDropdown(parent, opts)
 end
 
 --------------------------------------------------------------------------
--- Titre de section (label menthe + trait).
+-- Zone de saisie (une ligne).
 --------------------------------------------------------------------------
-function Theme:SectionTitle(parent, text)
-    local fs = parent:CreateFontString(nil, "OVERLAY")
-    self:Font(fs, 15, "mint", nil)
-    fs:SetText(text)
-    return fs
+function Theme:CreateEditBox(parent, width, height)
+    local f = CreateFrame("EditBox", nil, parent)
+    f:SetSize(width or 180, height or 22)
+    f:SetAutoFocus(false)
+    f:SetFont(FONT, 12)
+    f:SetTextColor(C.text[1], C.text[2], C.text[3])
+    f:SetTextInsets(6, 6, 0, 0)
+    self:Skin(f, { bg = C.bg2, border = C.line })
+    f:SetScript("OnEscapePressed", f.ClearFocus)
+    f:SetScript("OnEnterPressed", f.ClearFocus)
+    f:SetScript("OnEditFocusGained", function(self)
+        for _, t in pairs(self.__brd) do t:SetVertexColor(C.mint[1], C.mint[2], C.mint[3]) end
+    end)
+    f:SetScript("OnEditFocusLost", function(self)
+        for _, t in pairs(self.__brd) do t:SetVertexColor(C.line[1], C.line[2], C.line[3]) end
+    end)
+    return f
 end
+
+--------------------------------------------------------------------------
+-- Zone de saisie multiligne (avec défilement) — pour import/export.
+--------------------------------------------------------------------------
+function Theme:CreateMultiLineEditBox(parent, width, height)
+    local container = self:CreatePanel(parent, { bg = C.bg2, border = C.line })
+    container:SetSize(width, height)
+
+    local scroll = CreateFrame("ScrollFrame", nil, container, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 6, -6)
+    scroll:SetPoint("BOTTOMRIGHT", -26, 6)
+
+    local edit = CreateFrame("EditBox", nil, scroll)
+    edit:SetMultiLine(true)
+    edit:SetAutoFocus(false)
+    edit:SetFont(FONT, 11)
+    edit:SetTextColor(C.text[1], C.text[2], C.text[3])
+    edit:SetWidth(width - 34)
+    edit:SetScript("OnEscapePressed", edit.ClearFocus)
+    scroll:SetScrollChild(edit)
+
+    container.edit = edit
+    function container:GetText() return edit:GetText() end
+    function container:SetText(t) edit:SetText(t or "") end
+    function container:Focus() edit:SetFocus(); edit:HighlightText() end
+    return container
+end
+

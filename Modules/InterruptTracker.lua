@@ -1,7 +1,12 @@
 ---@diagnostic disable: undefined-global
 -- TomoBoss — Suivi des interruptions (donjons 5).
--- Affiche qui a interrompu (barre à la couleur de classe, icône du sort coupé),
--- une barre de recharge de votre propre interruption, et un décompte M+.
+-- Affiche qui a utilisé son interruption (barre à la couleur de classe, icône du
+-- sort d'interruption), une barre de recharge de la vôtre, et un décompte M+.
+--
+-- Détection SANS le journal de combat (restreint et bloquant sous Midnight) :
+-- on écoute UNIT_SPELLCAST_SUCCEEDED du joueur et des membres du groupe, et on ne
+-- retient que les sorts d'interruption connus. Les spellID des joueurs alliés
+-- restent lisibles (seuls ceux des ennemis sont masqués).
 
 local NS = select(2, ...)
 local IT = {}
@@ -9,9 +14,19 @@ NS.InterruptTracker = IT
 
 local RECORD_DURATION = 14
 local DEFAULT_ICON = 132316 -- icône d'interruption générique
-local bit_band = bit and bit.band
 
 local function cfg() return NS.db.profile.interrupts end
+
+--------------------------------------------------------------------------
+-- Ensemble des spellID d'interruption connus (toutes spécialisations).
+--------------------------------------------------------------------------
+function IT:BuildSet()
+    local set = {}
+    for _, d in pairs(NS.Data.Interrupts) do
+        if d.id and d.id ~= 0 then set[d.id] = true end
+    end
+    self.interruptSet = set
+end
 
 --------------------------------------------------------------------------
 -- Environnement : uniquement en groupe dans un donjon 5 joueurs.
@@ -20,24 +35,6 @@ function IT:IsValidEnv()
     if not cfg().enabled then return false end
     local _, instanceType = GetInstanceInfo()
     return IsInGroup() and instanceType == "party"
-end
-
---------------------------------------------------------------------------
--- Correspondance GUID -> classe (membres du groupe), pour la couleur.
---------------------------------------------------------------------------
-IT.classByGUID = {}
-function IT:RefreshRoster()
-    wipe(self.classByGUID)
-    local units = { "player", "party1", "party2", "party3", "party4" }
-    for _, u in ipairs(units) do
-        if UnitExists(u) then
-            local guid = UnitGUID(u)
-            local _, classToken = UnitClass(u)
-            if guid and classToken and not NS:IsSecret(guid) then
-                self.classByGUID[guid] = classToken
-            end
-        end
-    end
 end
 
 local function ClassColor(classToken)
@@ -49,7 +46,7 @@ local function ClassColor(classToken)
 end
 
 --------------------------------------------------------------------------
--- Spécialisation du joueur -> sort d'interruption.
+-- Spécialisation du joueur -> sort d'interruption (pour la barre de recharge).
 --------------------------------------------------------------------------
 function IT:GetPlayerInterrupt()
     local idx = GetSpecialization and GetSpecialization()
@@ -66,18 +63,18 @@ end
 --------------------------------------------------------------------------
 function IT:Init()
     if self.group then return end
+    self:BuildSet()
     self.group = NS.UI.CreateBarGroup("Interrupts", cfg())
     self.group.demoFn = function(g, on)
         if on then
             local now = GetTime()
-            g:AddOrUpdate("__d1", { name = "Vous",   duration = 15, endTime = now + 11, color = ClassColor(select(2, UnitClass("player"))), icon = DEFAULT_ICON })
-            g:AddOrUpdate("__d2", { name = "Tomo",    duration = 14, endTime = now + 9,  color = { 0.78, 0.61, 0.43 }, icon = 132316 })
-            g:AddOrUpdate("__d3", { name = "Aniki",   duration = 14, endTime = now + 5,  color = { 0.41, 0.80, 0.94 }, icon = 132316 })
+            g:AddOrUpdate("__d1", { name = "Vous",  duration = 15, endTime = now + 11, color = ClassColor(select(2, UnitClass("player"))), icon = DEFAULT_ICON })
+            g:AddOrUpdate("__d2", { name = "Tomo",  duration = 14, endTime = now + 9,  color = { 0.78, 0.61, 0.43 }, icon = 132316 })
+            g:AddOrUpdate("__d3", { name = "Aniki", duration = 14, endTime = now + 5,  color = { 0.41, 0.80, 0.94 }, icon = 132316 })
         else
             g:Remove("__d1"); g:Remove("__d2"); g:Remove("__d3")
         end
     end
-    self:RefreshRoster()
     self:RegisterEvents()
 end
 
@@ -86,13 +83,6 @@ end
 --------------------------------------------------------------------------
 IT.tally = {}
 IT.inMythicPlus = false
-
-local function safeName(v)
-    if v == nil or NS:IsSecret(v) then return nil end
-    local s = tostring(v)
-    if s == "" then return nil end
-    return (s:match("^[^-]+")) or s
-end
 
 function IT:RecordTally(name)
     if not self.inMythicPlus or not name then return end
@@ -114,81 +104,52 @@ function IT:PrintTally()
 end
 
 --------------------------------------------------------------------------
--- Ajout d'un enregistrement d'interruption.
+-- Interruption utilisée par un joueur (soi ou un membre du groupe).
 --------------------------------------------------------------------------
-function IT:AddRecord(interrupterGUID, interrupterName, interruptedSpellID)
-    if not self.group then return end
-    local classToken = interrupterGUID and self.classByGUID[interrupterGUID]
+local function isPartyUnit(unit)
+    return unit == "player" or (type(unit) == "string" and unit:match("^party[1-4]$") ~= nil)
+end
+
+function IT:OnCastSucceeded(unit, spellID)
+    if not self._envOK or not isPartyUnit(unit) then return end
+    local sid = NS:SafeNumber(spellID)
+    if not sid or not self.interruptSet[sid] then return end
+
+    local name = UnitName(unit)
+    if not name or NS:IsSecret(name) then return end
+    name = name:match("^[^-]+") or name
+
+    local _, classToken = UnitClass(unit)
     local icon = DEFAULT_ICON
-    local sid = NS:SafeNumber(interruptedSpellID)
-    if sid and C_Spell and C_Spell.GetSpellTexture then
+    if C_Spell and C_Spell.GetSpellTexture then
         local ok, t = pcall(C_Spell.GetSpellTexture, sid)
         if ok and t then icon = t end
     end
+
     self._rec = (self._rec or 0) + 1
     local now = GetTime()
     self.group:AddOrUpdate("rec" .. self._rec, {
-        name = interrupterName,
-        icon = icon,
-        color = ClassColor(classToken),
-        duration = RECORD_DURATION,
-        endTime = now + RECORD_DURATION,
+        name = name, icon = icon, color = ClassColor(classToken),
+        duration = RECORD_DURATION, endTime = now + RECORD_DURATION,
     })
-end
-
---------------------------------------------------------------------------
--- Barre de recharge de votre propre interruption.
---------------------------------------------------------------------------
-function IT:StartSelfCD()
-    if not cfg().showSelfCD or not self.group then return end
-    local data = self:GetPlayerInterrupt()
-    if not data then return end
-    local now = GetTime()
-    self.group:AddOrUpdate("self", {
-        name = "Vous",
-        icon = (C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(data.id)) or DEFAULT_ICON,
-        color = ClassColor(select(2, UnitClass("player"))),
-        duration = data.cd,
-        endTime = now + data.cd,
-        fillAlpha = 0.35,
-    })
-end
-
---------------------------------------------------------------------------
--- Événements.
---------------------------------------------------------------------------
-function IT:HandleCLEU()
-    if not self._envOK then return end
-    local info = { CombatLogGetCurrentEventInfo() }
-    local sub = info[2]
-    if sub ~= "SPELL_INTERRUPT" then return end
-    local sourceGUID, sourceName, sourceFlags = info[4], info[5], info[6]
-    local extraSpellID = info[15]
-
-    if NS:IsSecret(sourceFlags) then return end
-    if bit_band and sourceFlags then
-        local isPlayer = bit_band(sourceFlags, COMBATLOG_OBJECT_TYPE_PLAYER or 0) ~= 0
-        local mine = bit_band(sourceFlags, (COMBATLOG_OBJECT_AFFILIATION_MINE or 0)
-            + (COMBATLOG_OBJECT_AFFILIATION_PARTY or 0) + (COMBATLOG_OBJECT_AFFILIATION_RAID or 0)) ~= 0
-        if not (isPlayer and mine) then return end
-    end
-
-    local name = safeName(sourceName)
-    if not name then return end
     self:RecordTally(name)
-    self:AddRecord(sourceGUID, name, extraSpellID)
-end
 
-function IT:HandleSelfSucceeded(unit, spellID)
-    if unit ~= "player" or not self._envOK then return end
-    local data = self:GetPlayerInterrupt()
-    if not data then return end
-    local sid = NS:SafeNumber(spellID)
-    if sid and sid == data.id then
-        self:StartSelfCD()
+    -- barre de recharge de votre propre interruption
+    if unit == "player" and cfg().showSelfCD then
+        local d = self:GetPlayerInterrupt()
+        if d and d.id == sid then
+            self.group:AddOrUpdate("self", {
+                name = "Vous", icon = icon,
+                color = ClassColor(classToken),
+                duration = d.cd, endTime = now + d.cd, fillAlpha = 0.35,
+            })
+        end
     end
 end
 
+--------------------------------------------------------------------------
+-- Environnement + événements.
+--------------------------------------------------------------------------
 function IT:UpdateEnv()
     self._envOK = self:IsValidEnv()
     if self._envOK then
@@ -201,26 +162,20 @@ end
 function IT:RegisterEvents()
     local f = CreateFrame("Frame")
     self.frame = f
-    f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
     f:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
     f:RegisterEvent("PLAYER_ENTERING_WORLD")
     f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-    f:RegisterEvent("GROUP_ROSTER_UPDATE")
     f:RegisterEvent("CHALLENGE_MODE_START")
     f:SetScript("OnEvent", function(_, event, a1, a2, a3)
-        if event == "COMBAT_LOG_EVENT_UNFILTERED" then
-            self:HandleCLEU()
-        elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-            self:HandleSelfSucceeded(a1, a3)
-        elseif event == "GROUP_ROSTER_UPDATE" then
-            self:RefreshRoster(); self:UpdateEnv()
+        if event == "UNIT_SPELLCAST_SUCCEEDED" then
+            self:OnCastSucceeded(a1, a3)
         elseif event == "CHALLENGE_MODE_START" then
             wipe(self.tally); self.inMythicPlus = true; self:UpdateEnv()
         else -- PLAYER_ENTERING_WORLD / ZONE_CHANGED_NEW_AREA
             local _, instanceType = GetInstanceInfo()
             self.inMythicPlus = (instanceType == "party" and C_ChallengeMode
                 and C_ChallengeMode.GetActiveKeystoneInfo and C_ChallengeMode.GetActiveKeystoneInfo() ~= nil) or false
-            self:RefreshRoster(); self:UpdateEnv()
+            self:UpdateEnv()
         end
     end)
 end
