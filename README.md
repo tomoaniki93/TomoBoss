@@ -86,8 +86,6 @@ NS.Engine:RegisterEncounter(ENCOUNTER_ID, {
 ```
 
 - `ENCOUNTER_ID` = l'id renvoyé par l'événement `ENCOUNTER_START` (id de rencontre du journal).
-- `voice` accepte aussi une clé d'origine (chinois) si vous importez des données EXBoss :
-  la correspondance `NS.Voice.ByLegacy` fait le pont automatiquement.
 
 ### Liste des id vocaux
 Toutes les annonces disponibles sont dans `Voice/Catalog.lua` (champ `fr` = libellé,
@@ -96,7 +94,6 @@ clé = id à utiliser dans `voice`). Testez-en une avec `/tmb voix <id>`.
 ---
 
 ## Crédits
-- Moteur, interface, intégration : Tomo.
-- Voix française : VoixFrancaise02 (Melune).
-- Conception inspirée d'EXBoss (Exwind).
+- Moteur, interface, intégration : TomoAniki.
+- Voix française : Voix Francaise.
 - Bibliothèques : LibStub, CallbackHandler-1.0, LibSharedMedia-3.0.
