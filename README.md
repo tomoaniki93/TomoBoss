@@ -3,7 +3,7 @@
 # ![TomoBoss](https://img.shields.io/badge/TomoBoss-v1.4.0-0cd29f?style=for-the-badge) ![WoW](https://img.shields.io/badge/WoW-Midnight-blue?style=for-the-badge) ![Interface](https://img.shields.io/badge/Interface-120007-orange?style=for-the-badge)
 
 Minuteurs de boss + voix française pour World of Warcraft (Midnight, interface 12.0).
-Addon personnel inspiré d'EXBoss. Interface sombre (dark black) et menthe.
+Interface sombre (dark black) et menthe.
 
 **Pack audio français** : VoixFrancaise02 (Melune) — 185 annonces, embarquées.
 
@@ -39,8 +39,7 @@ Addon personnel inspiré d'EXBoss. Interface sombre (dark black) et menthe.
 - **Mode édition** : `/tmb unlock` pour déplacer chaque élément, positions sauvegardées.
 - **Options thémées** : barres, voix, compte à rebours, échelle globale.
 
-**Rencontres fournies** : les 8 donjons de la saison 12.0 S1, soit **29 boss / 122 capacités**,
-avec les timelines converties depuis EXBoss :
+**Rencontres fournies** : les 8 donjons de la saison 12.0 S1, soit **29 boss / 122 capacités** :
 
 | Donjon | Boss |
 |---|---|
@@ -57,8 +56,7 @@ avec les timelines converties depuis EXBoss :
 > via le `spellID` : sur un client français ils apparaissent en français, sans traduction manuelle.
 > Repli automatique sur le libellé vocal français si le nom du sort n'est pas disponible.
 >
-> Les raids et la saison 2 ne sont pas inclus : EXBoss ne fournit pas encore de données de
-> minutage pour eux (uniquement des ébauches sans timeline).
+> Les raids et la saison 2 ne sont pas inclus.
 
 ---
 
