@@ -1,11 +1,11 @@
-## Interface: 120007
+## Interface: 120100, 120007
 ## Title: |cff33e6a6Tomo|r|cffe6edeaBoss|r
 ## Notes: Minuteurs de boss + voix française (inspiré d'EXBoss). Commande : /tmb
-## Author: Tomo
-## Version: 2.0.0
+## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
+## Author: TomoAniki
+## Version: 2.0.1
 ## SavedVariables: TomoBossDB
-## X-Category: Combat
-## X-Voice-Pack: VoixFrancaise02 (Melune)
+## IconTexture: Interface\Icons\Achievement_Boss_Lichking
 
 # ── Bibliothèques
 Libs\LibStub\LibStub.lua

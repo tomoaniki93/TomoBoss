@@ -62,17 +62,18 @@ end
 --------------------------------------------------------------------------
 function BT:Render(id, info, tr)
     local now = GetTime()
-    local sev = tonumber(info.severity) or 1
-    local endTime = now + (tr or info.duration or 5)
-    local args = {
-        name = (info.spellName ~= nil and not NS:IsSecret(info.spellName)) and tostring(info.spellName) or "Capacité",
-        icon = info.iconFileID or 134400,
-        duration = tr or info.duration or 5,
-        endTime = endTime,
-        severity = sev,
-    }
+    -- toutes les valeurs de l'API timeline peuvent être masquées (secret) sous taint :
+    -- on les nettoie systématiquement avant toute comparaison / affichage.
+    local sev = NS:SafeNumber(info.severity)
+    if sev == nil then sev = 1 end
+    local dur = NS:SafeNumber(tr) or NS:SafeNumber(info.duration) or 5
+    local endTime = now + dur
+    local name = (info.spellName ~= nil and not NS:IsSecret(info.spellName)) and tostring(info.spellName) or "Capacité"
+    local icon = NS:SafeNumber(info.iconFileID) or 134400
+
+    local args = { name = name, icon = icon, duration = dur, endTime = endTime, severity = sev }
     local role = roleFromIcons(info.icons)
-    self.active[id] = { endTime = endTime, sev = sev, role = role, name = args.name, announced = false }
+    self.active[id] = { endTime = endTime, sev = sev, role = role, name = name, announced = false }
 
     if cfg().bar then NS.UI.TimerBars:AddOrUpdate("bt:" .. id, args) end
 
@@ -90,6 +91,7 @@ function BT:OnAdded(idOrInfo)
     -- on ne garde que les événements issus de la rencontre (pas Script/EditMode)
     if info.source ~= nil and not NS:IsSecret(info.source) and info.source ~= 0 then return end
     local id = info.id or (type(idOrInfo) == "number" and idOrInfo)
+    id = NS:SafeNumber(id)
     if not id then return end
     self:Render(id, info, timeRemaining(id))
 end
@@ -99,14 +101,15 @@ function BT:OnStateChanged(idOrInfo)
     local info = readInfo(idOrInfo)
     if not info then return end
     local id = info.id or (type(idOrInfo) == "number" and idOrInfo)
+    id = NS:SafeNumber(id)
     if id and self.active[id] then
         self:Render(id, info, timeRemaining(id))
-        self.active[id].announced = self.active[id].announced -- conserve l'état d'annonce
     end
 end
 
 function BT:OnRemoved(idOrInfo)
     local id = (type(idOrInfo) == "table" and idOrInfo.id) or idOrInfo
+    id = NS:SafeNumber(id)
     if not id then return end
     self.active[id] = nil
     NS.UI.TimerBars:Remove("bt:" .. id)

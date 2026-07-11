@@ -33,6 +33,7 @@ Theme.colors = C
 function Theme:Color(key) local c = C[key] or C.text; return c[1], c[2], c[3] end
 
 function Theme:Severity(sev)
+    sev = NS:SafeNumber(sev) -- nil si valeur masquée (secret) -> couleur par défaut
     if sev == 2 then return C.danger end
     if sev == 0 then return C.tank end
     return C.mint
