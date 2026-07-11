@@ -79,7 +79,7 @@ function Theme:Skin(frame, opts)
 end
 
 function Theme:Font(fs, size, colorKey, flags)
-    fs:SetFont(FONT, size or 13, flags)
+    fs:SetFont(FONT, size or 13, flags or "")
     local c = C[colorKey or "text"] or C.text
     fs:SetTextColor(c[1], c[2], c[3])
     return fs
@@ -361,13 +361,23 @@ function Theme:CreateDropdown(parent, opts)
 end
 
 --------------------------------------------------------------------------
+-- Titre de section (label menthe).
+--------------------------------------------------------------------------
+function Theme:SectionTitle(parent, text)
+    local fs = parent:CreateFontString(nil, "OVERLAY")
+    self:Font(fs, 15, "mint", nil)
+    fs:SetText(text)
+    return fs
+end
+
+--------------------------------------------------------------------------
 -- Zone de saisie (une ligne).
 --------------------------------------------------------------------------
 function Theme:CreateEditBox(parent, width, height)
     local f = CreateFrame("EditBox", nil, parent)
     f:SetSize(width or 180, height or 22)
     f:SetAutoFocus(false)
-    f:SetFont(FONT, 12)
+    f:SetFont(FONT, 12, "")
     f:SetTextColor(C.text[1], C.text[2], C.text[3])
     f:SetTextInsets(6, 6, 0, 0)
     self:Skin(f, { bg = C.bg2, border = C.line })
@@ -396,7 +406,7 @@ function Theme:CreateMultiLineEditBox(parent, width, height)
     local edit = CreateFrame("EditBox", nil, scroll)
     edit:SetMultiLine(true)
     edit:SetAutoFocus(false)
-    edit:SetFont(FONT, 11)
+    edit:SetFont(FONT, 11, "")
     edit:SetTextColor(C.text[1], C.text[2], C.text[3])
     edit:SetWidth(width - 34)
     edit:SetScript("OnEscapePressed", edit.ClearFocus)

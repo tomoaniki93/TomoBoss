@@ -50,6 +50,8 @@ NS.L = {
     VOICE_LEAD_DESC   = "Joue l'annonce quelques instants avant l'incantation.",
     VOICE_MINGAP      = "Espacement mini entre annonces (s)",
     VOICE_MINGAP_DESC = "Évite l'empilement : une nouvelle annonce est ignorée si une vient d'être jouée.",
+    VOICE_BOOST       = "Volume des annonces",
+    VOICE_BOOST_DESC  = "Au-delà de 100 %, le son est empilé pour monter plus fort (approx. ; 300 % = max).",
     VOICE_PREVIEW     = "Tester une annonce",
     VOICE_PLAY        = "Jouer",
     VOICE_PACK        = "Pack vocal : VoixFrancaise02 (Melune)",

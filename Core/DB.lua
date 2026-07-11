@@ -17,6 +17,7 @@ NS.defaults = {
             lead      = 0.0,        -- avance des annonces (s)
             countdown = true,       -- voix du décompte de pull
             minGap    = 0.5,        -- espacement minimum entre deux annonces (s ; 0 = désactivé)
+            boost     = 100,        -- volume des annonces en % (100-300 ; empile le son)
         },
 
         bars = {

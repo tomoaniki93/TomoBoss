@@ -39,7 +39,7 @@ function CD:ApplyScale()
     if not self.anchor then return end
     local s = conf().scale or 1
     self.number:SetFont(NS.Theme.FONT(), 64 * s, "THICKOUTLINE")
-    self.label:SetFont(NS.Theme.FONT(), 14 * s, nil)
+    self.label:SetFont(NS.Theme.FONT(), 14 * s, "")
 end
 
 function CD:Start(seconds)

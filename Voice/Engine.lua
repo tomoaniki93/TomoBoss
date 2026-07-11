@@ -57,7 +57,11 @@ function Voice:Play(id, opts)
 
     local channel = (c and c.channel) or "Master"
     if PlaySoundFile then
-        PlaySoundFile(path, channel)
+        -- boost de volume : empile le même son (100%=1, 200%=2, 300%=3 lectures).
+        -- PlaySoundFile n'a pas de gain ; superposer additionne l'amplitude.
+        local boost = (c and c.boost) or 100
+        local copies = NS.clamp(math.floor(boost / 100 + 0.5), 1, 3)
+        for _ = 1, copies do PlaySoundFile(path, channel) end
         lastAnyPlay = now
         return true
     end

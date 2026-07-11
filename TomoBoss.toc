@@ -2,7 +2,7 @@
 ## Title: |cff33e6a6Tomo|r|cffe6edeaBoss|r
 ## Notes: Minuteurs de boss + voix française (inspiré d'EXBoss). Commande : /tmb
 ## Author: Tomo
-## Version: 1.6.0
+## Version: 1.7.0
 ## SavedVariables: TomoBossDB
 ## X-Category: Combat
 ## X-Voice-Pack: VoixFrancaise02 (Melune)

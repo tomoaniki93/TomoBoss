@@ -66,7 +66,7 @@ function Config:Build()
     local prof = NS.db.profile
 
     local f = CreateFrame("Frame", "TomoBossConfig", UIParent)
-    f:SetSize(660, 470)
+    f:SetSize(740, 680)
     f:SetPoint("CENTER")
     f:SetFrameStrata("HIGH")
     f:EnableMouse(true)
@@ -188,7 +188,7 @@ function Config:Select(key)
         local on = (k == key)
         btn.bar:SetShown(on)
         btn.hl:SetShown(on)
-        btn.text:SetTextColor(on and NS.Theme:Color("mint") or NS.Theme:Color("muted"))
+        btn.text:SetTextColor(NS.Theme:Color(on and "mint" or "muted"))
     end
     for k, page in pairs(self.pages) do page:SetShown(k == key) end
 end
@@ -219,6 +219,17 @@ function Config:BuildGeneral(page)
     })
     sc:SetCallback(function(v) prof.scale = v; NS:ApplyScale() end)
     lay:Add(sc, 46)
+
+    local boost = NS.Theme:CreateSlider(page, {
+        label = L.VOICE_BOOST, min = 100, max = 300, step = 25, value = prof.voice.boost or 100, width = 300,
+        fmt = function(v) return string.format("%d %%", v) end,
+    })
+    boost:SetCallback(function(v) prof.voice.boost = math.floor(v + 0.5) end)
+    lay:Add(boost, 46)
+    local boostDesc = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(boostDesc, 11, "muted")
+    boostDesc:SetText(L.VOICE_BOOST_DESC)
+    lay:Add(boostDesc, 18)
 
     lay:Gap(4)
 
@@ -499,8 +510,8 @@ function Config:BuildCustom(page)
     local function showEditor(which)
         editorView:SetShown(which == "editor")
         ieView:SetShown(which == "ie")
-        editorBtn.text:SetTextColor(which == "editor" and NS.Theme:Color("mint") or NS.Theme:Color("text"))
-        ieBtn.text:SetTextColor(which == "ie" and NS.Theme:Color("mint") or NS.Theme:Color("text"))
+        editorBtn.text:SetTextColor(NS.Theme:Color(which == "editor" and "mint" or "text"))
+        ieBtn.text:SetTextColor(NS.Theme:Color(which == "ie" and "mint" or "text"))
     end
     editorBtn:SetScript("OnClick", function() showEditor("editor") end)
     ieBtn:SetScript("OnClick", function() showEditor("ie") end)
@@ -513,76 +524,70 @@ end
 function Config:BuildCustomEditor(view)
     local cf = {}
     self._cf = cf
+    local LX, RX, W = 16, 300, 210
+    local ys = { -8, -50, -92, -134, -176, -218 }
 
-    -- helper : label + editbox à une position (grille)
-    local function field(x, y, labelText, w)
+    local function labelAt(x, y, text)
         local lbl = view:CreateFontString(nil, "OVERLAY")
-        NS.Theme:Font(lbl, 11, "muted"); lbl:SetText(labelText)
+        NS.Theme:Font(lbl, 11, "muted"); lbl:SetText(text)
         lbl:SetPoint("TOPLEFT", x, y)
-        local eb = NS.Theme:CreateEditBox(view, w or 128, 20)
-        eb:SetPoint("TOPLEFT", x + 100, y + 3)
+    end
+    local function ebAt(x, y, text) -- label au-dessus + zone de saisie (pas de coupure)
+        labelAt(x, y, text)
+        local eb = NS.Theme:CreateEditBox(view, W, 22)
+        eb:SetPoint("TOPLEFT", x, y - 17)
         return eb
     end
 
-    local LX, RX = 16, 258
-    local ys = { -6, -32, -58, -84, -110, -136 }
-
-    -- Type (dropdown)
-    local kindLbl = view:CreateFontString(nil, "OVERLAY")
-    NS.Theme:Font(kindLbl, 11, "muted"); kindLbl:SetText(L.CF_KIND); kindLbl:SetPoint("TOPLEFT", LX, ys[1])
-    cf.kind = NS.Theme:CreateDropdown(view, { width = 128,
+    -- Colonne gauche
+    labelAt(LX, ys[1], L.CF_KIND)
+    cf.kind = NS.Theme:CreateDropdown(view, { width = W,
         items = { { value = "boss", text = L.CF_KIND_BOSS }, { value = "trash", text = L.CF_KIND_TRASH } } })
-    cf.kind:SetPoint("TOPLEFT", LX + 100, ys[1] + 2); cf.kind:SetValue("boss", L.CF_KIND_BOSS)
+    cf.kind:SetPoint("TOPLEFT", LX, ys[1] - 17); cf.kind:SetValue("boss", L.CF_KIND_BOSS)
 
-    cf.zone        = field(LX, ys[2], L.CF_ZONE)
-    cf.encounterID = field(LX, ys[3], L.CF_ENCOUNTER)
-    cf.mapID       = field(LX, ys[4], L.CF_MAPID)
-    cf.npcID       = field(LX, ys[5], L.CF_NPCID)
-    cf.spellID     = field(LX, ys[6], L.CF_SPELLID)
+    cf.zone        = ebAt(LX, ys[2], L.CF_ZONE)
+    cf.encounterID = ebAt(LX, ys[3], L.CF_ENCOUNTER)
+    cf.mapID       = ebAt(LX, ys[4], L.CF_MAPID)
+    cf.npcID       = ebAt(LX, ys[5], L.CF_NPCID)
+    cf.spellID     = ebAt(LX, ys[6], L.CF_SPELLID)
 
-    cf.name        = field(RX, ys[1], L.CF_NAME)
-
-    -- Incantation (dropdown)
-    local ctLbl = view:CreateFontString(nil, "OVERLAY")
-    NS.Theme:Font(ctLbl, 11, "muted"); ctLbl:SetText(L.CF_CASTTYPE); ctLbl:SetPoint("TOPLEFT", RX, ys[2])
-    cf.castType = NS.Theme:CreateDropdown(view, { width = 128,
+    -- Colonne droite
+    cf.name = ebAt(RX, ys[1], L.CF_NAME)
+    labelAt(RX, ys[2], L.CF_CASTTYPE)
+    cf.castType = NS.Theme:CreateDropdown(view, { width = W,
         items = { { value = "cast", text = "Incantation" }, { value = "channel", text = "Canalisation" } } })
-    cf.castType:SetPoint("TOPLEFT", RX + 100, ys[2] + 2); cf.castType:SetValue("cast", "Incantation")
+    cf.castType:SetPoint("TOPLEFT", RX, ys[2] - 17); cf.castType:SetValue("cast", "Incantation")
 
-    cf.castDuration = field(RX, ys[3], L.CF_CASTDUR)
-    cf.firstSeen    = field(RX, ys[4], L.CF_FIRST)
-    cf.cd           = field(RX, ys[5], L.CF_CD)
-    cf.severity     = field(RX, ys[6], L.CF_SEVERITY)
-
-    -- valeurs par défaut pratiques
+    cf.castDuration = ebAt(RX, ys[3], L.CF_CASTDUR)
+    cf.firstSeen    = ebAt(RX, ys[4], L.CF_FIRST)
+    cf.cd           = ebAt(RX, ys[5], L.CF_CD)
+    cf.severity     = ebAt(RX, ys[6], L.CF_SEVERITY)
     cf.castDuration:SetText("2"); cf.firstSeen:SetText("5"); cf.cd:SetText("30"); cf.severity:SetText("1")
 
-    -- Voix (dropdown large)
-    local vLbl = view:CreateFontString(nil, "OVERLAY")
-    NS.Theme:Font(vLbl, 11, "muted"); vLbl:SetText(L.CF_VOICE); vLbl:SetPoint("TOPLEFT", LX, -166)
+    -- Voix (pleine largeur)
+    labelAt(LX, -262, L.CF_VOICE)
     local vItems = { { value = "", text = L.CF_VOICE_NONE } }
     for _, it in ipairs(NS.Voice:BuildList()) do vItems[#vItems + 1] = it end
-    cf.voice = NS.Theme:CreateDropdown(view, { width = 300, items = vItems })
-    cf.voice:SetPoint("TOPLEFT", LX + 100, -164); cf.voice:SetValue("", L.CF_VOICE_NONE)
+    cf.voice = NS.Theme:CreateDropdown(view, { width = 494, items = vItems })
+    cf.voice:SetPoint("TOPLEFT", LX, -279); cf.voice:SetValue("", L.CF_VOICE_NONE)
 
     -- Affichage (cases)
-    local dLbl = view:CreateFontString(nil, "OVERLAY")
-    NS.Theme:Font(dLbl, 11, "muted"); dLbl:SetText(L.CF_DISPLAY); dLbl:SetPoint("TOPLEFT", LX, -194)
-    cf.dBar = NS.Theme:CreateCheck(view, L.CF_DISP_BAR);  cf.dBar:SetPoint("TOPLEFT", LX + 70, -190);  cf.dBar:SetChecked(true)
-    cf.dRing = NS.Theme:CreateCheck(view, L.CF_DISP_RING); cf.dRing:SetPoint("LEFT", cf.dBar, "RIGHT", 60, 0); cf.dRing:SetChecked(false)
-    cf.dSound = NS.Theme:CreateCheck(view, L.CF_DISP_SOUND); cf.dSound:SetPoint("LEFT", cf.dRing, "RIGHT", 60, 0); cf.dSound:SetChecked(true)
+    labelAt(LX, -312, L.CF_DISPLAY)
+    cf.dBar = NS.Theme:CreateCheck(view, L.CF_DISP_BAR); cf.dBar:SetPoint("TOPLEFT", LX + 76, -308); cf.dBar:SetChecked(true)
+    cf.dRing = NS.Theme:CreateCheck(view, L.CF_DISP_RING); cf.dRing:SetPoint("LEFT", cf.dBar, "RIGHT", 80, 0); cf.dRing:SetChecked(false)
+    cf.dSound = NS.Theme:CreateCheck(view, L.CF_DISP_SOUND); cf.dSound:SetPoint("LEFT", cf.dRing, "RIGHT", 80, 0); cf.dSound:SetChecked(true)
 
     -- Enregistrer
-    local save = NS.Theme:CreateButton(view, L.CUSTOM_ADD, 180, 26)
-    save:SetPoint("TOPLEFT", LX, -222)
+    local save = NS.Theme:CreateButton(view, L.CUSTOM_ADD, 200, 26)
+    save:SetPoint("TOPLEFT", LX, -342)
     save:SetScript("OnClick", function() Config:SaveCustomEntry() end)
 
     -- Liste des entrées (défilable)
     local listLbl = view:CreateFontString(nil, "OVERLAY")
-    NS.Theme:Font(listLbl, 12, "mint"); listLbl:SetText(L.CUSTOM_LIST); listLbl:SetPoint("TOPLEFT", LX, -256)
+    NS.Theme:Font(listLbl, 12, "mint"); listLbl:SetText(L.CUSTOM_LIST); listLbl:SetPoint("TOPLEFT", LX, -378)
 
     local panel = NS.Theme:CreatePanel(view, { bg = NS.Theme.colors.bg1, border = NS.Theme.colors.line })
-    panel:SetPoint("TOPLEFT", LX, -272); panel:SetPoint("BOTTOMRIGHT", -16, 8)
+    panel:SetPoint("TOPLEFT", LX, -394); panel:SetPoint("BOTTOMRIGHT", -16, 8)
     local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 4, -4); scroll:SetPoint("BOTTOMRIGHT", -24, 4)
     local child = CreateFrame("Frame", nil, scroll)
