@@ -2,7 +2,7 @@
 ## Title: |cff33e6a6Tomo|r|cffe6edeaBoss|r
 ## Notes: Minuteurs de boss + voix française (inspiré d'EXBoss). Commande : /tmb
 ## Author: Tomo
-## Version: 1.7.0
+## Version: 2.0.0
 ## SavedVariables: TomoBossDB
 ## X-Category: Combat
 ## X-Voice-Pack: VoixFrancaise02 (Melune)
@@ -53,6 +53,11 @@ Data\TrashCD.lua
 # ── Personnalisation (partage + entrées custom, après moteur et trash)
 Custom\Share.lua
 Custom\Custom.lua
+
+# ── Version (comparaison groupe) + bouton minicarte
+Modules\Version.lua
+Modules\Minimap.lua
+Modules\BlizzTimeline.lua
 
 # ── Pull + options
 Engine\PullCountdown.lua

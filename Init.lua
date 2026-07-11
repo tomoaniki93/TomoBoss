@@ -11,7 +11,7 @@ local function PrintHelp()
     NS:Print("|cff33e6a6" .. L.HELP_HEADER .. "|r")
     for _, line in ipairs({
         L.HELP_OPTIONS, L.HELP_PULL, L.HELP_PULLSTOP, L.HELP_TEST, L.HELP_TESTSTOP,
-        L.HELP_LOCK, L.HELP_RESET, L.HELP_VOICE, L.HELP_KICKS,
+        L.HELP_LOCK, L.HELP_RESET, L.HELP_VOICE, L.HELP_KICKS, L.HELP_VERSION,
     }) do
         print("  |cff8a968f•|r " .. line)
     end
@@ -47,6 +47,10 @@ local function HandleSlash(input)
         end
     elseif cmd == "kicks" or cmd == "interruptions" then
         if NS.InterruptTracker then NS.InterruptTracker:PrintTally() end
+    elseif cmd == "version" or cmd == "v" then
+        if NS.Version then NS.Version:Query() end
+    elseif cmd == "minimap" or cmd == "mini" then
+        if NS.Minimap then NS.Minimap:SetShown(NS.db.profile.minimap.hide) end
     elseif cmd == "help" or cmd == "aide" then
         PrintHelp()
     else
@@ -120,6 +124,11 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         -- entrées personnalisées (moteur + trash désormais prêts)
         NS.Custom:Init()
 
+        -- module version (comparaison dans le groupe) + bouton minicarte
+        NS.Version:Init()
+        NS.Minimap:Init()
+        NS.BlizzTimeline:Init()
+
         NS.UI.Mover:Register("bars", NS.UI.TimerBars.anchor, L.MOVER_BARS,
             { point = "CENTER", x = -280, y = 80 }, function(on) NS.UI.TimerBars:ShowDemo(on) end)
         NS.UI.Mover:Register("countdown", NS.UI.Countdown.anchor, L.MOVER_COUNTDOWN,
@@ -140,6 +149,9 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         SLASH_TOMOBOSS1 = "/tmb"
         SLASH_TOMOBOSS2 = "/tomoboss"
         SlashCmdList["TOMOBOSS"] = HandleSlash
+
+        SLASH_TOMOBOSSVER1 = "/tmbv"
+        SlashCmdList["TOMOBOSSVER"] = function() if NS.Version then NS.Version:Query() end end
 
         -- événements de jeu
         local ev = CreateFrame("Frame")

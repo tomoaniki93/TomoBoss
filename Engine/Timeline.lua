@@ -168,6 +168,19 @@ end
 local DEFAULT_DISPLAY = { bar = true, sound = true }
 local function dispOf(ev) return ev.display or DEFAULT_DISPLAY end
 
+-- L'occurrence doit-elle afficher un anneau ? (choix explicite, ou option "anneau
+-- par rôle" activée pour les mécaniques de tank/soin/danger — style BossReminder)
+local function wantsRing(ev, d)
+    if d.ring then return true end
+    local r = NS.db and NS.db.profile and NS.db.profile.rings
+    if r and r.autoRole then
+        if ev.role == "tank" or ev.role == "heal" or ev.severity == 2 then
+            return true
+        end
+    end
+    return false
+end
+
 -- Rend une occurrence sur les widgets choisis (barre et/ou anneau).
 local function RenderOcc(occ)
     local ev = occ.ev
@@ -176,7 +189,7 @@ local function RenderOcc(occ)
     if d.bar then NS.UI.TimerBars:AddOrUpdate(occ.key, args)
     else NS.UI.TimerBars:Remove(occ.key) end
     if NS.UI.Rings then
-        if d.ring then NS.UI.Rings:AddOrUpdate(occ.key, args)
+        if wantsRing(ev, d) then NS.UI.Rings:AddOrUpdate(occ.key, args)
         else NS.UI.Rings:Remove(occ.key) end
     end
 end

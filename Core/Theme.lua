@@ -399,22 +399,37 @@ function Theme:CreateMultiLineEditBox(parent, width, height)
     local container = self:CreatePanel(parent, { bg = C.bg2, border = C.line })
     container:SetSize(width, height)
 
-    local scroll = CreateFrame("ScrollFrame", nil, container, "UIPanelScrollFrameTemplate")
+    local scroll = CreateFrame("ScrollFrame", nil, container)
     scroll:SetPoint("TOPLEFT", 6, -6)
-    scroll:SetPoint("BOTTOMRIGHT", -26, 6)
+    scroll:SetPoint("BOTTOMRIGHT", -6, 6)
+    scroll:EnableMouseWheel(true)
 
     local edit = CreateFrame("EditBox", nil, scroll)
     edit:SetMultiLine(true)
     edit:SetAutoFocus(false)
     edit:SetFont(FONT, 11, "")
     edit:SetTextColor(C.text[1], C.text[2], C.text[3])
-    edit:SetWidth(width - 34)
+    edit:SetWidth(width - 16)
     edit:SetScript("OnEscapePressed", edit.ClearFocus)
     scroll:SetScrollChild(edit)
 
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        local maxS = math.max(0, edit:GetHeight() - self:GetHeight())
+        local cur = self:GetVerticalScroll()
+        self:SetVerticalScroll(math.min(maxS, math.max(0, cur - delta * 24)))
+    end)
+    edit:SetScript("OnCursorChanged", function(_, _, y, _, cursorH)
+        local top = scroll:GetVerticalScroll()
+        local cy = -y
+        if cy < top then scroll:SetVerticalScroll(cy)
+        elseif cy + cursorH > top + scroll:GetHeight() then
+            scroll:SetVerticalScroll(cy + cursorH - scroll:GetHeight())
+        end
+    end)
+
     container.edit = edit
     function container:GetText() return edit:GetText() end
-    function container:SetText(t) edit:SetText(t or "") end
+    function container:SetText(t) edit:SetText(t or ""); scroll:SetVerticalScroll(0) end
     function container:Focus() edit:SetFocus(); edit:HighlightText() end
     return container
 end

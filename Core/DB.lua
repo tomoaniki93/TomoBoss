@@ -18,6 +18,7 @@ NS.defaults = {
             countdown = true,       -- voix du décompte de pull
             minGap    = 0.5,        -- espacement minimum entre deux annonces (s ; 0 = désactivé)
             boost     = 100,        -- volume des annonces en % (100-300 ; empile le son)
+            pack      = "auto",     -- pack de langue vocale ("auto" | "frFR" | "enUS" | "deDE"...)
         },
 
         bars = {
@@ -71,6 +72,19 @@ NS.defaults = {
             grow     = "right",     -- "right" | "left"
             showName = true,
             fontSize = 11,
+            autoRole = false,       -- anneau auto pour tank/soin/danger (style BossReminder)
+        },
+
+        minimap = {
+            angle = 210,            -- position autour de la minicarte (degrés)
+            hide  = false,
+        },
+
+        blizzTimeline = {
+            enabled = false,        -- utilise l'API C_EncounterTimeline (tout le contenu)
+            bar     = true,
+            ring    = false,
+            voice   = true,
         },
 
         custom = {

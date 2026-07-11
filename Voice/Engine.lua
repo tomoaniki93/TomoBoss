@@ -49,7 +49,12 @@ function Voice:Play(id, opts)
 
     local LSM = NS.LSM
     if not LSM then return false end
-    local path = LSM:Fetch("sound", NS.SOUND_PREFIX .. id, true)
+    local lang = NS.CurrentVoicePack and NS.CurrentVoicePack() or (NS.VOICE_DEFAULT_PACK or "frFR")
+    local path = LSM:Fetch("sound", NS.VoiceKey(lang, id), true)
+    if not path and lang ~= (NS.VOICE_DEFAULT_PACK or "frFR") then
+        -- repli : pack par défaut si l'annonce manque dans la langue choisie
+        path = LSM:Fetch("sound", NS.VoiceKey(NS.VOICE_DEFAULT_PACK or "frFR", id), true)
+    end
     if not path then
         NS:Debug("Voice:Play — fichier introuvable pour:", id)
         return false

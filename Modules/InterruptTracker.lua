@@ -68,7 +68,7 @@ function IT:Init()
     self.group.demoFn = function(g, on)
         if on then
             local now = GetTime()
-            g:AddOrUpdate("__d1", { name = "Vous",  duration = 15, endTime = now + 11, color = ClassColor(select(2, UnitClass("player"))), icon = DEFAULT_ICON })
+            g:AddOrUpdate("__d1", { name = NS.L.SELF_YOU,  duration = 15, endTime = now + 11, color = ClassColor(select(2, UnitClass("player"))), icon = DEFAULT_ICON })
             g:AddOrUpdate("__d2", { name = "Tomo",  duration = 14, endTime = now + 9,  color = { 0.78, 0.61, 0.43 }, icon = 132316 })
             g:AddOrUpdate("__d3", { name = "Aniki", duration = 14, endTime = now + 5,  color = { 0.41, 0.80, 0.94 }, icon = 132316 })
         else
@@ -139,7 +139,7 @@ function IT:OnCastSucceeded(unit, spellID)
         local d = self:GetPlayerInterrupt()
         if d and d.id == sid then
             self.group:AddOrUpdate("self", {
-                name = "Vous", icon = icon,
+                name = NS.L.SELF_YOU, icon = icon,
                 color = ClassColor(classToken),
                 duration = d.cd, endTime = now + d.cd, fillAlpha = 0.35,
             })

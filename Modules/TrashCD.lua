@@ -136,7 +136,7 @@ function TC:OnCastStart(unit, isChannel)
     -- nom : live -> nameEN -> résolu -> repli
     local displayName = liveName
     if not displayName and spInfo then displayName = spInfo.nameEN end
-    if not displayName then displayName = "Incantation" end
+    if not displayName then displayName = NS.L.CF_CAST_CAST end
 
     -- durée : live -> base -> défaut
     if not duration then

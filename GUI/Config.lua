@@ -137,6 +137,7 @@ function Config:BuildTabs(rail)
         { key = "interrupts",label = L.TAB_INTERRUPTS, build = "BuildInterrupts" },
         { key = "trash",     label = L.TAB_TRASH,      build = "BuildTrash" },
         { key = "custom",    label = L.TAB_CUSTOM,     build = "BuildCustom" },
+        { key = "blizz",     label = L.TAB_BLIZZ,      build = "BuildBlizz" },
         { key = "about",     label = L.TAB_ABOUT,      build = "BuildAbout" },
     }
 
@@ -268,6 +269,32 @@ function Config:BuildGeneral(page)
         NS:Print(NS.L.MSG_RESET)
     end)
     lay:Add(resetBtn, 30)
+
+    lay:Gap(6)
+
+    -- Anneaux (style BossReminder) + minicarte
+    local ringChk = NS.Theme:CreateCheck(page, L.RING_AUTOROLE)
+    ringChk:SetChecked(prof.rings.autoRole)
+    ringChk:SetCallback(function(v) prof.rings.autoRole = v end)
+    lay:Add(ringChk, 20)
+    local ringDesc = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(ringDesc, 11, "muted"); ringDesc:SetText(L.RING_AUTOROLE_DESC)
+    lay:Add(ringDesc, 18)
+
+    local ringSize = NS.Theme:CreateSlider(page, {
+        label = L.RING_SIZE, min = 28, max = 72, step = 2, value = prof.rings.size, width = 300,
+        fmt = function(v) return string.format("%d px", v) end,
+    })
+    ringSize:SetCallback(function(v)
+        prof.rings.size = math.floor(v + 0.5)
+        if NS.UI.Rings then NS.UI.Rings:Restyle() end
+    end)
+    lay:Add(ringSize, 46)
+
+    local miniChk = NS.Theme:CreateCheck(page, L.MINIMAP_SHOW)
+    miniChk:SetChecked(not prof.minimap.hide)
+    miniChk:SetCallback(function(v) if NS.Minimap then NS.Minimap:SetShown(v) end end)
+    lay:Add(miniChk, 22)
 end
 
 --------------------------------------------------------------------------
@@ -335,6 +362,24 @@ function Config:BuildVoice(page)
     NS.Theme:Font(enDesc, 11, "muted"); enDesc:SetText(L.VOICE_ENABLED_DESC)
     lay:Add(enDesc, 18)
 
+    -- Pack de langue vocale
+    local packLbl = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(packLbl, 12, "muted"); packLbl:SetText(L.VOICE_PACK)
+    lay:Add(packLbl, 16)
+    local packItems = { { value = "auto", text = L.VOICE_PACK_AUTO } }
+    for _, pk in ipairs(NS.VOICE_PACKS or {}) do packItems[#packItems + 1] = pk end
+    local packDD = NS.Theme:CreateDropdown(page, {
+        width = 300, items = packItems,
+        onSelect = function(val) v.pack = val end,
+    })
+    do
+        local cur = v.pack or "auto"
+        local label = L.VOICE_PACK_AUTO
+        for _, pk in ipairs(packItems) do if pk.value == cur then label = pk.text end end
+        packDD:SetValue(cur, label)
+    end
+    lay:Add(packDD, 34)
+
     local chLbl = page:CreateFontString(nil, "OVERLAY")
     NS.Theme:Font(chLbl, 12, "muted"); chLbl:SetText(L.VOICE_CHANNEL)
     lay:Add(chLbl, 16)
@@ -389,7 +434,7 @@ function Config:BuildVoice(page)
     lay:Add(play, 34)
 
     local credit = page:CreateFontString(nil, "OVERLAY")
-    NS.Theme:Font(credit, 11, "mintLo"); credit:SetText(L.VOICE_PACK)
+    NS.Theme:Font(credit, 11, "mintLo"); credit:SetText(L.VOICE_CREDIT)
     lay:Add(credit, 16)
 end
 
@@ -496,7 +541,7 @@ function Config:BuildCustom(page)
     intro:SetPoint("TOPLEFT", 18, -38)
 
     -- bascule Éditeur / Import-Export
-    local editorBtn = NS.Theme:CreateButton(page, "Éditeur", 110, 24)
+    local editorBtn = NS.Theme:CreateButton(page, L.CF_EDITOR, 110, 24)
     editorBtn:SetPoint("TOPLEFT", 18, -58)
     local ieBtn = NS.Theme:CreateButton(page, L.CUSTOM_IE_TITLE, 130, 24)
     ieBtn:SetPoint("LEFT", editorBtn, "RIGHT", 8, 0)
@@ -555,8 +600,8 @@ function Config:BuildCustomEditor(view)
     cf.name = ebAt(RX, ys[1], L.CF_NAME)
     labelAt(RX, ys[2], L.CF_CASTTYPE)
     cf.castType = NS.Theme:CreateDropdown(view, { width = W,
-        items = { { value = "cast", text = "Incantation" }, { value = "channel", text = "Canalisation" } } })
-    cf.castType:SetPoint("TOPLEFT", RX, ys[2] - 17); cf.castType:SetValue("cast", "Incantation")
+        items = { { value = "cast", text = L.CF_CAST_CAST }, { value = "channel", text = L.CF_CAST_CHANNEL } } })
+    cf.castType:SetPoint("TOPLEFT", RX, ys[2] - 17); cf.castType:SetValue("cast", L.CF_CAST_CAST)
 
     cf.castDuration = ebAt(RX, ys[3], L.CF_CASTDUR)
     cf.firstSeen    = ebAt(RX, ys[4], L.CF_FIRST)
@@ -710,6 +755,49 @@ function Config:BuildCustomIE(view)
         if ok then NS:Print(tostring(res) .. " " .. L.CUSTOM_IMPORT_OK); Config:RefreshCustomList()
         else NS:Print(L.CUSTOM_IMPORT_ERR, tostring(res)) end
     end)
+end
+
+--------------------------------------------------------------------------
+-- Page : Timeline Blizzard
+--------------------------------------------------------------------------
+function Config:BuildBlizz(page)
+    local c = NS.db.profile.blizzTimeline
+    local lay = Layout(page)
+    lay:Add(NS.Theme:SectionTitle(page, L.BLIZZ_TITLE), 20)
+
+    local intro = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(intro, 11, "muted"); intro:SetWidth(500); intro:SetJustifyH("LEFT")
+    intro:SetText(L.BLIZZ_INTRO)
+    lay:Add(intro, 34)
+
+    local avail = NS.BlizzTimeline and NS.BlizzTimeline:Available()
+    if not avail then
+        local warn = page:CreateFontString(nil, "OVERLAY")
+        NS.Theme:Font(warn, 11, "danger"); warn:SetText(L.BLIZZ_UNAVAIL)
+        lay:Add(warn, 20)
+    end
+
+    local en = NS.Theme:CreateCheck(page, L.BLIZZ_ENABLED)
+    en:SetChecked(c.enabled)
+    en:SetCallback(function(v) c.enabled = v; if not v and NS.BlizzTimeline then NS.BlizzTimeline:ClearAll() end end)
+    lay:Add(en, 24)
+
+    local bar = NS.Theme:CreateCheck(page, L.BLIZZ_BAR)
+    bar:SetChecked(c.bar); bar:SetCallback(function(v) c.bar = v end)
+    lay:Add(bar, 22)
+
+    local ring = NS.Theme:CreateCheck(page, L.BLIZZ_RING)
+    ring:SetChecked(c.ring); ring:SetCallback(function(v) c.ring = v end)
+    lay:Add(ring, 22)
+
+    local voice = NS.Theme:CreateCheck(page, L.BLIZZ_VOICE)
+    voice:SetChecked(c.voice); voice:SetCallback(function(v) c.voice = v end)
+    lay:Add(voice, 24)
+
+    local note = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(note, 11, "muted"); note:SetWidth(500); note:SetJustifyH("LEFT")
+    note:SetText(L.BLIZZ_NOTE)
+    lay:Add(note, 30)
 end
 
 --------------------------------------------------------------------------
