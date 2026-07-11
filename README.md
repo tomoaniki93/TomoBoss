@@ -1,6 +1,6 @@
 # TomoBoss
 
-# ![TomoBoss](https://img.shields.io/badge/TomoBoss-v1.6.0-0cd29f?style=for-the-badge) ![WoW](https://img.shields.io/badge/WoW-Midnight-blue?style=for-the-badge) ![Interface](https://img.shields.io/badge/Interface-120007-orange?style=for-the-badge)
+# ![TomoBoss](https://img.shields.io/badge/TomoBoss-v1.7.0-0cd29f?style=for-the-badge) ![WoW](https://img.shields.io/badge/WoW-Midnight-blue?style=for-the-badge) ![Interface](https://img.shields.io/badge/Interface-120007-orange?style=for-the-badge)
 
 Minuteurs de boss + voix française pour World of Warcraft (Midnight, interface 12.0).
 Interface sombre (dark black) et menthe.
