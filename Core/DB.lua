@@ -81,10 +81,11 @@ NS.defaults = {
         },
 
         blizzTimeline = {
-            enabled = false,        -- utilise l'API C_EncounterTimeline (tout le contenu)
+            enabled = true,         -- moteur timeline (C_EncounterTimeline) — principal sous Midnight
             bar     = true,
             ring    = false,
             voice   = true,
+            cue     = false,        -- bip générique quand l'identité est masquée
         },
 
         custom = {

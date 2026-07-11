@@ -49,6 +49,10 @@ local function HandleSlash(input)
         if NS.InterruptTracker then NS.InterruptTracker:PrintTally() end
     elseif cmd == "version" or cmd == "v" then
         if NS.Version then NS.Version:Query() end
+    elseif cmd == "debug" then
+        NS.db.profile.debug = not NS.db.profile.debug
+        NS:Print("Debug " .. (NS.db.profile.debug and "|cff33e6a6activé|r" or "|cffff6b6bdésactivé|r") ..
+            ". Refais un pull et regarde les lignes [diag].")
     elseif cmd == "minimap" or cmd == "mini" then
         if NS.Minimap then NS.Minimap:SetShown(NS.db.profile.minimap.hide) end
     elseif cmd == "help" or cmd == "aide" then
@@ -65,10 +69,24 @@ local function OnCombatEvent(_, event, a1, a2, a3, a4, a5)
     if event == "ENCOUNTER_START" then
         if not NS.db.profile.enabled then return end
         local id = NS:SafeNumber(a1)
-        if id then NS.Engine.Timeline:Start(id) end
+        NS:Debug("ENCOUNTER_START: a1=", tostring(a1), "secret=", tostring(NS:IsSecret(a1)), "-> id=", tostring(id))
+        if id then
+            local ok = NS.Engine.Timeline:Start(id)
+            NS:Debug("Timeline:Start(", id, ") ->", tostring(ok),
+                ok and "" or "(pas de données pour cet encounterID)")
+        else
+            NS:Print("|cffff6b6b[diag]|r encounterID illisible sur ENCOUNTER_START (masqué par Midnight) — le moteur ne peut pas démarrer par cet événement.")
+        end
 
     elseif event == "ENCOUNTER_END" then
         if not NS.Engine.Timeline.demo then NS.Engine.Timeline:Stop() end
+
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        -- sortie de combat : arrête le moteur (ENCOUNTER_END ne parvient pas non plus
+        -- aux addons sous Midnight). Le prochain sort de boss reconnu relancera.
+        if NS.Engine.Timeline.running and not NS.Engine.Timeline.demo then
+            NS.Engine.Timeline:Stop()
+        end
 
     elseif event == "PLAYER_ENTERING_WORLD" then
         if not NS.Engine.Timeline.demo then NS.Engine.Timeline:Stop() end
@@ -153,10 +171,14 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         SLASH_TOMOBOSSVER1 = "/tmbv"
         SlashCmdList["TOMOBOSSVER"] = function() if NS.Version then NS.Version:Query() end end
 
+        -- surveillance permanente des incantations de boss (auto-démarrage du moteur,
+        -- indispensable car ENCOUNTER_START ne parvient pas aux addons sous Midnight)
+        NS.Engine.Timeline:RegisterCastEvents()
+
         -- événements de jeu
         local ev = CreateFrame("Frame")
         for _, e in ipairs({
-            "ENCOUNTER_START", "ENCOUNTER_END", "PLAYER_ENTERING_WORLD",
+            "ENCOUNTER_START", "ENCOUNTER_END", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED",
             "START_PLAYER_COUNTDOWN", "CANCEL_PLAYER_COUNTDOWN", "STOP_PLAYER_COUNTDOWN",
         }) do
             ev:RegisterEvent(e)

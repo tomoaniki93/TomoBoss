@@ -57,6 +57,7 @@ Custom\Custom.lua
 # ── Version (comparaison groupe) + bouton minicarte
 Modules\Version.lua
 Modules\Minimap.lua
+Data\DungeonMaps.lua
 Modules\BlizzTimeline.lua
 
 # ── Pull + options

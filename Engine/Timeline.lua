@@ -212,20 +212,50 @@ function T:EnsureCastFrame()
     if self.castFrame then return self.castFrame end
     local f = CreateFrame("Frame")
     f:SetScript("OnEvent", function(_, event, unit, _, spellID)
-        if not self.running then return end
+        if type(unit) ~= "string" or not unit:match("^boss%d") then return end
         local isChannel = (event == "UNIT_SPELLCAST_CHANNEL_START")
-        self:OnBossCast(unit, spellID, isChannel)
+        -- auto-démarrage : si aucune rencontre active, on tente de l'identifier
+        -- par le nom du sort (l'encounterID de Midnight étant illisible/absent).
+        if not self.running then self:TryAutoStart(unit, isChannel) end
+        if self.running then self:OnBossCast(unit, spellID, isChannel) end
     end)
     self.castFrame = f
     return f
 end
 
+-- Surveille les incantations de tous les boss (boss1..8), en continu.
 function T:RegisterCastEvents()
     local f = self:EnsureCastFrame()
-    for i = 1, 8 do
-        f:RegisterUnitEvent("UNIT_SPELLCAST_START", "boss" .. i)
-        f:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "boss" .. i)
+    f:RegisterEvent("UNIT_SPELLCAST_START")
+    f:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
+end
+
+-- Cherche la rencontre dont un événement porte ce nom de sort (résolu en direct).
+function T:FindEncounterByCastName(name)
+    if not name then return nil end
+    for encID, def in pairs(E.Encounters) do
+        if def.events then
+            for _, ev in ipairs(def.events) do
+                if SpellName(ev) == name then return encID end
+            end
+        end
     end
+    return nil
+end
+
+-- Démarre la bonne rencontre à partir du premier sort de boss reconnu.
+function T:TryAutoStart(unit, isChannel)
+    local name = ReadBossCast(unit, isChannel)
+    if not name then return end
+    local encID = self:FindEncounterByCastName(name)
+    if encID then
+        NS:Debug("Auto-démarrage via incantation « ", name, " » -> encounter", encID)
+        self:Start(encID)
+    end
+end
+
+function T:StartCastWatch() -- (compat) surveillance déjà assurée par RegisterCastEvents
+    self:RegisterCastEvents()
 end
 
 function T:UnregisterCastEvents()

@@ -61,7 +61,9 @@ NS.Locales.frFR = {
     BLIZZ_BAR         = "Afficher en barres",
     BLIZZ_RING        = "Afficher en anneaux",
     BLIZZ_VOICE       = "Annonces vocales (rôle / danger)",
-    BLIZZ_NOTE        = "Note : dans les 8 donjons déjà couverts par TomoBoss, laissez ceci désactivé pour éviter les doublons.",
+    BLIZZ_CUE         = "Bip générique si non identifiable",
+    BLIZZ_CUE_DESC    = "Le jeu masque souvent le nom/type des capacités : joue alors un simple bip de pré-alerte.",
+    BLIZZ_NOTE        = "Note : Blizzard masque l'identité des capacités (nom, type, rôle). Le module ne récupère que le MINUTAGE — d'où l'affichage « Capacité » et l'absence d'annonce précise. Pour de vraies annonces sur un boss non couvert, créez des entrées dans l'onglet Personnalisé. Dans les 8 donjons déjà couverts, laissez ceci désactivé.",
     BLIZZ_UNAVAIL     = "Indisponible sur ce client (API C_EncounterTimeline absente).",
     VOICE_PREVIEW     = "Tester une annonce",
     VOICE_PLAY        = "Jouer",
@@ -210,7 +212,9 @@ NS.Locales.enUS = {
     BLIZZ_BAR         = "Show as bars",
     BLIZZ_RING        = "Show as rings",
     BLIZZ_VOICE       = "Voice callouts (role / danger)",
-    BLIZZ_NOTE        = "Note: in the 8 dungeons already covered by TomoBoss, leave this off to avoid duplicates.",
+    BLIZZ_CUE         = "Generic beep if unidentifiable",
+    BLIZZ_CUE_DESC    = "The game often hides ability name/type: play a simple pre-alert beep instead.",
+    BLIZZ_NOTE        = "Note: Blizzard hides ability identity (name, type, role). The module only gets TIMING — hence the \"Ability\" label and the lack of specific callouts. For real callouts on an uncovered boss, create entries in the Custom tab. In the 8 already-covered dungeons, leave this off.",
     BLIZZ_UNAVAIL     = "Unavailable on this client (C_EncounterTimeline API missing).",
     VOICE_PREVIEW     = "Test a callout",
     VOICE_PLAY        = "Play",
@@ -306,4 +310,10 @@ NS.Locales.enUS = {
 -- Locale du client -> table ; repli sur le francais (reference, complete).
 local base = NS.Locales.frFR
 local sel = NS.Locales[GetLocale and GetLocale() or "frFR"]
-NS.L = setmetatable(sel or {}, { __index = base })
+if sel and sel ~= base then
+    -- locale partielle (ex. enUS) : repli sur le francais pour les cles manquantes
+    NS.L = setmetatable(sel, { __index = base })
+else
+    -- client francais (base) ou locale non traduite : table directe, sans metatable
+    NS.L = base
+end

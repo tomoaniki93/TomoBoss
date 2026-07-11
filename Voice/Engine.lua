@@ -56,9 +56,10 @@ function Voice:Play(id, opts)
         path = LSM:Fetch("sound", NS.VoiceKey(NS.VOICE_DEFAULT_PACK or "frFR", id), true)
     end
     if not path then
-        NS:Debug("Voice:Play — fichier introuvable pour:", id)
+        NS:Debug("Voice:Play — introuvable id=", id, "pack=", tostring(lang))
         return false
     end
+    NS:Debug("Voice:Play id=", id, "pack=", tostring(lang), "OK")
 
     local channel = (c and c.channel) or "Master"
     if PlaySoundFile then

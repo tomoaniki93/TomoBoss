@@ -792,7 +792,15 @@ function Config:BuildBlizz(page)
 
     local voice = NS.Theme:CreateCheck(page, L.BLIZZ_VOICE)
     voice:SetChecked(c.voice); voice:SetCallback(function(v) c.voice = v end)
-    lay:Add(voice, 24)
+    lay:Add(voice, 22)
+
+    local cue = NS.Theme:CreateCheck(page, L.BLIZZ_CUE)
+    cue:SetChecked(c.cue); cue:SetCallback(function(v) c.cue = v end)
+    lay:Add(cue, 20)
+    local cueDesc = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(cueDesc, 11, "muted"); cueDesc:SetWidth(500); cueDesc:SetJustifyH("LEFT")
+    cueDesc:SetText(L.BLIZZ_CUE_DESC)
+    lay:Add(cueDesc, 26)
 
     local note = page:CreateFontString(nil, "OVERLAY")
     NS.Theme:Font(note, 11, "muted"); note:SetWidth(500); note:SetJustifyH("LEFT")
