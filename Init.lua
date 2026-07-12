@@ -159,6 +159,9 @@ boot:SetScript("OnEvent", function(_, event, arg1)
             { point = "CENTER", x = -300, y = -60 }, function(on) NS.TrashCD.group:ShowDemo(on) end)
         NS.UI.Mover:Register("rings", NS.UI.Rings.anchor, L.MOVER_RINGS,
             { point = "CENTER", x = 0, y = -160 }, function(on) NS.UI.Rings:ShowDemo(on) end)
+        NS.UI.RingProgress:Ensure()
+        NS.UI.Mover:Register("ringprogress", NS.UI.RingProgress.anchor, L.MOVER_RINGPROG,
+            { point = "CENTER", x = 0, y = 0 }, function(on) NS.UI.RingProgress:Demo(on) end)
 
         NS:ApplyScale()
         NS.UI.Countdown:ApplyScale()

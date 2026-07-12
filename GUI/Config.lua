@@ -802,6 +802,22 @@ function Config:BuildBlizz(page)
     cueDesc:SetText(L.BLIZZ_CUE_DESC)
     lay:Add(cueDesc, 26)
 
+    local rp = NS.db.profile.ringProgress
+    local rpEn = NS.Theme:CreateCheck(page, L.RINGPROG_ENABLE)
+    rpEn:SetChecked(rp.enabled)
+    rpEn:SetCallback(function(v) rp.enabled = v; if not v and NS.UI.RingProgress then NS.UI.RingProgress:Stop() end end)
+    lay:Add(rpEn, 20)
+    local rpDesc = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(rpDesc, 11, "muted"); rpDesc:SetWidth(500); rpDesc:SetJustifyH("LEFT")
+    rpDesc:SetText(L.RINGPROG_DESC)
+    lay:Add(rpDesc, 26)
+    local rpSize = NS.Theme:CreateSlider(page, {
+        label = L.RINGPROG_SIZE, min = 100, max = 320, step = 10, value = rp.size, width = 300,
+        fmt = function(v) return string.format("%d px", v) end,
+    })
+    rpSize:SetCallback(function(v) rp.size = math.floor(v + 0.5); if NS.UI.RingProgress then NS.UI.RingProgress:Restyle() end end)
+    lay:Add(rpSize, 46)
+
     local note = page:CreateFontString(nil, "OVERLAY")
     NS.Theme:Font(note, 11, "muted"); note:SetWidth(500); note:SetJustifyH("LEFT")
     note:SetText(L.BLIZZ_NOTE)

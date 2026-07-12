@@ -162,7 +162,7 @@ function BT:OnAdded(x)
     end
 
     self.active[id] = {
-        endTime = endTime, name = name, icon = icon, severity = sev,
+        endTime = endTime, total = fireDur or 5, name = name, icon = icon, severity = sev,
         voice = voice, evRef = ev, role = role, preAlert = preAlert, announced = false,
     }
     self:Render(id, name, icon, fireDur or 5, endTime, sev, role)
@@ -239,6 +239,22 @@ function BT:Tick()
                 end
             end
             if e.severity == 2 then NS.UI.FlashText:Show(e.name, "danger", 2.0) end
+        end
+    end
+
+    -- anneau central : suit la PROCHAINE capacité imminente (la plus proche, <= 30 s)
+    if NS.UI.RingProgress then
+        local bestId, bestRem, bestE
+        for id, e in pairs(self.active) do
+            local rem = e.endTime - now
+            if rem > 0 and rem <= 30 and (not bestRem or rem < bestRem) then
+                bestId, bestRem, bestE = id, rem, e
+            end
+        end
+        if bestE then
+            NS.UI.RingProgress:Track("bt:" .. bestId, bestRem, bestE.total, bestE.name, bestE.severity)
+        else
+            NS.UI.RingProgress:Stop()
         end
     end
 end

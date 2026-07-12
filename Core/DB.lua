@@ -80,6 +80,13 @@ NS.defaults = {
             hide  = false,
         },
 
+        ringProgress = {
+            enabled = true,         -- grand anneau central qui se referme
+            size    = 180,
+            alpha   = 0.85,
+            edge    = true,         -- étincelle sur le bord qui avance
+        },
+
         blizzTimeline = {
             enabled = true,         -- moteur timeline (C_EncounterTimeline) — principal sous Midnight
             bar     = true,

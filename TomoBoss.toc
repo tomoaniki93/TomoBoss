@@ -3,7 +3,7 @@
 ## Notes: Minuteurs de boss + voix française (inspiré d'EXBoss). Commande : /tmb
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## Author: TomoAniki
-## Version: 2.1.1
+## Version: 2.2.0
 ## SavedVariables: TomoBossDB
 ## IconTexture: Interface\Icons\Achievement_Boss_Lichking
 
@@ -40,6 +40,7 @@ Engine\Encounters\nexus_point_xenas.lua
 UI\Mover.lua
 UI\BarGroup.lua
 UI\RingGroup.lua
+UI\RingProgress.lua
 UI\TimerBars.lua
 UI\Countdown.lua
 UI\FlashText.lua
