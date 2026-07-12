@@ -128,12 +128,13 @@ function BT:OnAdded(x)
     if info.source ~= nil and not NS:IsSecret(info.source) and info.source ~= 0 then return end
     local id = NS:SafeNumber(info.id) or (type(x) == "number" and NS:SafeNumber(x))
     if not id then return end
-    local dur = NS:SafeNumber(info.duration) or timeRemaining(id)
-    if not dur then return end
+    local matchDur = NS:SafeNumber(info.duration)   -- identité (≈ intervalle, matche mes données)
+    local fireDur  = timeRemaining(id) or matchDur   -- minutage (temps réel restant côté serveur)
+    if not (matchDur or fireDur) then return end
 
-    local ev = self:MatchDuration(dur)
+    local ev = self:MatchDuration(matchDur or fireDur)
     local now = GetTime()
-    local endTime = now + dur
+    local endTime = now + (fireDur or 5)
 
     -- anti-doublon : même capacité déjà programmée quasi au même instant
     if ev then
@@ -142,7 +143,7 @@ function BT:OnAdded(x)
         end
     end
 
-    local name, icon, sev, voice, role
+    local name, icon, sev, voice, role, preAlert
     if ev then
         local n, ic = spellNameIcon(ev.spellID)
         name  = n or "Capacité"
@@ -150,20 +151,21 @@ function BT:OnAdded(x)
         sev   = NS:SafeNumber(ev.severity) or 1
         voice = ev.voice
         role  = ev.role
-        NS:Debug("Timeline ADDED dur=", string.format("%.1f", dur), "-> ", name,
+        preAlert = ev.preAlertSec
+        NS:Debug("Timeline ADDED dur=", string.format("%.1f", fireDur or 0), "-> ", name,
             "(voix ", tostring(voice), ")")
     else
         name = (info.spellName ~= nil and not NS:IsSecret(info.spellName)) and tostring(info.spellName) or "Capacité"
         icon = NS:SafeNumber(info.iconFileID) or 134400
         sev  = NS:SafeNumber(info.severity) or 1
-        NS:Debug("Timeline ADDED dur=", string.format("%.1f", dur), "-> non identifié")
+        NS:Debug("Timeline ADDED dur=", string.format("%.1f", fireDur or 0), "-> non identifié")
     end
 
     self.active[id] = {
-        endTime = endTime, name = name, severity = sev,
-        voice = voice, evRef = ev, role = role, announced = false,
+        endTime = endTime, name = name, icon = icon, severity = sev,
+        voice = voice, evRef = ev, role = role, preAlert = preAlert, announced = false,
     }
-    self:Render(id, name, icon, dur, endTime, sev, role)
+    self:Render(id, name, icon, fireDur or 5, endTime, sev, role)
 end
 
 function BT:OnStateChanged(x)
@@ -205,9 +207,29 @@ end
 function BT:Tick()
     if not cfg().enabled then return end
     local now = GetTime()
-    local lead = (NS.db and NS.db.profile.voice.lead) or 0
-    for _, e in pairs(self.active) do
-        if not e.announced and now >= (e.endTime - math.max(lead, 0.3)) then
+    local baseLead = (NS.db and NS.db.profile.voice.lead) or 0
+
+    -- recalage périodique sur le compte à rebours serveur (anti-dérive)
+    self._resyncAcc = (self._resyncAcc or 0) + 0.1
+    local doResync = self._resyncAcc >= 0.3
+    if doResync then self._resyncAcc = 0 end
+
+    for id, e in pairs(self.active) do
+        if doResync then
+            local tr = timeRemaining(id)
+            if tr then
+                e.endTime = now + tr
+                if cfg().bar then
+                    NS.UI.TimerBars:AddOrUpdate("bt:" .. id, {
+                        name = e.name, icon = e.icon or 134400,
+                        duration = tr, endTime = e.endTime, severity = e.severity,
+                    })
+                end
+            end
+        end
+        -- avance : slider « Avance des annonces » ou pré-alerte de la capacité (min 0,5 s)
+        local lead = math.max(baseLead, e.preAlert or 0, 0.5)
+        if not e.announced and now >= (e.endTime - lead) then
             e.announced = true
             if cfg().voice then
                 if e.voice then
