@@ -4,7 +4,7 @@
 local ADDON, NS = ...
 
 NS.name    = ADDON
-NS.version = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version") or "2.2.0"
+NS.version = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version") or "2.2.2"
 
 -- Table globale accessible en jeu (pour /run, debug, autres addons).
 TomoBoss = NS

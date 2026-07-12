@@ -50,6 +50,7 @@ end
 
 -- Suit la prochaine capacité : key = identifiant, remaining/total en secondes.
 function Ring:Track(key, remaining, total, name, sev)
+    if self._edit then return end
     if not (db() and db().enabled) then return end
     if not remaining or remaining <= 0 then return self:Stop(key) end
     self:Ensure()
@@ -74,6 +75,7 @@ function Ring:Track(key, remaining, total, name, sev)
 end
 
 function Ring:Stop(key)
+    if self._edit then return end
     if key and self._key ~= key then return end
     self._key = nil
     if self.cd then self.cd:Clear() end
@@ -90,13 +92,22 @@ end
 -- Aperçu en mode édition (déplacement).
 function Ring:Demo(on)
     self:Ensure()
+    self._edit = on and true or false
     if on then
         self._key = "__demo"
         self:ApplyColor(2)
         self.cd:SetCooldown(GetTime(), 8)
         self.nameFS:SetText("Aperçu")
         self.anchor:Show()
+        if not self._demoTicker and C_Timer then
+            self._demoTicker = C_Timer.NewTicker(8, function()
+                if self._edit and self.cd then self.cd:SetCooldown(GetTime(), 8) end
+            end)
+        end
     else
-        if self._key == "__demo" then self:Stop("__demo") end
+        if self._demoTicker then self._demoTicker:Cancel(); self._demoTicker = nil end
+        self._key = nil
+        if self.cd then self.cd:Clear() end
+        if self.anchor then self.anchor:Hide() end
     end
 end

@@ -77,6 +77,7 @@ function Config:Build()
     NS.Theme:Skin(f, { bg = C.bg0, border = C.line })
     tinsert(UISpecialFrames, "TomoBossConfig") -- fermeture avec Échap
     self.frame = f
+    f:Hide() -- créé masqué : le premier /tmb l'affiche (évite le double-clic)
 
     -- Barre de titre
     local title = NS.Theme:CreatePanel(f, { bg = C.bg1, border = false })
