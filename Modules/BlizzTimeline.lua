@@ -4,7 +4,10 @@
 -- DURÉE comparée à mes données (firstSeenSec / cdSeriesSec, tolérance 0,75 s) —
 -- même approche que BossReminder, car l'API ne fournit pas le spellID et masque
 -- souvent spellName. Une fois identifié, on utilise MON spellID (nom/icône
--- lisibles) et MA voix française. Non identifié -> repli sur spellName / « Capacité ».
+-- lisibles) et MA voix française. Non identifié -> repli sur spellName / « Capacité »,
+-- et MODE GÉNÉRIQUE : voix par sévérité (0=tank, 2=danger) pour couvrir le contenu
+-- sans données (donjons Saison 2, raids...). Sévérité lisible ? Jamais garanti
+-- (secretvalue) -> tout passe par NS:SafeNumber, repli sévérité 1 (pas de fausse alerte).
 
 local NS = select(2, ...)
 local BT = {}
@@ -41,6 +44,19 @@ local function timeRemaining(id)
         local n = NS:SafeNumber(tr)
         if ok and n then return n end
     end
+    return nil
+end
+
+-- Voix générique selon la sévérité (contenu non couvert par mes données).
+-- Renvoie nil si le mode est coupé ou si aucune voix n'est définie pour cette sévérité.
+local function genericVoice(sev)
+    local c = cfg()
+    if not c.generic then return nil end
+    local id
+    if sev == 0 then id = c.genericTank
+    elseif sev == 2 then id = c.genericDanger
+    else id = c.genericOther end
+    if type(id) == "string" and id ~= "" then return id end
     return nil
 end
 
@@ -143,7 +159,7 @@ function BT:OnAdded(x)
         end
     end
 
-    local name, icon, sev, voice, role, preAlert
+    local name, icon, sev, voice, role, preAlert, generic
     if ev then
         local n, ic = spellNameIcon(ev.spellID)
         name  = n or "Capacité"
@@ -158,12 +174,17 @@ function BT:OnAdded(x)
         name = (info.spellName ~= nil and not NS:IsSecret(info.spellName)) and tostring(info.spellName) or "Capacité"
         icon = NS:SafeNumber(info.iconFileID) or 134400
         sev  = NS:SafeNumber(info.severity) or 1
-        NS:Debug("Timeline ADDED dur=", string.format("%.1f", fireDur or 0), "-> non identifié")
+        generic = true
+        -- même règle que mes données : les dangers (sévérité 2) méritent 3 s d'avance
+        if sev == 2 then preAlert = 3 end
+        NS:Debug("Timeline ADDED dur=", string.format("%.1f", fireDur or 0),
+            "-> non identifié (générique, sév ", tostring(sev), ")")
     end
 
     self.active[id] = {
         endTime = endTime, total = fireDur or 5, name = name, icon = icon, severity = sev,
         voice = voice, evRef = ev, role = role, preAlert = preAlert, announced = false,
+        generic = generic,
     }
     self:Render(id, name, icon, fireDur or 5, endTime, sev, role)
 end
@@ -234,8 +255,13 @@ function BT:Tick()
             if cfg().voice then
                 if e.voice then
                     NS.Voice:Play(e.voice)
-                elseif cfg().cue and PlaySound then
-                    pcall(PlaySound, 8959, (NS.db.profile.voice.channel) or "Master")
+                else
+                    -- non identifié : voix générique par sévérité, sinon bip
+                    local gid = e.generic and genericVoice(e.severity) or nil
+                    local played = gid and NS.Voice:Play(gid)
+                    if not played and cfg().cue and PlaySound then
+                        pcall(PlaySound, 8959, (NS.db.profile.voice.channel) or "Master")
+                    end
                 end
             end
             if e.severity == 2 then NS.UI.FlashText:Show(e.name, "danger", 2.0) end

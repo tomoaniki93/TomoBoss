@@ -93,6 +93,10 @@ NS.defaults = {
             ring    = false,
             voice   = true,
             cue     = false,        -- bip générique quand l'identité est masquée
+            generic = true,         -- voix génériques par sévérité (contenu non couvert, ex. S2)
+            genericTank   = "tank-buster",      -- sévérité 0 : coup tank
+            genericOther  = "",                 -- sévérité 1 : "" = pas de voix (bip si activé)
+            genericDanger = "special-mechanic", -- sévérité 2 : danger
         },
 
         custom = {

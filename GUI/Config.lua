@@ -803,6 +803,14 @@ function Config:BuildBlizz(page)
     cueDesc:SetText(L.BLIZZ_CUE_DESC)
     lay:Add(cueDesc, 26)
 
+    local gen = NS.Theme:CreateCheck(page, L.BLIZZ_GENERIC)
+    gen:SetChecked(c.generic); gen:SetCallback(function(v) c.generic = v end)
+    lay:Add(gen, 20)
+    local genDesc = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(genDesc, 11, "muted"); genDesc:SetWidth(500); genDesc:SetJustifyH("LEFT")
+    genDesc:SetText(L.BLIZZ_GENERIC_DESC)
+    lay:Add(genDesc, 40)
+
     local rp = NS.db.profile.ringProgress
     local rpEn = NS.Theme:CreateCheck(page, L.RINGPROG_ENABLE)
     rpEn:SetChecked(rp.enabled)
