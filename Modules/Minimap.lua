@@ -10,8 +10,17 @@ local function cfg() return NS.db.profile.minimap end
 local function updatePos(btn)
     local angle = math.rad(cfg().angle or 210)
     local r = (Minimap:GetWidth() * 0.5) + 5
+    local x, y = math.cos(angle), math.sin(angle)
+    -- Follow the minimap shape: on a SQUARE minimap (e.g. TomoMod), project the
+    -- point onto the square edge instead of the round radius so the button sits
+    -- on the border, like LibDBIcon buttons. Round minimaps stay unchanged.
+    local shape = (GetMinimapShape and GetMinimapShape()) or "ROUND"
+    if shape == "SQUARE" then
+        local m = math.max(math.abs(x), math.abs(y))
+        if m > 0 then x, y = x / m, y / m end
+    end
     btn:ClearAllPoints()
-    btn:SetPoint("CENTER", Minimap, "CENTER", r * math.cos(angle), r * math.sin(angle))
+    btn:SetPoint("CENTER", Minimap, "CENTER", r * x, r * y)
 end
 
 function M:Init()

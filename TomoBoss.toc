@@ -3,7 +3,7 @@
 ## Notes: Minuteurs de boss + voix française (inspiré d'EXBoss). Commande : /tmb
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## Author: TomoAniki
-## Version: 2.2.6
+## Version: 2.2.7
 ## SavedVariables: TomoBossDB
 ## IconTexture: Interface\Icons\Achievement_Boss_Lichking
 

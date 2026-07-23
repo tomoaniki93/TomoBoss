@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.7]
+### Fixed
+- **Minimap button now follows a square minimap.** The button was always placed on a circle of 
+fixed radius around the minimap centre, so on a square minimap (TomoMod and similar) it floated 
+inside the map near the corners and outside it near the edge midpoints. The angle is now projected 
+onto the square border when `GetMinimapShape()` reports `SQUARE`, matching how LibDBIcon buttons 
+behave. Round minimaps are unaffected.
+
 ## [2.2.6]
 ### Fixed
 - **Config tabs now scroll** (mouse wheel). Tab content was drawn on plain frames sized to the 
