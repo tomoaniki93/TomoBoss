@@ -11,7 +11,7 @@ local WHITE = "Interface\\Buttons\\WHITE8X8"
 --   cfg  : table de config (référence DB) avec width,height,maxBars,spacing,grow,showIcon,fontSize
 function NS.UI.CreateBarGroup(name, cfg)
     local C = NS.Theme.colors
-    local g = { name = name, cfg = cfg, active = {}, pool = {}, order = {} }
+    local g = { name = name, cfg = cfg, active = {}, pool = {}, order = {}, styleGen = 1 }
 
     function g:EnsureAnchor()
         if self.anchor then return self.anchor end
@@ -59,6 +59,9 @@ function NS.UI.CreateBarGroup(name, cfg)
 
         b.spark = b:CreateTexture(nil, "OVERLAY")
         b.spark:SetTexture(WHITE); b.spark:SetVertexColor(1, 1, 1, 0.85); b.spark:SetWidth(2)
+        -- ancré une fois pour toutes sur le bord droit du remplissage : il suit
+        -- automatiquement les SetWidth, plus aucun SetPoint par frame.
+        b.spark:SetPoint("CENTER", b.fill, "RIGHT", 0, 0)
 
         b.name = b:CreateFontString(nil, "OVERLAY"); b.name:SetJustifyH("LEFT"); b.name:SetWordWrap(false)
         b.time = b:CreateFontString(nil, "OVERLAY"); b.time:SetJustifyH("RIGHT")
@@ -91,23 +94,41 @@ function NS.UI.CreateBarGroup(name, cfg)
     function g:AddOrUpdate(key, data)
         self:EnsureAnchor()
         local b = self.active[key]
+        local isNew = false
         if not b then
             b = table.remove(self.pool) or newBar()
             self.active[key] = b
             b:Show()
+            isNew = true
         end
-        styleBar(b)
+        -- restyle uniquement si la config a changé depuis le dernier passage
+        -- (styleGen est incrémenté par Restyle), pas à chaque mise à jour.
+        if b.__styleGen ~= self.styleGen then
+            styleBar(b)
+            b.__styleGen = self.styleGen
+        end
         b.key = key
         b.duration = math.max(0.1, data.duration or 1)
-        b.endTime = data.endTime or (GetTime() + b.duration)
+        local newEnd = data.endTime or (GetTime() + b.duration)
+        local orderChanged = isNew or (b.endTime ~= newEnd)
+        b.endTime = newEnd
         b.showTime = (data.showTime ~= false)
         b.ignoreWindow = data.ignoreWindow and true or false
 
         local col = data.color or NS.Theme:Severity(data.severity or 1)
-        b.fill:SetVertexColor(col[1], col[2], col[3], data.fillAlpha or 0.55)
-        b.name:SetText(data.name or "?")
-        if self.cfg.showIcon then b.icon:SetTexture(data.icon or 134400) end
-        self:Layout()
+        local alpha = data.fillAlpha or 0.55
+        if b.__cr ~= col[1] or b.__cg ~= col[2] or b.__cb ~= col[3] or b.__ca ~= alpha then
+            b.fill:SetVertexColor(col[1], col[2], col[3], alpha)
+            b.__cr, b.__cg, b.__cb, b.__ca = col[1], col[2], col[3], alpha
+        end
+        local nm = data.name or "?"
+        if b.__nameStr ~= nm then b.name:SetText(nm); b.__nameStr = nm end
+        if self.cfg.showIcon then
+            local tex = data.icon or 134400
+            if b.__iconTex ~= tex then b.icon:SetTexture(tex); b.__iconTex = tex end
+        end
+        -- la disposition ne dépend que de endTime : inutile de trier si rien n'a bougé
+        if orderChanged then self:Layout() end
         return b
     end
 
@@ -154,9 +175,11 @@ function NS.UI.CreateBarGroup(name, cfg)
 
     function g:Tick()
         if not self.anchor then return end
+        if next(self.active) == nil then return end
         local now = GetTime()
         local cfg = self.cfg
         local removed = false
+        local avail = (cfg.showIcon and (cfg.width - cfg.height) or cfg.width) - 2
         for key, b in pairs(self.active) do
             local remaining = (b.endTime or now) - now
             if remaining <= -0.05 then
@@ -164,16 +187,20 @@ function NS.UI.CreateBarGroup(name, cfg)
             else
                 local r = remaining < 0 and 0 or remaining
                 local pct = NS.clamp(r / b.duration, 0, 1)
-                local avail = (cfg.showIcon and (cfg.width - cfg.height) or cfg.width) - 2
-                local w = math.max(1, avail * pct)
-                b.fill:SetWidth(w)
-                b.spark:ClearAllPoints(); b.spark:SetPoint("LEFT", b.fill, "LEFT", w - 1, 0)
+                b.fill:SetWidth(math.max(1, avail * pct))  -- le spark suit (ancré sur le bord droit)
                 if b.showTime then
-                    b.time:SetText(NS.fmtTime(r))
-                    if r <= 5 then b.time:SetTextColor(NS.Theme:Color("danger"))
-                    else b.time:SetTextColor(NS.Theme:Color("text")) end
-                else
-                    b.time:SetText("")
+                    -- fmtTime renvoie la même chaîne pendant ~1 s au-delà de 10 s :
+                    -- on évite ~30 SetText identiques par seconde et par barre.
+                    local txt = NS.fmtTime(r)
+                    if b.__timeStr ~= txt then b.time:SetText(txt); b.__timeStr = txt end
+                    local state = (r <= 5) and "danger" or "text"
+                    if b.__timeState ~= state then
+                        b.time:SetTextColor(NS.Theme:Color(state))
+                        b.time.__tmbColor = nil   -- invalide le cache de Theme:Font
+                        b.__timeState = state
+                    end
+                elseif b.__timeStr ~= "" then
+                    b.time:SetText(""); b.__timeStr = ""
                 end
             end
         end
@@ -185,7 +212,12 @@ function NS.UI.CreateBarGroup(name, cfg)
     function g:Restyle()
         if not self.anchor then return end
         self.anchor:SetSize(self.cfg.width, self.cfg.height)
-        for _, b in pairs(self.active) do styleBar(b) end
+        -- nouvelle génération : les barres du pool seront restylées à leur réemploi
+        self.styleGen = self.styleGen + 1
+        for _, b in pairs(self.active) do
+            styleBar(b)
+            b.__styleGen = self.styleGen
+        end
         self:Layout()
     end
 

@@ -1,6 +1,5 @@
 ---@diagnostic disable: undefined-global
 -- TomoBoss — Donjon : Cime-du-Ciel
--- Données de timeline converties depuis EXBoss (saison 12.0 S1).
 -- Les noms de capacités sont résolus en direct depuis le client (spellID) ;
 -- ils s'affichent donc dans la langue du jeu (français sur un client FR).
 
@@ -12,10 +11,10 @@ R(1698, {
     name = "Ranjit",
     dungeon = "Cime-du-Ciel",
     events = {
-        { role = "other", voice = "watch-knockback", spellID = 1252690, castType = "begincast", castDuration = 3, firstSeenSec = 5, cdSeriesSec = { 40 }, severity = 1 },
-        { role = "heal", voice = "prepare-aoe", spellID = 153757, castType = "begincast", castDuration = 2, firstSeenSec = 12, cdSeriesSec = { 20 }, severity = 1 },
-        { role = "other", voice = "watch-frontal", spellID = 1258152, castType = "begincast", castDuration = 3, firstSeenSec = 18, cdSeriesSec = { 10, 30 }, severity = 1 },
-        { role = "mechanic", voice = "watch-dodge", spellID = 156793, castType = "begincast", castDuration = 3, firstSeenSec = 35, cdSeriesSec = { 40 }, severity = 2, preAlertSec = 3 },
+        { role = "other", voice = "watch-knockback", spellID = 1252690, eventID = 298, castType = "begincast", castDuration = 3, firstSeenSec = 5, cdSeriesSec = { 40 }, severity = 1 },
+        { role = "heal", voice = "prepare-aoe", spellID = 153757, eventID = 299, castType = "begincast", castDuration = 2, firstSeenSec = 12, cdSeriesSec = { 20 }, severity = 1 },
+        { role = "other", voice = "watch-frontal", spellID = 1258152, eventID = 300, castType = "begincast", castDuration = 3, firstSeenSec = 18, cdSeriesSec = { 10, 30 }, severity = 1 },
+        { role = "mechanic", voice = "watch-dodge", spellID = 156793, eventID = 301, castType = "begincast", castDuration = 3, firstSeenSec = 35, cdSeriesSec = { 40 }, severity = 2, preAlertSec = 3 },
     },
 })
 
@@ -24,8 +23,8 @@ R(1699, {
     name = "Araknath",
     dungeon = "Cime-du-Ciel",
     events = {
-        { role = "tank", voice = "watch-frontal", spellID = 154113, castType = "begincast", castDuration = 3, firstSeenSec = 5, cdSeriesSec = { 15, 20, 34, 15, 5, 19, 30, 5, 19, 10, 5, 15, 5 }, severity = 1 },
-        { role = "heal", voice = "prepare-aoe", spellID = 154135, castType = "begincast", castDuration = 4, firstSeenSec = 50, cdSeriesSec = { 54 }, severity = 2, preAlertSec = 3 },
+        { role = "tank", voice = "watch-frontal", spellID = 154113, eventID = 302, castType = "begincast", castDuration = 3, firstSeenSec = 5, cdSeriesSec = { 15, 20, 34, 15, 5, 19, 30, 5, 19, 10, 5, 15, 5 }, severity = 1 },
+        { role = "heal", voice = "prepare-aoe", spellID = 154135, eventID = 304, castType = "begincast", castDuration = 4, firstSeenSec = 50, cdSeriesSec = { 54 }, severity = 2, preAlertSec = 3 },
     },
 })
 
@@ -34,10 +33,10 @@ R(1700, {
     name = "Rukhran",
     dungeon = "Cime-du-Ciel",
     events = {
-        { role = "tank", voice = "tank-buster", spellID = 1253519, castType = "begincast", castDuration = 3, firstSeenSec = 5, cdSeriesSec = { 12, 35 }, severity = 1 },
-        { role = "heal", voice = "switch-add", spellID = 1253510, castType = "begincast", castDuration = 3, firstSeenSec = 12, cdSeriesSec = { 21, 26 }, severity = 1 },
-        { role = "other", spellID = 1253416, castType = "begincast", castDuration = 3, firstSeenSec = 25.9, cdSeriesSec = { 22.7, 25.5, 23.5, 22.3, 23, 27.8 }, severity = 1 },
-        { role = "mechanic", voice = "fix-camera", spellID = 159382, castType = "begincast", castDuration = 5, firstSeenSec = 39.3, cdSeriesSec = { 46.7, 47.7 }, severity = 2, preAlertSec = 3 },
+        { role = "tank", voice = "tank-buster", spellID = 1253519, eventID = 306, castType = "begincast", castDuration = 3, firstSeenSec = 5, cdSeriesSec = { 12, 35 }, severity = 1 },
+        { role = "heal", voice = "switch-add", spellID = 1253510, eventID = 305, castType = "begincast", castDuration = 3, firstSeenSec = 12, cdSeriesSec = { 21, 26 }, severity = 1 },
+        { role = "other", spellID = 1253416, eventID = 603, castType = "begincast", castDuration = 3, firstSeenSec = 25.9, cdSeriesSec = { 22.7, 25.5, 23.5, 22.3, 23, 27.8 }, severity = 1 },
+        { role = "mechanic", voice = "fix-camera", spellID = 159382, eventID = 308, castType = "begincast", castDuration = 5, firstSeenSec = 39.3, cdSeriesSec = { 46.7, 47.7 }, severity = 2, preAlertSec = 3 },
     },
 })
 
@@ -46,10 +45,10 @@ R(1701, {
     name = "High Sage Viryx",
     dungeon = "Cime-du-Ciel",
     events = {
-        { role = "heal", voice = "prepare-target", spellID = 1253538, castType = "cast", firstSeenSec = 5, cdSeriesSec = { 10, 10, 19 }, severity = 1 },
-        { role = "other", voice = "interrupt-now", spellID = 154396, castType = "begincast", castDuration = 3, firstSeenSec = 8, cdSeriesSec = { 12, 27 }, severity = 1 },
-        { role = "mechanic", voice = "switch-add", spellID = 153954, castType = "cast", firstSeenSec = 12, cdSeriesSec = { 39 }, severity = 1 },
-        { role = "mechanic", voice = "prepare-beam", spellID = 1253840, castType = "begincast", castDuration = 3, firstSeenSec = 30, cdSeriesSec = { 39 }, severity = 2, preAlertSec = 3 },
+        { role = "heal", voice = "prepare-target", spellID = 1253538, eventID = 309, castType = "cast", firstSeenSec = 5, cdSeriesSec = { 10, 10, 19 }, severity = 1 },
+        { role = "other", voice = "interrupt-now", spellID = 154396, eventID = 311, castType = "begincast", castDuration = 3, firstSeenSec = 8, cdSeriesSec = { 12, 27 }, severity = 1 },
+        { role = "mechanic", voice = "switch-add", spellID = 153954, eventID = 310, castType = "cast", firstSeenSec = 12, cdSeriesSec = { 39 }, severity = 1 },
+        { role = "mechanic", voice = "prepare-beam", spellID = 1253840, eventID = 312, castType = "begincast", castDuration = 3, firstSeenSec = 30, cdSeriesSec = { 39 }, severity = 2, preAlertSec = 3 },
     },
 })
 

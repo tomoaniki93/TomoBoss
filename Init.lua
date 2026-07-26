@@ -49,12 +49,23 @@ local function HandleSlash(input)
         if NS.InterruptTracker then NS.InterruptTracker:PrintTally() end
     elseif cmd == "version" or cmd == "v" then
         if NS.Version then NS.Version:Query() end
+    elseif cmd == "glow" or cmd == "halo" then
+        NS.NameplateGlow:Report()
+
+    elseif cmd == "rec" or cmd == "enregistreur" then
+        NS.Recorder:Handle(rest)
+
+    elseif cmd == "bridge" or cmd == "pont" then
+        NS.EventBridge:Report()
+
     elseif cmd == "debug" then
         NS.db.profile.debug = not NS.db.profile.debug
         NS:Print("Debug " .. (NS.db.profile.debug and "|cff33e6a6activé|r" or "|cffff6b6bdésactivé|r") ..
             ". Refais un pull et regarde les lignes [diag].")
     elseif cmd == "minimap" or cmd == "mini" then
         if NS.Minimap then NS.Minimap:SetShown(NS.db.profile.minimap.hide) end
+    elseif cmd == "learn" or cmd == "apprendre" then
+        NS.Learn:HandleSlash(rest)
     elseif cmd == "help" or cmd == "aide" then
         PrintHelp()
     else
@@ -90,6 +101,7 @@ local function OnCombatEvent(_, event, a1, a2, a3, a4, a5)
 
     elseif event == "PLAYER_ENTERING_WORLD" then
         if not NS.Engine.Timeline.demo then NS.Engine.Timeline:Stop() end
+        if NS.EventBridge then C_Timer.After(0.3, function() NS.EventBridge:Apply("PEW") end) end
         NS.Engine.Pull:EndDisplay()
         NS.Engine.Pull:TryRegisterPullAlias()
 
@@ -146,6 +158,10 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         NS.Version:Init()
         NS.Minimap:Init()
         NS.BlizzTimeline:Init()
+        NS.EventBridge:Init()
+        NS.Recorder:Init()
+        NS.NameplateGlow:Init()
+        NS.Learn.Recorder:Init()
 
         NS.UI.Mover:Register("bars", NS.UI.TimerBars.anchor, L.MOVER_BARS,
             { point = "CENTER", x = -280, y = 80 }, function(on) NS.UI.TimerBars:ShowDemo(on) end)

@@ -65,6 +65,13 @@ NS.defaults = {
             fontSize    = 13,
         },
 
+        nameplateGlow = {
+            enabled         = true,     -- halo sur la castbar des nameplates
+            onImportant     = true,     -- casts classés « importants » par le jeu
+            onUninterruptible = false,  -- + casts non interruptibles (à esquiver)
+            color           = { 1.00, 0.30, 0.25 },
+        },
+
         rings = {
             size     = 44,
             spacing  = 8,
@@ -99,8 +106,27 @@ NS.defaults = {
             genericDanger = "special-mechanic", -- sévérité 2 : danger
         },
 
+        eventBridge = {
+            enabled  = true,        -- confier la voix au jeu (C_EncounterEvents)
+            sounds   = true,        -- poser les fichiers son
+            colors   = true,        -- teinter les barres Blizzard par sévérité
+            trigger  = 2,           -- 0 avertissement texte | 1 capacité lancée | 2 ~5 s avant
+            genericFallback = true, -- events sans voix propre : voix générique par sévérité
+            forceCVar = true,       -- forcer encounterWarningsEnabled à 1
+        },
+
+        recorder = {
+            enabled = false,        -- enregistreur de timeline (/tmb rec on)
+        },
+
         custom = {
             entries = {},           -- entrées boss/trash créées par l'utilisateur
+        },
+
+        learn = {
+            enabled  = true,        -- enregistrement des pulls (source de données propre)
+            announce = true,        -- message en fin de pull
+            pulls    = {},          -- observations brutes, par rencontre
         },
     },
 }

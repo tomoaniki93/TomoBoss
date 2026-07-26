@@ -1,10 +1,10 @@
 ## Interface: 120100, 120007
 ## Title: |cff33e6a6Tomo|r|cffe6edeaBoss|r
-## Notes: Minuteurs de boss + voix française (inspiré d'EXBoss). Commande : /tmb
+## Notes: Minuteurs de boss + voix française. Commande : /tmb
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## Author: TomoAniki
-## Version: 2.2.7
-## SavedVariables: TomoBossDB
+## Version: 2.3.5
+## SavedVariables: TomoBossDB, TomoBossRecorderDB
 ## IconTexture: Interface\Icons\Achievement_Boss_Lichking
 
 # ── Bibliothèques
@@ -36,6 +36,24 @@ Engine\Encounters\magisters_terrace.lua
 Engine\Encounters\maisara_caverns.lua
 Engine\Encounters\nexus_point_xenas.lua
 
+# ── Donjons hors-saison Midnight (matching seul, pas de prédiction)
+Engine\Encounters\murder_row.lua
+Engine\Encounters\den_of_nalorakk.lua
+Engine\Encounters\the_blinding_vale.lua
+Engine\Encounters\voidscar_arena.lua
+Engine\Encounters\altar_of_fangs.lua
+
+# ── Donjons saison 2 recyclés (matching seul)
+Engine\Encounters\temple_of_sethraliss.lua
+Engine\Encounters\kings_rest.lua
+Engine\Encounters\ruby_life_pools.lua
+
+# ── Raids (EventBridge seul : eventID + voix, aucun minutage)
+Engine\Encounters\sporefall.lua
+Engine\Encounters\the_voidspire.lua
+Engine\Encounters\march_on_quel_danas.lua
+Engine\Encounters\the_dreamrift.lua
+
 # ── Interface (widgets)
 UI\Mover.lua
 UI\BarGroup.lua
@@ -59,7 +77,21 @@ Custom\Custom.lua
 Modules\Version.lua
 Modules\Minimap.lua
 Data\DungeonMaps.lua
+Data\DurationRules.lua
 Modules\BlizzTimeline.lua
+Modules\EventBridge.lua
+Debug\TimelineRecorder.lua
+Modules\NameplateGlow.lua
+
+# ── Apprentissage (données maison : observation -> inférence -> export)
+# Store avant Recorder (le Recorder l'utilise au chargement), Journal avant Infer,
+# Infer avant Export, Slash en dernier (il référence les trois autres).
+Learn\Store.lua
+Learn\Journal.lua
+Learn\Recorder.lua
+Learn\Infer.lua
+Learn\Export.lua
+Learn\Slash.lua
 
 # ── Pull + options
 Engine\PullCountdown.lua

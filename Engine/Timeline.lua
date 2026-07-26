@@ -16,8 +16,13 @@ function E:RegisterEncounter(encounterID, def)
     def.events = def.events or {}
     for i, ev in ipairs(def.events) do
         ev.__key = "tl" .. i
-        ev.cdSeriesSec = ev.cdSeriesSec or { 30 }
-        ev.firstSeenSec = ev.firstSeenSec or ev.cdSeriesSec[1] or 10
+        -- « bridgeOnly » : aucune donnée de minutage n'existe pour ces rencontres
+        -- (raids). Injecter des valeurs par défaut les ferait entrer dans l'index
+        -- de correspondance par durée avec des 30 s inventées.
+        if not def.bridgeOnly then
+            ev.cdSeriesSec = ev.cdSeriesSec or { 30 }
+            ev.firstSeenSec = ev.firstSeenSec or ev.cdSeriesSec[1] or 10
+        end
         ev.severity = ev.severity or 1
     end
     self.Encounters[encounterID] = def
@@ -181,11 +186,20 @@ local function wantsRing(ev, d)
     return false
 end
 
+-- Nom affiché pour une occurrence : le nom lu en direct sur l'incantation fait
+-- autorité, mais il est stocké sur l'OCCURRENCE, pas sur la définition partagée
+-- (un mauvais recalage ne doit pas corrompre les données pour toute la session).
+local function OccName(occ)
+    return occ.liveName or NameFor(occ.ev)
+end
+
 -- Rend une occurrence sur les widgets choisis (barre et/ou anneau).
+-- N'est appelé QUE sur changement d'état (démarrage, replanification, recalage
+-- sur cast réel) : le décompte visuel est piloté par le ticker du BarGroup.
 local function RenderOcc(occ)
     local ev = occ.ev
     local d = dispOf(ev)
-    local args = { name = NameFor(ev), icon = IconFor(ev), duration = occ.duration, endTime = occ.fireAt, severity = ev.severity }
+    local args = { name = OccName(occ), icon = IconFor(ev), duration = occ.duration, endTime = occ.fireAt, severity = ev.severity }
     if d.bar then NS.UI.TimerBars:AddOrUpdate(occ.key, args)
     else NS.UI.TimerBars:Remove(occ.key) end
     if NS.UI.Rings then
@@ -204,7 +218,7 @@ end
 local function AnnounceOcc(occ)
     local ev = occ.ev
     if dispOf(ev).sound then NS.Voice:Play(ev.voice) end
-    if ev.severity == 2 then NS.UI.FlashText:Show(NameFor(ev), "danger", 2.2) end
+    if ev.severity == 2 then NS.UI.FlashText:Show(OccName(occ), "danger", 2.2) end
 end
 
 -- Cadre pour la synchronisation sur les incantations réelles des boss.
@@ -234,7 +248,9 @@ end
 function T:FindEncounterByCastName(name)
     if not name then return nil end
     for encID, def in pairs(E.Encounters) do
-        if def.events then
+        -- les rencontres « matching seul » n'ont pas de série de prédiction :
+        -- elles ne doivent jamais déclencher l'auto-démarrage du moteur prédictif.
+        if def.events and not def.matchOnly and not def.bridgeOnly then
             for _, ev in ipairs(def.events) do
                 if SpellName(ev) == name then return encID end
             end
@@ -268,6 +284,16 @@ end
 function T:Start(encounterID, isDemo)
     local def = E:GetEncounter(encounterID)
     if not def then return false end
+
+    -- Rencontres « matching seul » (donjons hors-saison) : leurs durées servent
+    -- uniquement à IDENTIFIER les événements de la timeline Blizzard, ce ne sont
+    -- pas des intervalles de récurrence. Lancer la prédiction dessus produirait
+    -- des barres fausses — on laisse la main à NS.BlizzTimeline.
+    if (def.matchOnly or def.bridgeOnly) and not isDemo then
+        NS:Debug("Timeline :", def.name, "est en mode matching seul — prédiction ignorée.")
+        return false
+    end
+
     self:Stop()
 
     self.running = true
@@ -305,7 +331,7 @@ function T:Stop()
     self.demo = false
     self.encounterID = nil
     for _, occ in ipairs(self.occ) do
-        NS.UI.TimerBars:Remove(occ.key)
+        RemoveOcc(occ)   -- barres ET anneaux (sinon les anneaux survivent au wipe)
     end
     wipe(self.occ)
     self:UnregisterCastEvents()
@@ -324,7 +350,10 @@ function T:EnsureTicker()
     self.ticker:Hide()
     self.ticker:SetScript("OnUpdate", function(_, elapsed)
         self.ticker._acc = self.ticker._acc + elapsed
-        if self.ticker._acc < 0.05 then return end
+        -- 0.02 s : le Tick ne fait plus de rendu, il ne fait qu'échéancer.
+        -- Doit rester STRICTEMENT sous le seuil de recyclage du BarGroup (-0.05 s)
+        -- pour que la barre suivante soit publiée avant que l'ancienne ne soit rendue au pool.
+        if self.ticker._acc < 0.02 then return end
         self.ticker._acc = 0
         self:Tick()
     end)
@@ -347,7 +376,7 @@ function T:Tick()
                 AnnounceOcc(occ)
             end
 
-            -- l'occurrence est passée : planifier la suivante
+            -- l'occurrence est passée : planifier la suivante, puis republier
             if now >= occ.fireAt then
                 local series = ev.cdSeriesSec
                 local interval = series[occ.cycleIndex] or series[#series] or 30
@@ -356,10 +385,8 @@ function T:Tick()
                 occ.fireAt = occ.fireAt + interval
                 occ.duration = interval
                 occ.voiced = false
+                RenderOcc(occ)   -- seul point de republication du cycle prédictif
             end
-
-            -- maintient les widgets à jour
-            RenderOcc(occ)
         end
     end
 end
@@ -437,8 +464,10 @@ function T:OnBossCast(unit, spellID, isChannel)
     local now = GetTime()
 
     -- le nom live fait autorité pour l'affichage (corrige aussi les noms non encore
-    -- résolus au pull, ex. données de sort pas encore en cache)
-    if liveName then ev.__name = liveName end
+    -- résolus au pull, ex. données de sort pas encore en cache).
+    -- Stocké sur l'occurrence : un recalage douteux (fallback par durée) ne doit
+    -- pas contaminer la définition partagée pour le reste de la session.
+    if liveName then occ.liveName = liveName end
 
     -- événement de phase réellement casté : bascule de phase (dormance des autres),
     -- puis annonce systématique (le callout d'intermède est important). Pas de barre.
@@ -446,7 +475,7 @@ function T:OnBossCast(unit, spellID, isChannel)
         self:OnPhaseTransition(occ)
         NS.Voice:Play(ev.voice)
         if ev.severity == 2 then
-            NS.UI.FlashText:Show(NameFor(ev), "danger", 2.2)
+            NS.UI.FlashText:Show(OccName(occ), "danger", 2.2)
         end
         return
     end

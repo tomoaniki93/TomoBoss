@@ -17,8 +17,13 @@ BT.active = {}     -- timelineID -> { endTime, name, severity, voice, evRef, rol
 BT._index = {}     -- encID -> liste {ev, durs} (ou false)
 BT._activeEnc = nil
 BT._candidates = nil
+BT._byEventID = {}   -- encID -> { [eventID] = ev }
+BT._syncUsed  = {}   -- encID -> { [index de règle] = true }
+BT._seqCounters = {} -- sequenceGroup -> compteur round-robin
+BT._pullTime = nil   -- 1er ADDED depuis le dernier reset = pull
 
 local TOL   = 0.75 -- tolérance de correspondance de durée (s)
+local SYNC_WINDOW = 10 -- fenêtre après le pull où les règles « sync » sont éligibles (s)
 local DEDUP = 1.0  -- fenêtre anti-doublon (ré-ADD du même sort)
 
 local function cfg() return NS.db.profile.blizzTimeline end
@@ -90,6 +95,95 @@ function BT:BuildMatchIndex(encID)
     return list
 end
 
+-- Index eventID -> événement, pour résoudre les règles de durée.
+function BT:BuildEventIDIndex(encID)
+    self._byEventID = self._byEventID or {}
+    if self._byEventID[encID] ~= nil then return self._byEventID[encID] or nil end
+    local def = NS.Engine:GetEncounter(encID)
+    if not def then self._byEventID[encID] = false; return nil end
+    local map = {}
+    for _, ev in ipairs(def.events or {}) do
+        local eid = NS:SafeNumber(ev.eventID)
+        if eid and not map[eid] then map[eid] = ev end
+    end
+    self._byEventID[encID] = map
+    return map
+end
+
+-- Applique les règles curées (durée -> eventID) pour une rencontre donnée.
+-- Rend l'événement, ou nil pour laisser la main à l'index historique.
+--   passe 1 : règles « sync » (séquence d'ouverture), consommées une seule fois
+--             et seulement dans la fenêtre de pull ;
+--   passe 2 : règles récurrentes, plus proche dans la tolérance, round-robin
+--             sur sequenceGroup/sequenceOrder en cas d'égalité.
+function BT:MatchRules(encID, duration)
+    local set = NS.DURATION_RULES and NS.DURATION_RULES[encID]
+    if not (set and duration) then return nil end
+    local byID = self:BuildEventIDIndex(encID)
+    if not byID then return nil end
+
+    local now = GetTime()
+    local inOpener = self._pullTime and (now - self._pullTime) <= SYNC_WINDOW
+
+    if inOpener then
+        local bestIdx, bestDelta
+        for i, r in ipairs(set) do
+            if r.sync == true and not (self._syncUsed[encID] and self._syncUsed[encID][i]) then
+                local delta = math.abs(duration - r.time)
+                if delta <= TOL and (not bestDelta or delta < bestDelta) then
+                    bestIdx, bestDelta = i, delta
+                end
+            end
+        end
+        if bestIdx then
+            local ev = byID[set[bestIdx].eventID]
+            if ev then
+                self._syncUsed[encID] = self._syncUsed[encID] or {}
+                self._syncUsed[encID][bestIdx] = true
+                return ev, "sync"
+            end
+        end
+    end
+
+    local cands, bestDelta = {}, nil
+    for _, r in ipairs(set) do
+        if r.sync ~= true then
+            local delta = math.abs(duration - r.time)
+            if delta <= TOL then
+                if not bestDelta or delta < bestDelta then
+                    bestDelta, cands = delta, { r }
+                elseif delta == bestDelta then
+                    cands[#cands + 1] = r
+                end
+            end
+        end
+    end
+    if #cands == 0 then return nil end
+
+    local pick, how = cands[1], "règle"
+    if #cands > 1 then
+        local grp = cands[1].sequenceGroup
+        if type(grp) == "string" and grp ~= "" then
+            local grouped = {}
+            for _, r in ipairs(cands) do
+                if r.sequenceGroup == grp then grouped[#grouped + 1] = r end
+            end
+            if #grouped > 0 then
+                table.sort(grouped, function(a, b)
+                    return (a.sequenceOrder or 0) < (b.sequenceOrder or 0)
+                end)
+                local n = self._seqCounters[grp] or 0
+                pick = grouped[(n % #grouped) + 1]
+                self._seqCounters[grp] = n + 1
+                how = "round-robin"
+            end
+        end
+    end
+    local ev = byID[pick.eventID]
+    if ev then return ev, how end
+    return nil
+end
+
 -- Identifie un événement timeline par sa durée, parmi les rencontres candidates.
 function BT:MatchDuration(duration)
     if type(duration) ~= "number" then return nil end
@@ -101,6 +195,20 @@ function BT:MatchDuration(duration)
     for _, e in ipairs(self._candidates) do
         if e ~= self._activeEnc then order[#order + 1] = e end
     end
+    -- 1) règles curées : elles seules savent trancher deux capacités de même durée
+    for _, encID in ipairs(order) do
+        local ev, how = self:MatchRules(encID, duration)
+        if ev then
+            if not self._activeEnc then
+                self._activeEnc = encID
+                NS:Debug("Timeline : boss identifié -> encounter", encID)
+            end
+            self._lastMatchHow = how
+            return ev
+        end
+    end
+
+    -- 2) repli : index historique par durée (plus proche, toutes durées confondues)
     local best, bestDelta, bestEnc
     for _, encID in ipairs(order) do
         local idx = self:BuildMatchIndex(encID)
@@ -117,6 +225,7 @@ function BT:MatchDuration(duration)
         if best and encID == self._activeEnc then break end
     end
     if best then
+        self._lastMatchHow = "durée"
         if not self._activeEnc then
             self._activeEnc = bestEnc
             NS:Debug("Timeline : boss identifié -> encounter", bestEnc)
@@ -147,6 +256,13 @@ function BT:OnAdded(x)
     local matchDur = NS:SafeNumber(info.duration)   -- identité (≈ intervalle, matche mes données)
     local fireDur  = timeRemaining(id) or matchDur   -- minutage (temps réel restant côté serveur)
     if not (matchDur or fireDur) then return end
+
+    -- premier événement depuis le dernier reset : c'est le pull, il ouvre la
+    -- fenêtre où les règles « sync » sont éligibles.
+    if not self._pullTime then
+        self._pullTime = GetTime()
+        NS.Bus:Emit("TMB_TIMELINE_PULL", "1er événement de timeline")
+    end
 
     local ev = self:MatchDuration(matchDur or fireDur)
     local now = GetTime()
@@ -181,6 +297,10 @@ function BT:OnAdded(x)
             "-> non identifié (générique, sév ", tostring(sev), ")")
     end
 
+    if NS.Recorder and NS.Recorder:IsRecording() then
+        NS.Recorder:OnAdded(id, matchDur, fireDur, ev, self._lastMatchHow, info)
+    end
+
     self.active[id] = {
         endTime = endTime, total = fireDur or 5, name = name, icon = icon, severity = sev,
         voice = voice, evRef = ev, role = role, preAlert = preAlert, announced = false,
@@ -207,12 +327,14 @@ end
 function BT:OnRemoved(x)
     local id = (type(x) == "table" and NS:SafeNumber(x.id)) or NS:SafeNumber(x)
     if not id then return end
+    if NS.Recorder and NS.Recorder:IsRecording() then NS.Recorder:OnRemoved(id) end
     self.active[id] = nil
     NS.UI.TimerBars:Remove("bt:" .. id)
     if NS.UI.Rings then NS.UI.Rings:Remove("bt:" .. id) end
 end
 
 function BT:ClearAll()
+    if self._pullTime then NS.Bus:Emit("TMB_TIMELINE_RESET", "fin de combat") end
     for id in pairs(self.active) do
         NS.UI.TimerBars:Remove("bt:" .. id)
         if NS.UI.Rings then NS.UI.Rings:Remove("bt:" .. id) end
@@ -220,6 +342,9 @@ function BT:ClearAll()
     wipe(self.active)
     self._activeEnc = nil
     self._candidates = nil
+    wipe(self._syncUsed)
+    wipe(self._seqCounters)
+    self._pullTime = nil
 end
 
 --------------------------------------------------------------------------
@@ -252,7 +377,10 @@ function BT:Tick()
         local lead = math.max(baseLead, e.preAlert or 0, 0.5)
         if not e.announced and now >= (e.endTime - lead) then
             e.announced = true
-            if cfg().voice then
+            -- Si l'EventBridge a confié cette annonce au jeu, il l'a DÉJÀ jouée
+            -- (trigger highlight, ~5 s avant). Rejouer ici ferait doublon.
+            local bridged = e.evRef and NS.EventBridge and NS.EventBridge:WillPlaySound(e.evRef)
+            if cfg().voice and not bridged then
                 if e.voice then
                     NS.Voice:Play(e.voice)
                 else

@@ -15,7 +15,7 @@ NS.SOUND_PREFIX = SOUND_PREFIX
 --      Media\Voice\<locale>\   (ex. Media\Voice\enUS\ , Media\Voice\deDE\)
 --   2) dé-commentez / ajoutez la ligne correspondante ci-dessous.
 NS.VOICE_PACKS = {
-    { value = "frFR", text = "Français — VoixFrancaise02 (Melune)" },
+    { value = "frFR", text = "Français — Voix Francaise02" },
     { value = "enUS", text = "English — TTS (Pico)" },
     -- { value = "deDE", text = "Deutsch — <Autor>" },
 }

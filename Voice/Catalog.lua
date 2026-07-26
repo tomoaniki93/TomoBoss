@@ -1,5 +1,5 @@
 -- TomoBoss — Catalogue vocal (généré). Ne pas éditer à la main.
--- Pack audio : VoixFrancaise02 (Melune). Voix française.
+-- Pack audio : VoixFrancaise02. Voix française.
 ---@diagnostic disable: undefined-global
 local NS = select(2, ...)
 NS.Voice = NS.Voice or {}

@@ -79,10 +79,23 @@ function Theme:Skin(frame, opts)
     return frame
 end
 
+-- Applique police + couleur, en évitant les appels redondants.
+-- SetFont/SetTextColor sont coûteux ; on mémorise le dernier état appliqué.
+-- NB : si un module change la couleur directement (SetTextColor), il doit
+-- invalider fs.__tmbColor pour que le prochain Font() la réapplique.
 function Theme:Font(fs, size, colorKey, flags)
-    fs:SetFont(FONT, size or 13, flags or "")
-    local c = C[colorKey or "text"] or C.text
-    fs:SetTextColor(c[1], c[2], c[3])
+    size     = size or 13
+    flags    = flags or ""
+    colorKey = colorKey or "text"
+    if fs.__tmbSize ~= size or fs.__tmbFlags ~= flags then
+        fs:SetFont(FONT, size, flags)
+        fs.__tmbSize, fs.__tmbFlags = size, flags
+    end
+    if fs.__tmbColor ~= colorKey then
+        local c = C[colorKey] or C.text
+        fs:SetTextColor(c[1], c[2], c[3])
+        fs.__tmbColor = colorKey
+    end
     return fs
 end
 

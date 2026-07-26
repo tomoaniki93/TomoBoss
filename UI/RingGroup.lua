@@ -74,24 +74,39 @@ function NS.UI.CreateRingGroup(name, cfg)
     function g:AddOrUpdate(key, data)
         self:EnsureAnchor()
         local f = self.active[key]
+        local isNew = false
         if not f then
             f = table.remove(self.pool) or newRing()
             self.active[key] = f
             f:Show()
+            isNew = true
         end
         f.key = key
         f.duration = math.max(0.1, data.duration or 1)
-        f.endTime = data.endTime or (GetTime() + f.duration)
+        local newEnd = data.endTime or (GetTime() + f.duration)
+        local changed = isNew or (f.endTime ~= newEnd) or (f.__cdDur ~= f.duration)
+        f.endTime = newEnd
 
         local col = data.color or NS.Theme:Severity(data.severity or 1)
-        for _, t in pairs(f.brd) do t:SetVertexColor(col[1], col[2], col[3], 1) end
-        f.cd:SetSwipeColor(col[1], col[2], col[3], 0.55)
-        f.icon:SetTexture(data.icon or 134400)
+        if f.__cr ~= col[1] or f.__cg ~= col[2] or f.__cb ~= col[3] then
+            for _, t in pairs(f.brd) do t:SetVertexColor(col[1], col[2], col[3], 1) end
+            f.cd:SetSwipeColor(col[1], col[2], col[3], 0.55)
+            f.__cr, f.__cg, f.__cb = col[1], col[2], col[3]
+        end
+        local tex = data.icon or 134400
+        if f.__iconTex ~= tex then f.icon:SetTexture(tex); f.__iconTex = tex end
         f.label:SetShown(self.cfg.showName ~= false)
-        if self.cfg.showName ~= false then f.label:SetText(data.name or "") end
-        f.cd:SetCooldown(f.endTime - f.duration, f.duration)
-
-        self:Layout()
+        if self.cfg.showName ~= false then
+            local nm = data.name or ""
+            if f.__nameStr ~= nm then f.label:SetText(nm); f.__nameStr = nm end
+        end
+        -- SetCooldown relance l'animation du balayage : ne l'appeler QUE si la
+        -- fenêtre a réellement changé, sinon l'anneau saccade à chaque frame.
+        if changed then
+            f.cd:SetCooldown(f.endTime - f.duration, f.duration)
+            f.__cdDur = f.duration
+            self:Layout()
+        end
         return f
     end
 
@@ -134,6 +149,7 @@ function NS.UI.CreateRingGroup(name, cfg)
 
     function g:Tick()
         if not self.anchor then return end
+        if next(self.active) == nil then return end
         local now = GetTime()
         local removed = false
         for key, f in pairs(self.active) do
@@ -142,9 +158,14 @@ function NS.UI.CreateRingGroup(name, cfg)
                 self.active[key] = nil; f:Hide(); table.insert(self.pool, f); removed = true
             else
                 local r = remaining < 0 and 0 or remaining
-                f.time:SetText(NS.fmtTime(r))
-                if r <= 5 then f.time:SetTextColor(NS.Theme:Color("danger"))
-                else f.time:SetTextColor(NS.Theme:Color("text")) end
+                local txt = NS.fmtTime(r)
+                if f.__timeStr ~= txt then f.time:SetText(txt); f.__timeStr = txt end
+                local state = (r <= 5) and "danger" or "text"
+                if f.__timeState ~= state then
+                    f.time:SetTextColor(NS.Theme:Color(state))
+                    f.time.__tmbColor = nil
+                    f.__timeState = state
+                end
             end
         end
         if removed then self:Layout() end
