@@ -14,6 +14,8 @@ local function help()
     NS:Print("|cff8bd5caApprentissage TomoBoss|r — construit tes données depuis tes propres pulls.")
     NS:Print("  |cff8bd5ca/tmb learn|r                    état et rencontres en base")
     NS:Print("  |cff8bd5ca/tmb learn on|off|r             activer / couper l'enregistrement")
+    NS:Print("  |cff8bd5ca/tmb learn dump <clé> [n]|r     capture BRUTE du pull (fenêtre copiable)")
+    NS:Print("  |cff8bd5ca/tmb learn dumpc <clé> [n]|r    idem, dans le chat")
     NS:Print("  |cff8bd5ca/tmb learn show <clé>|r         rapport d'analyse détaillé")
     NS:Print("  |cff8bd5ca/tmb learn apply <clé> [seuil]|r  appliquer pour la session (test immédiat)")
     NS:Print("  |cff8bd5ca/tmb learn export <clé> [seuil]|r bloc Lua à coller dans Engine/Encounters/")
@@ -51,6 +53,15 @@ function Learn:HandleSlash(rest)
     elseif sub == "on" or sub == "off" then
         NS.db.profile.learn.enabled = (sub == "on")
         NS:Print("Enregistrement " .. (sub == "on" and "|cff8bd5caactivé|r" or "|cffe06c75coupé|r") .. ".")
+    elseif sub == "dump" then
+        if arg1 == "" then NS:Print("Précise une clé. |cff8bd5ca/tmb learn|r pour la liste."); return end
+        NS.Learn.Dump:Show(arg1, arg2 ~= "" and arg2 or nil)
+    elseif sub == "dumpc" then
+        if arg1 == "" then NS:Print("Précise une clé."); return end
+        NS.Learn.Dump:Print(arg1, arg2 ~= "" and arg2 or nil)
+    elseif sub == "prune" then
+        local n = Store:PruneLegacy()
+        NS:Print(string.format("%d capture(s) de schéma périmé supprimée(s).", n))
     elseif sub == "show" or sub == "voir" then
         if arg1 == "" then NS:Print("Précise une clé. |cff8bd5ca/tmb learn|r pour la liste."); return end
         Infer:PrintReport(arg1)

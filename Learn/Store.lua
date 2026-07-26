@@ -6,21 +6,34 @@
 -- L'agrégation est faite hors combat par Learn/Infer.lua.
 --
 -- Format compact (les SavedVariables sont relues à chaque /reload) :
---   obs[i] = { t, kind, dur, name, fire }
---     t    : secondes depuis le début du pull (nombre, 2 décimales)
---     kind : 1 = incantation boss, 2 = canalisation boss, 3 = événement timeline Blizzard
---     dur  : durée d'incantation (kind 1/2) ou durée-identité de la timeline (kind 3)
---     name : nom du sort lu en direct (kind 1/2) ; nil si masqué. Absent pour kind 3.
---     fire : kind 3 uniquement — instant prévu de déclenchement, depuis t0.
+-- SCHÉMA v2 — l'identité n'est plus un NOM (illisible sous Midnight) mais le
+-- couple (npcID, durée mesurée), plus la durée-identité de la timeline.
+--
+--   obs[i] = { t, kind, dur, npc, unit, fire, sname }
+--     t     : secondes depuis le début du pull (2 décimales)
+--     kind  : 1 incantation | 2 canalisation | 3 timeline | 4 instantané | 5 interrompu
+--     dur   : durée MESURÉE au chronomètre (kind 1/2/5), durée-identité (kind 3), 0 (kind 4)
+--     npc   : npcID du lanceur, extrait de UnitGUID (nil pour la timeline)
+--     unit  : jeton d'unité — diagnostic, permet de voir d'où vient une observation
+--     fire  : kind 3 uniquement — instant prévu de déclenchement, depuis t0
+--     sname : nom serveur, UNIQUEMENT quand il est lisible. Bonus, jamais une dépendance.
 
 local NS = select(2, ...)
 local Store = {}
 NS.Learn = NS.Learn or {}
 NS.Learn.Store = Store
 
-Store.KIND_CAST    = 1
-Store.KIND_CHANNEL = 2
-Store.KIND_TIMELINE = 3
+Store.KIND_CAST        = 1
+Store.KIND_CHANNEL     = 2
+Store.KIND_TIMELINE    = 3
+Store.KIND_INSTANT     = 4
+Store.KIND_INTERRUPTED = 5
+
+Store.KIND_NAME = { "incantation", "canalisation", "timeline", "instantané", "interrompu" }
+
+-- Version de schéma. Les pulls d'une autre version sont ignorés à la lecture :
+-- la v1 enregistrait des noms de sorts du joueur, ces données sont inutilisables.
+Store.SCHEMA = 2
 
 local MAX_PULLS_PER_ENC   = 12   -- au-delà, on jette le plus ancien
 local MAX_OBS_PER_PULL    = 400  -- garde-fou anti-boucle folle
@@ -37,9 +50,10 @@ end
 
 -- Clé de rencontre. On préfère l'encounterID réel ; à défaut une clé synthétique
 -- « i<instanceMapID>:<nom du boss> » que l'utilisateur pourra relier plus tard.
-function Store:MakeKey(encounterID, instanceID, bossName)
+function Store:MakeKey(encounterID, instanceID, npcID)
     if encounterID then return tostring(encounterID) end
-    return "i" .. tostring(instanceID or 0) .. ":" .. tostring(bossName or "?")
+    -- clé de repli bâtie sur le npcID (lisible et stable) et non sur un nom localisé
+    return "i" .. tostring(instanceID or 0) .. ":n" .. tostring(npcID or 0)
 end
 
 function Store:IsSynthetic(key)
@@ -71,7 +85,7 @@ function Store:IsRecording()
 end
 
 -- Ajoute une observation au pull courant. Coût constant, appelable en combat.
-function Store:Add(kind, dur, name, fire)
+function Store:Add(kind, dur, npc, unit, fire, sname)
     local cur = self.current
     if not cur or cur.over then return end
     local n = #cur.obs
@@ -84,8 +98,10 @@ function Store:Add(kind, dur, name, fire)
         NS.round(GetTime() - cur.t0, 2),
         kind,
         dur and NS.round(dur, 2) or nil,
-        name,
+        npc,
+        unit,
         fire,
+        sname,
     }
 end
 
@@ -105,10 +121,12 @@ function Store:Commit(outcome)
     if not list then list = {}; db.pulls[cur.key] = list end
 
     list[#list + 1] = {
+        schema  = self.SCHEMA,
         date    = date("%Y-%m-%d %H:%M"),
         len     = NS.round(GetTime() - cur.t0, 1),
         outcome = outcome or "wipe",
         boss    = cur.meta.boss,
+        npc     = cur.meta.npc,
         inst    = cur.meta.inst,
         obs     = cur.obs,
     }
@@ -124,8 +142,35 @@ end
 --------------------------------------------------------------------------
 -- Consultation / entretien.
 --------------------------------------------------------------------------
+-- Ne rend QUE les pulls du schéma courant. Les captures v1 contenaient les
+-- sorts du joueur et fausseraient toute analyse : mieux vaut zéro donnée
+-- qu'une donnée fausse qui a l'air correcte.
 function Store:GetPulls(key)
+    local raw = self:DB().pulls[tostring(key)]
+    if not raw then return nil end
+    local out, legacy = {}, 0
+    for _, p in ipairs(raw) do
+        if p.schema == self.SCHEMA then out[#out + 1] = p else legacy = legacy + 1 end
+    end
+    if #out == 0 then return nil, legacy end
+    return out, legacy
+end
+
+-- Toutes les captures, schéma confondu (pour le dump et l'entretien).
+function Store:GetPullsRaw(key)
     return self:DB().pulls[tostring(key)]
+end
+
+-- Supprime les captures d'un schéma périmé.
+function Store:PruneLegacy()
+    local n = 0
+    for key, list in pairs(self:DB().pulls) do
+        for i = #list, 1, -1 do
+            if list[i].schema ~= self.SCHEMA then table.remove(list, i); n = n + 1 end
+        end
+        if #list == 0 then self:DB().pulls[key] = nil end
+    end
+    return n
 end
 
 function Store:Keys()
@@ -139,6 +184,8 @@ function Store:CountPulls(key)
     local l = self:GetPulls(key)
     return l and #l or 0
 end
+
+function Store:IsSyntheticKey(key) return self:IsSynthetic(key) end
 
 function Store:Clear(key)
     if key then

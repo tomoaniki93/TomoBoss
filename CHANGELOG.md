@@ -1,5 +1,107 @@
 # Changelog
 
+## [2.3.7]
+
+Everything here is derived from a real capture (Emberdawn, 233 s, 92
+observations) rather than from assumptions about what the server sends.
+
+### Fixed
+
+- **Re-added timeline events were misidentified.** When the server re-posts an
+  already-scheduled event, `duration` no longer holds the interval — it holds the
+  *remaining time*. The capture shows `fire=128.77` posted at 113.27 with
+  `duration=15.50`, then re-posted at 118.13 with `duration=10.64`. Since
+  `MatchDuration` identifies on `duration`, the second post resolved to a
+  different ability or fell through to generic mode. A re-add is now detected
+  before identification (same end time, reduced duration) and only updates the
+  timing, keeping the original identity.
+- **False positives in period detection.** Cluster tightness was judged by MAD,
+  which tolerates up to 50% outliers. Folding on a cycle that is *half* the true
+  one produces a bucket made of two clumps, the smaller weighing ~43% — just
+  under the breakdown point. MAD reported 0.78 s on a bucket 19.67 s wide and the
+  wrong cycle was accepted as "good". Tightness is now measured by a high
+  quantile of deviations, so an ignored clump is seen.
+- **First-seen anchoring.** A lost observation can only make the first occurrence
+  appear *later*, never earlier, so the minimum is the correct estimator, not the
+  median. The median drifted when several pulls missed the first cast, and the
+  series came out right but rotated (`{20, 33, 12}` instead of `{12, 20, 33}`).
+- Late resolution of boss identity: `ENCOUNTER_START` fires before boss units are
+  populated, which is why captures showed `boss=nil npc=nil`.
+
+### Changed
+
+- **Inference is keyed on duration.** Confirmed by the capture: the timeline ADD
+  timestamp *is* the cast start timestamp (18/18 within 0.01 s). It is not
+  `fire`, which equals ADD + duration — the *next* occurrence. `info.duration` is
+  the nominal cooldown and stays constant per ability.
+- **Two-rule deduplication.** The capture holds 70 raw ADDs for 36 real events.
+  Batch duplicates (same instant, same duration) and remaining-time rewrites are
+  distinguished by recurrence: a nominal duration recurs (15.50 appears 9 times),
+  a rewrite is unique (10.64 appears once). Deduplicating on `fire` alone made
+  two *distinct* abilities cancel each other out.
+- Series whose positions are all equal collapse to a single value: `{41.5, 41.9}`
+  and `{41.5}` predict the same thing, and the latter is the correct form.
+- Abilities with no timeline event get their own group. Emberdawn's 16 s
+  channelled intermission appears nowhere in `C_EncounterTimeline` — the two
+  streams are complementary, not redundant.
+- `UnitGUID` is masked on boss units, so npcID is attempted but never relied on.
+
+### Testing
+
+- `Tools/test_infer.lua` now carries the real Emberdawn capture as a golden case
+  alongside the synthetic ones, plus an assertion that a series which cannot be
+  resolved is *declared* rather than asserted confidently. Across 13 seeds: 11
+  fully clean, 2 with one degraded-but-flagged case, and no false positives even
+  at 45% observation loss.
+
+## [2.3.6]
+
+### Fixed
+
+- **The learning recorder was capturing the player's own spells.** Two causes,
+  the first producing the second.
+  1. `RegisterUnitEvent(..., "boss1", "boss2")` does not filter boss units: those
+     tokens do not exist outside an encounter, so at `Init` time the filter
+     cannot be established and the frame receives the event for *every* unit.
+     `Engine/Timeline.lua` already avoided `RegisterUnitEvent` for this reason —
+     unfiltered registration, then token matching in the handler. Same pattern
+     applied to the recorder.
+  2. `readCast` tested for an empty name by direct comparison. A secret value of
+     string type answers `"string"` to `type()`, but any *comparison* on it
+     raises a taint error — the very test meant to discard empty values was what
+     crashed.
+- Safety net: in M+ combat never drops between packs, so `PLAYER_REGEN_ENABLED`
+  never fires. If `ENCOUNTER_END` was missed the pull stayed open and swallowed
+  the trash. `INSTANCE_ENCOUNTER_ENGAGE_UNIT` with no living boss unit now closes
+  the recording.
+
+### Changed
+
+- **Recorder v2 — measured, not asked.** `UnitCastingInfo` / `UnitChannelInfo`
+  return nothing usable on hostile units under Midnight (name and spellID both
+  masked), a finding already recorded in BossReminder's `TrashCD/Observation.lua`.
+  Cast duration is now *measured* wall-clock between `UNIT_SPELLCAST_START` and
+  `SUCCEEDED`, never read from the API. Instant and interrupted casts are kept as
+  distinct identity classes.
+- **Identity is now `(npcID, measured duration)`, not a spell name.** `UnitGUID`
+  remains readable, so the caster is identified by npcID — far more robust than
+  matching localized names against the Encounter Journal.
+- **Data schema v2.** Every observation now carries its provenance (unit token,
+  npcID) so a leaking filter is visible in the dump instead of inferred. v1
+  captures are ignored on read rather than blended in: better no data than wrong
+  data that looks right. `/tmb learn prune` removes them.
+- Inference is deliberately gated behind the schema check while its grouping key
+  (the spell name) is rebuilt around duration. The algorithm core — phase
+  folding, cycle estimation, horizon guard — is unchanged and still covered by
+  `Tools/test_infer.lua`.
+
+### Added
+
+- **`/tmb learn dump <key> [n]`** — raw capture, line by line, with per-type
+  totals and an explicit verdict on which streams the server actually delivers.
+  `/tmb learn dumpc` prints the same to chat.
+- **`/tmb learn prune`** — drop captures from a stale schema.
+
 ## [2.3.5]
 
 Two independent tracks: a learning system that builds encounter data from your

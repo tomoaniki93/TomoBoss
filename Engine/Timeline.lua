@@ -158,6 +158,10 @@ local function ReadBossCast(unit, isChannel)
     return safeName, dur
 end
 
+-- Exposé : le Recorder d'apprentissage a besoin EXACTEMENT de la même lecture
+-- gardée. Une seconde implémentation dérive et finit par oublier NS:IsSecret.
+NS.ReadBossCast = ReadBossCast
+
 local function leadFor(ev)
     local base = NS.db and NS.db.profile and NS.db.profile.voice.lead or 0
     return math.max(base or 0, ev.preAlertSec or 0)

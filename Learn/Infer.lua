@@ -5,12 +5,20 @@
 -- Tout est fait avec des statistiques ROBUSTES (médiane, MAD) et non des moyennes :
 -- une observation manquée ou un pull raté ne doit pas déplacer le résultat.
 --
--- Chaîne de traitement, par capacité :
---   1. regroupement des incantations par nom
---   2. réparation des observations manquées (un intervalle ~ k x médiane -> k intervalles)
---   3. détection de période (cooldown constant, ou série de 2 à 4 valeurs)
---   4. corrélation avec la timeline Blizzard pour récupérer la durée-identité
---   5. résolution du spellID via le Journal des rencontres
+-- Chaîne de traitement, établie sur capture réelle (Emberdawn, 233 s, 92 obs) :
+--   1. déduplication des ADD timeline par leur instant de déclenchement `fire` —
+--      la capture montrait 70 ADD bruts pour 36 événements réels ;
+--   2. appariement ADD <-> incantation : l'instant de l'ADD EST l'instant de
+--      DÉBUT de l'incantation (18/18 à ±0,01 s). Ce n'est pas `fire`, qui vaut
+--      ADD + durée, c'est-à-dire l'occurrence SUIVANTE ;
+--   3. regroupement par durée-identité de la timeline, confirmé par la durée
+--      d'incantation mesurée (id-dur 15.5 <-> cast 1,49 s ; 13.0 <-> 2,98 s) ;
+--   4. les incantations SANS ADD forment leurs propres groupes — l'intermède
+--      canalisé de 16 s d'Emberdawn n'apparaît nulle part dans la timeline ;
+--   5. détection de période par repliement de phase.
+--
+-- L'identité n'est ni un nom (masqué) ni un npcID (UnitGUID est masqué sur les
+-- unités hostiles) : c'est la DURÉE.
 --
 -- Ce module ne fait AUCUN appel en combat.
 
@@ -21,8 +29,29 @@ NS.Learn.Infer = Infer
 
 local Store = NS.Learn.Store
 
-local MAX_PERIOD       = 4     -- longueur maximale d'une série cyclique testée
-local CORRELATE_WINDOW = 2.0   -- fenêtre (s) entre le déclenchement timeline et le cast observé
+local MAX_PERIOD  = 4      -- longueur maximale d'une série cyclique testée
+
+-- Fenêtre d'appariement ADD <-> début d'incantation. La capture donne un écart
+-- de 0,000 s dans 16 cas sur 18 et 0,010 s dans les deux autres : 0,05 s est
+-- large sans être laxiste.
+local PAIR_TOL    = 0.05
+
+-- Déduplication. Deux formes de doublon coexistent dans la capture, et les
+-- confondre casse tout — dédupliquer sur le seul `fire` faisait s'annuler deux
+-- capacités DISTINCTES dont les déclenchements coïncident.
+--   (a) doublon de lot : le serveur re-poste le même événement dans la foulée
+--       (triplets 30/10/6 émis à 87,78 puis à nouveau à 87,87) ;
+--   (b) ré-ADD : même déclenchement, mais `duration` réécrite avec le TEMPS
+--       RESTANT au lieu de l'intervalle (15,50 -> 10,64 pour fire=128,77).
+--       Le discriminant est la RÉCURRENCE : une durée nominale revient (15,50
+--       apparaît 9 fois dans la capture), une réécriture est unique (10,64 une
+--       seule fois). Sans ce test, deux capacités distinctes dont les
+--       déclenchements coïncident s'annulaient mutuellement.
+local BATCH_TOL   = 0.15   -- (a) écart d'instant toléré dans un même lot
+local FIRE_TOL    = 0.05   -- (b) coïncidence de déclenchement
+
+-- Regroupement des durées en classes d'identité.
+local DUR_BUCKET  = 0.25
 
 --------------------------------------------------------------------------
 -- Statistiques robustes.
@@ -36,6 +65,28 @@ local function median(t)
     if n % 2 == 1 then return s[(n + 1) / 2] end
     return (s[n / 2] + s[n / 2 + 1]) / 2
 end
+
+-- Quantile des écarts absolus au centre.
+--
+-- La MAD (quantile 0,5) ne convient PAS pour juger si un paquet est serré :
+-- elle tolère jusqu'à 50 % de valeurs aberrantes. Or replier sur un cycle qui
+-- vaut la MOITIÉ du vrai produit un paquet fait de deux amas, dont le plus
+-- petit pèse ~43 % — juste sous le seuil de rupture. La MAD renvoyait alors
+-- 0,78 s sur un paquet large de 19,67 s, et le faux cycle était accepté avec
+-- la mention « bon ». Un quantile haut voit l'amas ignoré.
+local function devQuantile(t, m, q)
+    local n = #t
+    if n == 0 then return nil end
+    local dev = {}
+    for i = 1, n do dev[i] = math.abs(t[i] - m) end
+    table.sort(dev)
+    return dev[math.max(1, math.min(n, math.ceil(q * n)))]
+end
+
+-- Fraction des points devant tenir dans la tolérance pour qu'un paquet soit
+-- déclaré serré. 0,9 laisse passer le bruit de mesure sans laisser passer un
+-- second amas.
+local TIGHT_Q = 0.9
 
 -- Écart absolu médian : dispersion insensible aux valeurs aberrantes.
 local function mad(t, med)
@@ -55,32 +106,110 @@ local function spread(t)
 end
 
 --------------------------------------------------------------------------
--- 1. Extraction : incantations groupées par nom, par pull.
+-- 1. Extraction : occurrences groupées par DURÉE.
 --------------------------------------------------------------------------
--- Renvoie { [nom] = { pulls = { {t1,t2,...}, ... }, durs = {...} } }
-local function collectCasts(pulls)
+local function bucket(v) return math.floor(v / DUR_BUCKET + 0.5) * DUR_BUCKET end
+
+-- Déduplique les ADD d'un pull par leur instant de déclenchement.
+-- Le PREMIER fait foi : sur un ré-ADD, `duration` ne contient plus l'intervalle
+-- mais le temps restant (constaté : 15.50 réécrit en 10.64 pour le même `fire`).
+local function dedupAdds(obs)
+    -- passe 1 : combien de fois chaque durée nominale apparaît-elle ?
+    local seen = {}
+    for _, o in ipairs(obs) do
+        if o[2] == Store.KIND_TIMELINE and o[3] then
+            local b = bucket(o[3])
+            seen[b] = (seen[b] or 0) + 1
+        end
+    end
+
     local out = {}
+    for _, o in ipairs(obs) do
+        if o[2] == Store.KIND_TIMELINE and o[3] then
+            local t, dur, fire = o[1], o[3], o[6]
+            local dup = false
+            for _, u in ipairs(out) do
+                -- (a) même instant, même durée nominale : re-post du même lot
+                if math.abs(u.t - t) <= BATCH_TOL and math.abs(u.dur - dur) <= 0.01 then
+                    dup = true; break
+                end
+                -- (b) durée vue UNE SEULE FOIS, déclenchement coïncidant et valeur
+                --     réduite : c'est une réécriture en temps restant, pas une capacité
+                if fire and u.fire and math.abs(u.fire - fire) <= FIRE_TOL
+                    and dur < u.dur - 0.01 and (seen[bucket(dur)] or 0) <= 1 then
+                    dup = true; break
+                end
+            end
+            if not dup then out[#out + 1] = { t = t, dur = dur, fire = fire } end
+        end
+    end
+    return out
+end
+
+-- Débuts d'incantation du pull. On enregistre à la FIN (SUCCEEDED) avec la durée
+-- mesurée : le début se retrouve donc par soustraction.
+local function castStarts(obs)
+    local out = {}
+    for _, o in ipairs(obs) do
+        local k = o[2]
+        if k == Store.KIND_CAST or k == Store.KIND_CHANNEL or k == Store.KIND_INSTANT then
+            out[#out + 1] = { t = o[1] - (o[3] or 0), dur = o[3] or 0, kind = k, used = false }
+        end
+    end
+    table.sort(out, function(a, b) return a.t < b.t end)
+    return out
+end
+
+-- Renvoie { [clé] = { pulls = {{t,...},...}, durs = {...}, tlDur = n, kind = n, tl = bool } }
+--   clé "tl:<durée>"   : capacité vue par la timeline (identité = durée-identité)
+--   clé "cast:<durée>" : capacité vue UNIQUEMENT par le flux d'incantations
+local function collectAbilities(pulls)
+    local out = {}
+    local function slot(key, init)
+        local e = out[key]
+        if not e then e = init; e.pulls = {}; e.durs = {}; out[key] = e end
+        return e
+    end
+
     for pullIdx, p in ipairs(pulls) do
-        for _, o in ipairs(p.obs) do
-            local t, kind, dur, name = o[1], o[2], o[3], o[4]
-            if (kind == Store.KIND_CAST or kind == Store.KIND_CHANNEL) and type(name) == "string" then
-                local e = out[name]
-                if not e then e = { pulls = {}, durs = {}, kind = kind }; out[name] = e end
+        local adds  = dedupAdds(p.obs)
+        local casts = castStarts(p.obs)
+
+        -- a) événements timeline, appariés à leur incantation quand elle existe
+        for _, a in ipairs(adds) do
+            local key = string.format("tl:%.2f", bucket(a.dur))
+            local e = slot(key, { tlDur = bucket(a.dur), tl = true })
+            e.pulls[pullIdx] = e.pulls[pullIdx] or {}
+            local list = e.pulls[pullIdx]
+            list[#list + 1] = a.t
+            for _, c in ipairs(casts) do
+                if not c.used and math.abs(c.t - a.t) <= PAIR_TOL then
+                    c.used = true
+                    if c.dur > 0 then e.durs[#e.durs + 1] = c.dur end
+                    e.kind = c.kind
+                    break
+                end
+            end
+        end
+
+        -- b) incantations orphelines : invisibles pour la timeline, mais bien réelles
+        for _, c in ipairs(casts) do
+            if not c.used then
+                local key = string.format("cast:%.2f", bucket(c.dur))
+                local e = slot(key, { tl = false, kind = c.kind })
+                e.pulls[pullIdx] = e.pulls[pullIdx] or {}
                 local list = e.pulls[pullIdx]
-                if not list then list = {}; e.pulls[pullIdx] = list end
-                list[#list + 1] = t
-                if dur and dur > 0 then e.durs[#e.durs + 1] = dur end
+                list[#list + 1] = c.t
+                if c.dur > 0 then e.durs[#e.durs + 1] = c.dur end
             end
         end
     end
-    -- compacte les trous d'indices de pull (un pull peut ne pas contenir la capacité)
+
+    -- compacte les indices de pull (une capacité peut manquer d'un pull)
     for _, e in pairs(out) do
         local dense = {}
         for i = 1, #pulls do
-            if e.pulls[i] then
-                table.sort(e.pulls[i])
-                dense[#dense + 1] = e.pulls[i]
-            end
+            if e.pulls[i] then table.sort(e.pulls[i]); dense[#dense + 1] = e.pulls[i] end
         end
         e.pulls = dense
     end
@@ -176,7 +305,13 @@ local function foldPhases(times, T, p)
             for _, v in ipairs(c) do vals[#vals + 1] = (v < T / 2) and (v + T) or v end
         end
         local m = median(vals)
-        local d = mad(vals, m) or 0
+        local d = devQuantile(vals, m, TIGHT_Q) or 0
+        if Infer._trace and Infer._traceDur == Infer._curDur then
+            local sh = {}
+            for i = 1, math.min(#c, 8) do sh[i] = string.format("%.1f", c[i]) end
+            print(string.format("      [fold] paquet n=%d span=%.2f (T/2=%.2f) median=%.2f mad=%.2f  ph=%s",
+                #c, span, T/2, m, d, table.concat(sh, " ")))
+        end
         if d > worst then worst = d end
         centers[#centers + 1] = m % T
     end
@@ -185,6 +320,12 @@ local function foldPhases(times, T, p)
 end
 
 -- times : tous les instants d'apparition, tous pulls confondus.
+--
+-- Le cycle T candidat et le nombre de positions p restent LIÉS : T est estimé à
+-- partir des sommes de p intervalles consécutifs, et validé par un repliement en
+-- p paquets. Découpler les deux (essayer chaque T avec chaque p) a été testé et
+-- dégrade nettement — une mauvaise combinaison passe le repliement avant la
+-- bonne. On garde donc la contrainte, et on retient la plus petite période.
 local function detectSeries(perPullDeltas, times, firstSeen)
     local all = {}
     for _, deltas in ipairs(perPullDeltas) do
@@ -192,13 +333,16 @@ local function detectSeries(perPullDeltas, times, firstSeen)
     end
     if #all == 0 then return nil end
 
-    local fallback = { period = 1, series = { median(all) }, score = spread(all),
-                       dispSec = mad(all) or 0, weak = true }
-
     for p = 1, MAX_PERIOD do
         local T, nSums = estimateCycle(perPullDeltas, p)
         if T and nSums >= 2 then
             local centers, dispSec = foldPhases(times, T, p)
+            if Infer._trace and Infer._traceDur == Infer._curDur then
+                print(string.format("    [trace] p=%d T=%.2f centres=%s disp=%s tol=%.2f -> %s",
+                    p, T, centers and #centers or 0,
+                    dispSec and string.format("%.3f", dispSec) or "-", tolFor(T),
+                    (centers and dispSec <= tolFor(T)) and "ACCEPTE" or "rejete"))
+            end
             if centers and dispSec <= tolFor(T) then
                 -- ordonne la série à partir du paquet contenant la première apparition
                 local phase0 = firstSeen % T
@@ -215,52 +359,35 @@ local function detectSeries(perPullDeltas, times, firstSeen)
                     if d <= 0 then d = d + T end
                     series[i] = d
                 end
-                return { period = p, series = series, cycle = T,
+
+                -- Canonisation : une série dont toutes les positions sont égales
+                -- décrit en réalité un cooldown FIXE. { 41.5, 41.9 } et { 41.5 }
+                -- prédisent la même chose ; la seconde forme est la bonne.
+                -- Le cas se produit quand des pertes d'observations empêchent
+                -- d'estimer le cycle simple et que seul le cycle double se replie.
+                if p > 1 then
+                    local m, flat = median(series), true
+                    for _, v in ipairs(series) do
+                        if math.abs(v - m) > tolFor(m) then flat = false; break end
+                    end
+                    if flat then series = { m }; T = m end
+                end
+
+                return { period = #series, series = series, cycle = T,
                          dispSec = dispSec, score = dispSec / T, ok = true }
             end
         end
     end
-    return fallback
+
+    -- aucune période stable : on rend la médiane des intervalles, explicitement
+    -- marquée « weak » pour que le rapport le signale au lieu de faire illusion.
+    return { period = 1, series = { median(all) }, score = spread(all),
+             dispSec = mad(all) or 0, weak = true }
 end
 
---------------------------------------------------------------------------
--- 4. Corrélation avec la timeline Blizzard.
---------------------------------------------------------------------------
--- Pour chaque événement de timeline dont on connaît l'instant de déclenchement,
--- on cherche l'incantation observée la plus proche. Cela lie « durée-identité »
--- (ce que voit BlizzTimeline) à « nom de capacité » (ce que voit le joueur).
-local function correlateTimeline(pulls)
-    local byName = {}
-    for _, p in ipairs(pulls) do
-        local casts = {}
-        for _, o in ipairs(p.obs) do
-            if (o[2] == Store.KIND_CAST or o[2] == Store.KIND_CHANNEL) and type(o[4]) == "string" then
-                casts[#casts + 1] = { t = o[1], name = o[4] }
-            end
-        end
-        for _, o in ipairs(p.obs) do
-            if o[2] == Store.KIND_TIMELINE and o[5] then
-                local fire, idDur = o[5], o[3]
-                local bestName, bestDelta
-                for _, c in ipairs(casts) do
-                    local delta = math.abs(c.t - fire)
-                    if delta <= CORRELATE_WINDOW and (not bestDelta or delta < bestDelta) then
-                        bestName, bestDelta = c.name, delta
-                    end
-                end
-                if bestName and idDur then
-                    byName[bestName] = byName[bestName] or {}
-                    table.insert(byName[bestName], idDur)
-                end
-            end
-        end
-    end
-    local out = {}
-    for name, list in pairs(byName) do
-        out[name] = { dur = median(list), n = #list }
-    end
-    return out
-end
+-- Exposé pour Tools/test_infer.lua : permet de tester la détection isolément.
+Infer._detect = detectSeries
+Infer._median = median
 
 --------------------------------------------------------------------------
 -- Analyse complète d'une rencontre.
@@ -269,15 +396,20 @@ end
 --   { name, spellID, icon, castDuration, firstSeenSec, cdSeriesSec,
 --     timelineDur, samples, pulls, spread, quality, warn }
 function Infer:Analyze(key)
-    local pulls = Store:GetPulls(key)
-    if not pulls or #pulls == 0 then return nil, "aucun pull enregistré pour " .. tostring(key) end
+    local pulls, legacy = Store:GetPulls(key)
+    if not pulls or #pulls == 0 then
+        if legacy and legacy > 0 then
+            return nil, string.format(
+                "%d capture(s) au schéma v1 ignorée(s) pour %s — elles contenaient les sorts du joueur. "
+                .. "Faites /tmb learn prune, puis de nouveaux pulls.", legacy, tostring(key))
+        end
+        return nil, "aucun pull enregistré pour " .. tostring(key)
+    end
 
-    local encID = tonumber(key)   -- nil si clé synthétique
-    local casts = collectCasts(pulls)
-    local tlByName = correlateTimeline(pulls)
+    local abilities = collectAbilities(pulls)
     local results = {}
 
-    for name, e in pairs(casts) do
+    for akey, e in pairs(abilities) do
         local firsts, perPullDeltas, allTimes, total, horizon = {}, {}, {}, 0, 0
 
         for _, times in ipairs(e.pulls) do
@@ -290,7 +422,19 @@ function Infer:Analyze(key)
             if #d > 0 then perPullDeltas[#perPullDeltas + 1] = d end
         end
 
-        local firstSeen = median(firsts) or 0
+        -- Ancre de la série. On prend le MINIMUM et non la médiane : une
+        -- observation perdue ne peut que faire paraître la première apparition
+        -- PLUS TARDIVE, jamais plus précoce. La médiane se laissait entraîner
+        -- quand plusieurs pulls rataient la première occurrence, et la série
+        -- ressortait juste mais pivotée (ex. {20, 33, 12} au lieu de {12, 20, 33}).
+        Infer._curDur = e.tlDur
+        if Infer._trace and Infer._traceDur == e.tlDur then
+            local ph = {}
+            for i = 1, math.min(#allTimes, 12) do ph[i] = string.format("%.1f", allTimes[i]) end
+            print("    [trace] instants = " .. table.concat(ph, " "))
+        end
+        local firstSeen = firsts[1] or 0
+        for _, v in ipairs(firsts) do if v < firstSeen then firstSeen = v end end
         local det = detectSeries(perPullDeltas, allTimes, firstSeen)
         local series = {}
         if det then
@@ -298,13 +442,9 @@ function Infer:Analyze(key)
         end
 
         local nPulls = #e.pulls
-        local disp = det and det.score or 1
-        local cycle = det and det.cycle or (series[1] or 0)
-        local weak = det and det.weak
+        local cycle  = det and det.cycle or (series[1] or 0)
+        local weak   = det and det.weak
 
-        -- La qualité ne dépend pas d'un seuil arbitraire de dispersion : le
-        -- repliement a déjà tranché (ok / weak). Ce qui reste à juger, c'est la
-        -- quantité de preuves : combien de pulls, et sur quelle durée.
         local quality
         if det and det.ok and nPulls >= 3 then quality = "bon"
         elseif det and det.ok and nPulls >= 2 then quality = "moyen"
@@ -318,27 +458,27 @@ function Infer:Analyze(key)
         elseif nPulls < 2 then
             warn = "un seul pull — série non vérifiée"
         elseif cycle > 0 and horizon < 2 * cycle then
-            -- garde-fou honnête : sur des pulls plus courts que deux cycles, la
-            -- série est une extrapolation, pas une observation.
             warn = string.format("pulls trop courts (%.0fs observées pour un cycle de %.0fs) — série non confirmée",
                 horizon, cycle)
             if quality == "bon" then quality = "moyen" end
         end
-
-        local tl = tlByName[name]
-        local jr = encID and NS.Learn.Journal:ResolveSpell(encID, name) or nil
+        if e.tl and #e.durs == 0 then
+            warn = (warn and (warn .. " ; ") or "")
+                .. "aucune incantation appariée — mécanique sans cast visible (add, zone au sol...)"
+        end
 
         results[#results + 1] = {
-            name         = name,
-            spellID      = jr and jr.spellID or nil,
-            icon         = jr and jr.icon or nil,
-            castDuration = NS.round(median(e.durs) or 0, 1),
-            firstSeenSec = NS.round(median(firsts) or 0, 1),
+            key          = akey,
+            timelineDur  = e.tlDur,
+            fromTimeline = e.tl,
+            castDuration = NS.round(median(e.durs) or 0, 2),
+            castSpread   = e.durs[1] and NS.round(mad(e.durs) or 0, 2) or nil,
+            firstSeenSec = NS.round(firstSeen, 1),
             cdSeriesSec  = series,
-            timelineDur  = tl and NS.round(tl.dur, 1) or nil,
+            cycle        = NS.round(cycle, 1),
             samples      = total,
             pulls        = nPulls,
-            spread       = disp,
+            spread       = det and det.score or 1,
             quality      = quality,
             warn         = warn,
             channel      = e.kind == Store.KIND_CHANNEL,
@@ -358,26 +498,28 @@ function Infer:PrintReport(key)
     local res, err = self:Analyze(key)
     if not res then NS:Print("|cffe06c75" .. tostring(err) .. "|r"); return end
 
-    local nPulls = Store:CountPulls(key)
-    NS:Print(string.format("Analyse de |cff8bd5ca%s|r — %d pull(s), %d capacité(s) détectée(s) :",
-        tostring(key), nPulls, #res))
+    NS:Print(string.format("Analyse de |cff8bd5ca%s|r — %d pull(s), %d capacité(s) :",
+        tostring(key), Store:CountPulls(key), #res))
 
     for _, r in ipairs(res) do
         local col = QCOL[r.quality] or "|cffffffff"
         local ser = #r.cdSeriesSec > 0 and table.concat(r.cdSeriesSec, ", ") or "—"
-        NS:Print(string.format("  %s%s|r  t=%.1fs  cd={%s}  cast=%.1fs  (%d obs / %d pulls, %s)",
-            col, r.name, r.firstSeenSec, ser, r.castDuration, r.samples, r.pulls, r.quality))
-        if r.spellID then
-            NS:Print(string.format("      spellID %d (Journal)%s", r.spellID,
-                r.timelineDur and string.format(", durée timeline %.1fs", r.timelineDur) or ""))
+        local ident = r.fromTimeline
+            and string.format("timeline %.2fs", r.timelineDur or 0)
+            or  "hors timeline"
+        NS:Print(string.format("  %s%s|r  (%s)  t=%.1fs  cd={%s}  cycle=%.1fs",
+            col, r.key, ident, r.firstSeenSec, ser, r.cycle))
+        if r.castDuration and r.castDuration > 0 then
+            NS:Print(string.format("      %s de %.2fs%s  —  %d obs / %d pull(s), %s",
+                r.channel and "canalisation" or "incantation", r.castDuration,
+                r.castSpread and r.castSpread > 0.05
+                    and string.format(" (±%.2f)", r.castSpread) or "",
+                r.samples, r.pulls, r.quality))
         else
-            NS:Print("      |cffe8c07dspellID non résolu|r — le Journal ne connaît pas ce nom")
+            NS:Print(string.format("      %d obs / %d pull(s), %s", r.samples, r.pulls, r.quality))
         end
         if r.warn then NS:Print("      |cffe8c07d! " .. r.warn .. "|r") end
     end
 
-    if Store:IsSynthetic(key) then
-        NS:Print("|cffe8c07dClé synthétique|r : reliez-la à un encounterID avec |cff8bd5ca/tmb learn rekey "
-            .. key .. " <encounterID>|r pour résoudre les spellID.")
-    end
+    NS:Print("Rôle, sévérité et voix ne sont pas déductibles : à régler à la main.")
 end

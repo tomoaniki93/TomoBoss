@@ -26,6 +26,14 @@ local TOL   = 0.75 -- tolérance de correspondance de durée (s)
 local SYNC_WINDOW = 10 -- fenêtre après le pull où les règles « sync » sont éligibles (s)
 local DEDUP = 1.0  -- fenêtre anti-doublon (ré-ADD du même sort)
 
+-- Ré-ADD : le serveur re-poste un événement DÉJÀ programmé, et dans ce cas
+-- `duration` ne contient plus l'intervalle mais le TEMPS RESTANT. Relevé sur
+-- capture réelle (Emberdawn) : fire=128,77 posté à 113,27 avec duration 15,50,
+-- puis re-posté à 118,13 avec duration 10,64. Identifier sur 10,64 désigne une
+-- AUTRE capacité, ou fait basculer en mode générique.
+-- Signature retenue : même instant de déclenchement ET durée réduite.
+local READD_TOL = 0.25  -- coïncidence de fin (s)
+
 local function cfg() return NS.db.profile.blizzTimeline end
 
 function BT:Available()
@@ -264,9 +272,42 @@ function BT:OnAdded(x)
         NS.Bus:Emit("TMB_TIMELINE_PULL", "1er événement de timeline")
     end
 
-    local ev = self:MatchDuration(matchDur or fireDur)
     local now = GetTime()
     local endTime = now + (fireDur or 5)
+
+    -- Ré-ADD d'un événement déjà actif : on met à jour le MINUTAGE et on
+    -- conserve l'IDENTITÉ d'origine. Ce test doit précéder MatchDuration :
+    -- ré-identifier sur une durée qui est en fait un temps restant est
+    -- exactement le piège que ce bloc existe pour éviter.
+    do
+        local hitID, hitE
+        for aid, e in pairs(self.active) do
+            if math.abs(e.endTime - endTime) <= READD_TOL
+                and matchDur and e.matchDur and matchDur < e.matchDur - 0.01 then
+                hitID, hitE = aid, e
+                break
+            end
+        end
+        if hitE then
+            hitE.endTime = endTime
+            if id and id ~= hitID then
+                -- le serveur a changé d'identifiant : on suit le nouveau sans
+                -- refaire l'identification (mutation hors de la boucle pairs)
+                self.active[hitID] = nil
+                self.active[id] = hitE
+                NS.UI.TimerBars:Remove("bt:" .. hitID)
+                if NS.UI.Rings then NS.UI.Rings:Remove("bt:" .. hitID) end
+            end
+            local key = (id and id ~= hitID) and id or hitID
+            self:Render(key, hitE.name, hitE.icon or 134400,
+                math.max(0.1, endTime - now), endTime, hitE.severity, hitE.role)
+            NS:Debug("Timeline : ré-ADD ignoré pour l'identité (durée ", tostring(matchDur),
+                " = temps restant), minutage mis à jour.")
+            return
+        end
+    end
+
+    local ev = self:MatchDuration(matchDur or fireDur)
 
     -- anti-doublon : même capacité déjà programmée quasi au même instant
     if ev then
@@ -302,7 +343,8 @@ function BT:OnAdded(x)
     end
 
     self.active[id] = {
-        endTime = endTime, total = fireDur or 5, name = name, icon = icon, severity = sev,
+        endTime = endTime, total = fireDur or 5, matchDur = matchDur,
+        name = name, icon = icon, severity = sev,
         voice = voice, evRef = ev, role = role, preAlert = preAlert, announced = false,
         generic = generic,
     }

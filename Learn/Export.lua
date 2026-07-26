@@ -14,6 +14,11 @@
 -- ce sont des choix d'auteur. L'export les remplit avec des valeurs neutres
 -- explicitement marquées « À RÉGLER » pour qu'aucune donnée non relue ne
 -- se retrouve publiée par inadvertance.
+--
+-- Le spellID et l'eventID ne sont pas déductibles non plus : sous Midnight le
+-- serveur ne livre ni nom ni GUID exploitable. Ce que l'apprentissage produit,
+-- c'est le MINUTAGE (firstSeenSec / cdSeriesSec) et la durée-identité — soit
+-- exactement ce que consomme BT:BuildMatchIndex.
 
 local NS = select(2, ...)
 local Export = {}
@@ -44,14 +49,16 @@ function Export:BuildDef(key, minQuality)
             events[#events + 1] = {
                 role         = "other",          -- À RÉGLER
                 voice        = "",               -- À RÉGLER
-                spellID      = r.spellID,
+                spellID      = nil,              -- À RÉGLER (non déductible)
                 castType     = r.channel and "channel" or "begincast",
                 castDuration = r.castDuration,
                 firstSeenSec = r.firstSeenSec,
                 cdSeriesSec  = r.cdSeriesSec,
                 severity     = 1,                -- À RÉGLER
-                __name       = r.name,           -- repli si spellID absent
+                __key        = r.key,
+                __tlDur      = r.timelineDur,
                 __quality    = r.quality,
+                __cycle      = r.cycle,
             }
         end
     end
@@ -109,8 +116,9 @@ function Export:Emit(key, minQuality)
     local function w(s) out[#out + 1] = s end
 
     w("-- Généré par TomoBoss (apprentissage) le " .. date("%Y-%m-%d %H:%M"))
-    w("-- Source : observations de combat + Journal des rencontres. Aucune donnée tierce.")
-    w("-- À RÉGLER avant publication : role, voice, severity, preAlertSec.")
+    w("-- Source : observations de MES propres pulls. Aucune donnée tierce.")
+    w("-- Identité = durée (le serveur ne livre ni nom ni GUID sous Midnight).")
+    w("-- À RÉGLER avant publication : spellID, role, voice, severity, preAlertSec.")
     w("")
     w(string.format("R(%d, {", encID))
     w(string.format("    name = %q,", def.name))
@@ -119,9 +127,10 @@ function Export:Emit(key, minQuality)
 
     for _, ev in ipairs(def.events) do
         local sid = ev.spellID and tostring(ev.spellID) or "nil"
-        local comment = ev.spellID
-            and string.format("  -- %s [%s]", ev.__name, ev.__quality)
-            or string.format("  -- %s [%s] spellID NON RÉSOLU", ev.__name, ev.__quality)
+        local comment = string.format("  -- %s%s [%s, cycle %.0fs] spellID À RENSEIGNER",
+            ev.__key,
+            ev.__tlDur and string.format(" (timeline %.2fs)", ev.__tlDur) or " (hors timeline)",
+            ev.__quality, ev.__cycle or 0)
         w(string.format(
             '        { role = "other", voice = "", spellID = %s, castType = %q, castDuration = %s, '
             .. 'firstSeenSec = %s, cdSeriesSec = { %s }, severity = 1 },%s',
