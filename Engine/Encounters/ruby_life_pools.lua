@@ -11,6 +11,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Kokia Blazehoof  (encounterID 2606)
 R(2606, {
     name = "Kokia Blazehoof",
+    provenance = "littlewigs",
     dungeon = "Ruby Life Pools",
     matchOnly = true,
     events = {
@@ -23,6 +24,7 @@ R(2606, {
 -- Melidrussa Chillworn  (encounterID 2609)
 R(2609, {
     name = "Melidrussa Chillworn",
+    provenance = "littlewigs",
     dungeon = "Ruby Life Pools",
     matchOnly = true,
     events = {
@@ -35,6 +37,7 @@ R(2609, {
 -- Kyrakka and Erkhart Stormvein  (encounterID 2623)
 R(2623, {
     name = "Kyrakka and Erkhart Stormvein",
+    provenance = "littlewigs",
     dungeon = "Ruby Life Pools",
     matchOnly = true,
     events = {

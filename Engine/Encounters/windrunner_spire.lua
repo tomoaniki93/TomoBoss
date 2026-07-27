@@ -9,6 +9,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Emberdawn  (encounterID 3056)
 R(3056, {
     name = "Emberdawn",
+    provenance = "exboss",
     dungeon = "Flèche des Coursevent",
     events = {
         { role = "heal", voice = "prepare-target", spellID = 466556, eventID = 241, castType = "begincast", castDuration = 1.5, firstSeenSec = 6.1, cdSeriesSec = { 40.1, 15.8, 38.9, 15.8 }, severity = 1 },
@@ -20,6 +21,7 @@ R(3056, {
 -- Derelict Duo  (encounterID 3057)
 R(3057, {
     name = "Derelict Duo",
+    provenance = "exboss",
     dungeon = "Flèche des Coursevent",
     events = {
         { role = "other", voice = "target-drop-water", spellID = 472745, eventID = 28, castType = "begincast", castDuration = 4, firstSeenSec = 8, cdSeriesSec = { 27.3, 30.7 }, severity = 1 },
@@ -32,6 +34,7 @@ R(3057, {
 -- Commander Kroluk  (encounterID 3058)
 R(3058, {
     name = "Commander Kroluk",
+    provenance = "exboss",
     dungeon = "Flèche des Coursevent",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 467620, eventID = 556, castType = "begincast", castDuration = 2, firstSeenSec = 3.2, cdSeriesSec = { 52.2, 30.5, 8.4, 11, 41.3, 9.7, 14.7, 15.7, 26.7, 51.1 }, severity = 0 },
@@ -48,6 +51,7 @@ R(3058, {
 -- Restless Heart  (encounterID 3059)
 R(3059, {
     name = "Restless Heart",
+    provenance = "exboss",
     dungeon = "Flèche des Coursevent",
     events = {
         { role = "mechanic", voice = "prepare-arrow", spellID = 468429, eventID = 21, castType = "begincast", castDuration = 7, firstSeenSec = 25.5, cdSeriesSec = { 65 }, severity = 2, preAlertSec = 3 },

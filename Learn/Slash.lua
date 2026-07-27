@@ -21,6 +21,7 @@ local function help()
     NS:Print("  |cff8bd5ca/tmb learn export <clé> [seuil]|r bloc Lua à coller dans Engine/Encounters/")
     NS:Print("  |cff8bd5ca/tmb learn rekey <clé> <encID>|r  relier une clé synthétique à un encounterID")
     NS:Print("  |cff8bd5ca/tmb learn clear [clé]|r        effacer une rencontre (ou tout)")
+    NS:Print("  |cff8bd5ca/tmb learn provenance [tout]|r  d'où viennent mes données de minutage")
     NS:Print("  seuil = |cff8bd5cafaible|r | |cff8bd5camoyen|r (défaut) | |cff8bd5cabon|r")
 end
 
@@ -81,6 +82,8 @@ function Learn:HandleSlash(rest)
         else
             NS:Print("|cffe06c75Clé inconnue.|r")
         end
+    elseif sub == "provenance" then
+        NS.Learn.Provenance:Print(arg1 == "tout" or arg1 == "all")
     elseif sub == "clear" or sub == "effacer" then
         if arg1 == "" then
             Store:Clear()

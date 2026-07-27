@@ -97,15 +97,18 @@ local function runSynth(label, n, length, opts)
                     if math.abs(r.cdSeriesSec[i] - v) > math.max(0.6, v * 0.05) then good = false end
                 end
             end
-            local firstOk = math.abs(r.firstSeenSec - t.first) <= 1.0
+            -- L'occurrence est ancrée sur l'instant où la mécanique TOMBE,
+            -- donc sur la FIN de l'incantation : la première apparition
+            -- attendue est décalée de la durée d'incantation.
+            local firstOk = math.abs(r.firstSeenSec - (t.first + t.cast)) <= 1.0
             local castOk  = math.abs(r.castDuration - t.cast) <= 0.15
             local under   = opts.horizonShort and #t.series > 1 and r.warn
             if not (good and firstOk and castOk) and not under then ok = false end
             local verdict = (good and firstOk and castOk) and "OK   " or (under and "TOLÉRÉ" or "ÉCHEC")
-            print(("  id-dur %-6s %s  cd={%s} attendu {%s}  first=%.1f  cast=%.2f"):format(
+            print(("  id-dur %-6s %s  cd={%s} attendu {%s}  first=%.1f (attendu %.1f)  cast=%.2f"):format(
                 t.id, verdict,
                 table.concat(r.cdSeriesSec, ", "), table.concat(t.series, ", "),
-                r.firstSeenSec, r.castDuration))
+                r.firstSeenSec, t.first + t.cast, r.castDuration))
             -- sur échec : le système s'est-il DÉCLARÉ incertain, ou a-t-il affirmé
             -- une valeur fausse avec assurance ? C'est toute la différence.
             if verdict == "ÉCHEC" then
@@ -249,3 +252,75 @@ end
 print(("  %d résultat(s) faux signalé(s), %d affirmé(s) à tort."):format(weak, confident))
 assert(confident == 0, "REGRESSION : une série fausse a été présentée comme fiable")
 print("  OK — aucun faux positif.")
+
+
+--========================================================================
+-- C. Corpus réel — 8 rencontres, 2 donjons (Académie 2526, Terrasse 2811)
+--========================================================================
+-- Ces captures viennent de pulls réels et servent de garde-fou de régression :
+-- elles contiennent des motifs qu'aucun jeu de données synthétique n'avait
+-- produits (séries de 5 valeurs, incantations toutes instantanées, durées
+-- sentinelles, conseils à cinq unités, amorçage par lots).
+print("\n=== CORPUS RÉEL (14 rencontres, 4 donjons) ===")
+local corpus = assert(loadfile("Tools/corpus_real.lua"))()
+local expect = {
+    -- clé, groupe attendu, série attendue (les cas verifies a la main)
+    { "2562", "instant:boss1", { 8.5, 9.5, 8.5, 7.5, 10 } },
+    { "2565", "instant:boss1", { 11, 3.5, 8.5, 10 } },
+    { "2562", "tl:18.00",      { 3, 10, 31 } },
+    -- Maisara 3212 : six capacités partageant une durée-identité de 45 s.
+    -- Chacune doit ressortir séparément avec un cooldown de 45 s, et non
+    -- fondue en une capacité unique à six positions.
+    { "3212", "tl:45.00#3",    { 45 } },
+    { "3328", "tl:12.00",      { 12 } },
+}
+local corpusOK = true
+for key, c in pairs(corpus) do
+    c.schema, c.date = Store.SCHEMA, "corpus"
+    NS.db.profile.learn.pulls[key] = { c }
+end
+for _, e in ipairs(expect) do
+    local key, want, series = e[1], e[2], e[3]
+    local found
+    for _, r in ipairs(NS.Learn.Infer:Analyze(key) or {}) do
+        if r.key == want then found = r end
+    end
+    local ok = found and #found.cdSeriesSec == #series
+    if ok then
+        for i, v in ipairs(series) do
+            if math.abs(found.cdSeriesSec[i] - v) > 0.35 then ok = false end
+        end
+    end
+    if not ok then corpusOK = false end
+    print(("  %s / %-14s %s  {%s}"):format(key, want, ok and "OK   " or "ÉCHEC",
+        found and table.concat(found.cdSeriesSec, ", ") or "absent"))
+end
+
+-- aucune rencontre ne doit faire planter l'analyse
+local total, nEnc = 0, 0
+for key in pairs(corpus) do
+    nEnc = nEnc + 1
+    local res = NS.Learn.Infer:Analyze(key)
+    assert(res, "analyse vide pour " .. key)
+    total = total + #res
+end
+print(("  %d capacités extraites sur les %d rencontres, sans erreur."):format(total, nEnc))
+
+-- Contrôle d'identité : le groupe à 45 s de Maisara doit donner SIX membres,
+-- dont les débuts d'incantation retombent sur 5, 12, 20, 28, 35 et 41 s.
+local members, starts = 0, {}
+for _, r in ipairs(NS.Learn.Infer:Analyze("3212") or {}) do
+    if r.splitOf == "tl:45.00" then
+        members = members + 1
+        starts[#starts + 1] = math.floor((r.firstSeenSec - r.castDuration) + 0.5)
+    end
+end
+table.sort(starts)
+print(("  3212 : %d membres, débuts d'incantation = {%s}")
+    :format(members, table.concat(starts, ", ")))
+assert(members == 6, "le groupe à 45 s doit donner six capacités")
+assert(table.concat(starts, ",") == "5,12,20,28,35,41",
+    "les offsets doivent correspondre aux valeurs relevées en jeu")
+print("  OK — identités séparées et offsets conformes.")
+assert(corpusOK, "REGRESSION sur le corpus réel")
+print("  OK — corpus réel conforme.")

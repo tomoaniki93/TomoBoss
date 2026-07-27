@@ -13,6 +13,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Chancellor Aforzane  (encounterID 3176)
 R(3176, {
     name = "Chancellor Aforzane",
+    provenance = "bossreminder",
     dungeon = "The Voidspire",
     bridgeOnly = true,
     events = {
@@ -34,6 +35,7 @@ R(3176, {
 -- Flachius  (encounterID 3177)
 R(3177, {
     name = "Flachius",
+    provenance = "bossreminder",
     dungeon = "The Voidspire",
     bridgeOnly = true,
     events = {
@@ -51,6 +53,7 @@ R(3177, {
 -- Fallen King Sahadal  (encounterID 3179)
 R(3179, {
     name = "Fallen King Sahadal",
+    provenance = "bossreminder",
     dungeon = "The Voidspire",
     bridgeOnly = true,
     events = {
@@ -68,6 +71,7 @@ R(3179, {
 -- Wielgor and Aizorak  (encounterID 3178)
 R(3178, {
     name = "Wielgor and Aizorak",
+    provenance = "bossreminder",
     dungeon = "The Voidspire",
     bridgeOnly = true,
     events = {
@@ -90,6 +94,7 @@ R(3178, {
 -- Light-Blind Vanguard  (encounterID 3180)
 R(3180, {
     name = "Light-Blind Vanguard",
+    provenance = "bossreminder",
     dungeon = "The Voidspire",
     bridgeOnly = true,
     events = {
@@ -120,6 +125,7 @@ R(3180, {
 -- Cosmic Crown  (encounterID 3181)
 R(3181, {
     name = "Cosmic Crown",
+    provenance = "bossreminder",
     dungeon = "The Voidspire",
     bridgeOnly = true,
     events = {

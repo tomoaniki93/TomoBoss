@@ -11,6 +11,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Adderis and Aspix  (encounterID 2124)
 R(2124, {
     name = "Adderis and Aspix",
+    provenance = "littlewigs",
     dungeon = "Temple of Sethraliss",
     matchOnly = true,
     events = {
@@ -24,6 +25,7 @@ R(2124, {
 -- Merektha  (encounterID 2125)
 R(2125, {
     name = "Merektha",
+    provenance = "littlewigs",
     dungeon = "Temple of Sethraliss",
     matchOnly = true,
     events = {
@@ -39,6 +41,7 @@ R(2125, {
 -- Galvazzt  (encounterID 2126)
 R(2126, {
     name = "Galvazzt",
+    provenance = "littlewigs",
     dungeon = "Temple of Sethraliss",
     matchOnly = true,
     events = {
@@ -50,6 +53,7 @@ R(2126, {
 -- Avatar of Sethraliss  (encounterID 2127)
 R(2127, {
     name = "Avatar of Sethraliss",
+    provenance = "littlewigs",
     dungeon = "Temple of Sethraliss",
     matchOnly = true,
     events = {

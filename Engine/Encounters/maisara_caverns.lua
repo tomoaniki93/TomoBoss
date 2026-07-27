@@ -9,6 +9,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Muro'jin and Nekraxx  (encounterID 3212)
 R(3212, {
     name = "Muro'jin and Nekraxx",
+    provenance = "exboss",
     dungeon = "Cavernes de Maisara",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 1266480, eventID = 150, castType = "begincast", castDuration = 2.5, firstSeenSec = 5.9, cdSeriesSec = { 44.4, 45.1 }, severity = 0 },
@@ -23,6 +24,7 @@ R(3212, {
 -- Vordaza  (encounterID 3213)
 R(3213, {
     name = "Vordaza",
+    provenance = "exboss",
     dungeon = "Cavernes de Maisara",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 1251554, eventID = 16, castType = "begincast", castDuration = 1, firstSeenSec = 3, cdSeriesSec = { 33.5, 63, 33.5, 60 }, severity = 0 },
@@ -36,6 +38,7 @@ R(3213, {
 -- Raktul, Vessel of Souls  (encounterID 3214)
 R(3214, {
     name = "Raktul, Vessel of Souls",
+    provenance = "exboss",
     dungeon = "Cavernes de Maisara",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 1251023, eventID = 156, castType = "channel", firstSeenSec = 4, cdSeriesSec = { 26.4, 26.4, 67.2 }, severity = 0 },

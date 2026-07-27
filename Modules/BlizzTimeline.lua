@@ -19,7 +19,9 @@ BT._activeEnc = nil
 BT._candidates = nil
 BT._byEventID = {}   -- encID -> { [eventID] = ev }
 BT._syncUsed  = {}   -- encID -> { [index de règle] = true }
-BT._seqCounters = {} -- sequenceGroup -> compteur round-robin
+BT._seqCounters = {} -- sequenceGroup -> compteur round-robin (repli seulement)
+BT._phases    = {}   -- "encID|groupe" -> { [eventID] = offset dans le cycle }
+BT._drift     = {}   -- groupe -> correction de phase accumulée (s)
 BT._pullTime = nil   -- 1er ADDED depuis le dernier reset = pull
 
 local TOL   = 0.75 -- tolérance de correspondance de durée (s)
@@ -118,6 +120,69 @@ function BT:BuildEventIDIndex(encID)
     return map
 end
 
+--------------------------------------------------------------------------
+-- Désambiguïsation par PHASE.
+--------------------------------------------------------------------------
+-- Quand plusieurs capacités partagent la même durée (22 rencontres sur 41), il
+-- faut choisir. Le compteur round-robin le faisait par comptage : une seule
+-- perte d'ADDED le décalait, et TOUTES les annonces suivantes du groupe
+-- devenaient fausses jusqu'à la fin du pull. C'est le même mode de défaillance
+-- que l'indexation dans Learn/Infer, écarté là-bas pour la même raison.
+--
+-- Les règles `sync` contiennent déjà ce qu'il faut : l'offset de chaque capacité
+-- dans le cycle (rencontre 3212 : 5, 12, 20, 28, 35, 41 s sur 45 s). On calcule
+-- donc la phase de l'événement reçu et on retient le membre le plus proche.
+-- Une observation manquée ne décale rien : la phase suivante reste juste.
+--
+-- Correction de dérive : le cycle nominal n'est pas exactement le cycle réel
+-- (relevé sur capture : 24,28 s annoncés 24). Sans correction, l'écart
+-- s'accumule et finit par franchir la moitié de l'espacement. On suit donc le
+-- résidu par moyenne glissante, avec un gain faible et un résidu borné pour
+-- qu'une résolution douteuse ne puisse pas emporter l'ancrage.
+local DRIFT_GAIN = 0.25
+
+-- Offsets du groupe, déduits des règles `sync`. Repli : répartition uniforme
+-- selon sequenceOrder, pour les groupes dont un membre n'a pas de règle sync.
+function BT:GroupPhases(encID, grp, cycle, members)
+    local key = tostring(encID) .. "|" .. grp
+    local hit = self._phases[key]
+    if hit ~= nil then return hit or nil end
+
+    local set = NS.DURATION_RULES and NS.DURATION_RULES[encID]
+    if not set or not cycle or cycle <= 0 then self._phases[key] = false; return nil end
+
+    local syncTime = {}
+    for _, r in ipairs(set) do
+        if r.sync == true and r.eventID and r.time then
+            syncTime[r.eventID] = syncTime[r.eventID] or (r.time % cycle)
+        end
+    end
+
+    local out, missing = {}, 0
+    for i, m in ipairs(members) do
+        local off = syncTime[m.eventID]
+        if off then
+            out[i] = off
+        else
+            missing = missing + 1
+            out[i] = ((m.sequenceOrder or i) - 1) * (cycle / #members)
+        end
+    end
+    if missing > 0 then
+        NS:Debug("Timeline : groupe ", grp, " — ", missing,
+            " membre(s) sans règle sync, offsets répartis uniformément.")
+    end
+    self._phases[key] = out
+    return out
+end
+
+-- Écart circulaire signé entre deux phases.
+local function phaseDelta(a, b, cycle)
+    local d = (a - b) % cycle
+    if d > cycle / 2 then d = d - cycle end
+    return d
+end
+
 -- Applique les règles curées (durée -> eventID) pour une rencontre donnée.
 -- Rend l'événement, ou nil pour laisser la main à l'index historique.
 --   passe 1 : règles « sync » (séquence d'ouverture), consommées une seule fois
@@ -180,10 +245,35 @@ function BT:MatchRules(encID, duration)
                 table.sort(grouped, function(a, b)
                     return (a.sequenceOrder or 0) < (b.sequenceOrder or 0)
                 end)
-                local n = self._seqCounters[grp] or 0
-                pick = grouped[(n % #grouped) + 1]
-                self._seqCounters[grp] = n + 1
-                how = "round-robin"
+
+                local cycle  = grouped[1].time
+                local phases = self._pullTime
+                    and self:GroupPhases(encID, grp, cycle, grouped) or nil
+
+                if phases then
+                    local drift = self._drift[grp] or 0
+                    local ph = (now - self._pullTime - drift) % cycle
+                    local bestI, bestD
+                    for i = 1, #grouped do
+                        local d = math.abs(phaseDelta(ph, phases[i], cycle))
+                        if not bestD or d < bestD then bestI, bestD = i, d end
+                    end
+                    pick = grouped[bestI]
+                    how  = "phase"
+
+                    -- suivi de dérive, borné au quart de l'espacement moyen
+                    local resid = phaseDelta(ph, phases[bestI], cycle)
+                    local lim   = (cycle / #grouped) * 0.25
+                    if resid > lim then resid = lim elseif resid < -lim then resid = -lim end
+                    self._drift[grp] = drift + resid * DRIFT_GAIN
+                else
+                    -- repli quand la phase n'est pas calculable (arrivée en cours
+                    -- de combat, offsets absents) : comportement historique.
+                    local n = self._seqCounters[grp] or 0
+                    pick = grouped[(n % #grouped) + 1]
+                    self._seqCounters[grp] = n + 1
+                    how = "round-robin (repli)"
+                end
             end
         end
     end
@@ -386,6 +476,7 @@ function BT:ClearAll()
     self._candidates = nil
     wipe(self._syncUsed)
     wipe(self._seqCounters)
+    wipe(self._drift)
     self._pullTime = nil
 end
 

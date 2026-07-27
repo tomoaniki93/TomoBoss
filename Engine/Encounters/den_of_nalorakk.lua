@@ -12,6 +12,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- The Hoardmonger  (encounterID 3207)
 R(3207, {
     name = "The Hoardmonger",
+    provenance = "littlewigs",
     dungeon = "Den of Nalorakk",
     matchOnly = true,
     events = {
@@ -24,6 +25,7 @@ R(3207, {
 -- Sentinel of Winter  (encounterID 3208)
 R(3208, {
     name = "Sentinel of Winter",
+    provenance = "littlewigs",
     dungeon = "Den of Nalorakk",
     matchOnly = true,
     events = {
@@ -37,6 +39,7 @@ R(3208, {
 -- Nalorakk Den  (encounterID 3209)
 R(3209, {
     name = "Nalorakk Den",
+    provenance = "littlewigs",
     dungeon = "Den of Nalorakk",
     matchOnly = true,
     events = {

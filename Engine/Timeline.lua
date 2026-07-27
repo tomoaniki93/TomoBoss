@@ -30,6 +30,9 @@ end
 
 function E:GetEncounter(id) return self.Encounters[tonumber(id)] end
 
+-- Itération sur le registre complet (suivi de provenance, diagnostics).
+function E:AllEncounters() return self.Encounters end
+
 --------------------------------------------------------------------------
 -- Fusion dans la base (merge).
 -- Permet à un fichier complémentaire d'ajouter, remplacer ou retirer des

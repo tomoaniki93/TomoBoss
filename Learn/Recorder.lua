@@ -140,8 +140,8 @@ function R:OnCastStart(unit, channel)
     if meta then
         if not meta.npc and npc then meta.npc = npc end
         if not meta.boss then
-            local n = UnitName(unit)
-            if n and n ~= "" and not NS:IsSecret(n) then meta.boss = n end
+            -- SafeString garde l'ordre : masqué d'abord, comparaison ensuite.
+            meta.boss = NS:SafeString(UnitName(unit))
         end
     end
     self._pending[unit] = { t = GetTime(), channel = channel, npc = npc }

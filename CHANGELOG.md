@@ -1,5 +1,238 @@
 # Changelog
 
+## [2.5.0]
+
+Corpus extended to 14 encounters across 4 dungeons (Academy 2526, Terrace 2811,
+Maisara 2874, Nexus Point 2915).
+
+### Added
+
+- **Abilities sharing a timeline duration are now separated.** Encounter 3212
+  posts eighteen events with a duration of 45 s; they are in fact *six distinct
+  abilities*, each returning every 45 s at its own phase. Modelling them as one
+  ability with a six-position series described the timing correctly but got the
+  identity wrong — and identity is what carries role, severity and voice.
+
+  The discriminator is the measured cast duration per position: six different
+  spells have six different cast times. On the corpus the separation is
+  unambiguous — 3.52 s of spread on 3212 against 0.02 s everywhere a single
+  ability genuinely repeats. Two documented positions are enough to decide.
+
+  Running this on a single pull of 3212 recovers cast-start offsets of
+  **5, 12, 20, 28, 35 and 41 s** — exactly the values in `DurationRules.lua`,
+  rediscovered without reading that file.
+
+- Seeding-batch singletons are merged away. The pull-start batch announces each
+  ability's *first* occurrence carrying its initial delay rather than its
+  cooldown; those entries duplicate members produced by the split and are now
+  dropped instead of appearing as six phantom one-observation abilities.
+
+### Fixed
+
+- **Pairing window widened from 0.05 s to 0.75 s.** It had been calibrated on
+  Emberdawn, where the timeline ADD coincides with the cast start to within
+  0.01 s. Other encounters delay the cast by more than half a second — up to
+  0.61 s on Maisara — leaving those positions with no measured duration and
+  blocking identity analysis. Widening requires picking the *nearest* unused
+  cast rather than the first in range.
+
+- Split members report their real first landing instead of the phase centre. A
+  centre can cross the cycle boundary and report 0.5 s for an ability that
+  actually lands at 45.5 s.
+
+### Testing
+
+- The corpus fixture grows from 8 to 14 encounters; 110 abilities extracted
+  without error. A new assertion checks that 3212's 45 s group yields exactly six
+  members with the expected offsets, so a regression on identity separation
+  fails the bench rather than shipping.
+
+## [2.4.2]
+
+### Fixed
+
+- **Taint error on every boss cast** (`Recorder.lua:144`, 118 occurrences in one
+  session). The late boss-name resolution added in 2.3.7 read:
+
+  ```lua
+  if n and n ~= "" and not NS:IsSecret(n) then
+  ```
+
+  Lua evaluates `and` left to right, so `n ~= ""` runs *before* the guard. On a
+  masked unit name that comparison raises — the very test meant to discard empty
+  values was what crashed. This is the same mistake that was diagnosed and fixed
+  in `readCast` three versions earlier and then reintroduced elsewhere.
+
+- The same pattern in `Journal.lua:134` (`UnitName("boss"..i)` inside
+  `ResolveCurrentEncounter`). It had not fired yet because the function is only
+  reached when boss units are unavailable, but it was a latent crash.
+
+### Added
+
+- **`NS:SafeString(v)`**, the counterpart to `NS:SafeNumber`. Its absence is the
+  reason the bug happened twice: with no helper, the "readable and non-empty"
+  test is hand-rolled every time and the operand order eventually slips. Returns
+  the string if readable and non-empty, `nil` otherwise, and never raises.
+
+- **`Tools/test_taint.lua`** — static analyser for this class of bug. It relies
+  on a distinction established from the crash report itself: in
+  `if n and n ~= "" and not NS:IsSecret(n)`, the truthiness test `n and` did
+  *not* raise — only `n ~= ""` did. Comparing a masked value to `nil` is
+  therefore safe (different types); comparing it to a value of the *same* type is
+  not. Only the latter is reported, so correct guards like
+  `if x ~= nil and not IsSecret(x)` are not flagged. Verified both ways: it
+  reports the original bug when reintroduced, and reports nothing on the fixed
+  tree (3840 lines across 14 files).
+
+## [2.4.1]
+
+### Fixed
+
+- **Duration-tie resolution no longer relies on a counter.** 22 of 41 encounters
+  contain abilities sharing the same timeline duration — encounter 3212 has six
+  at 45 s. Ties were resolved by a round-robin counter over `sequenceGroup`,
+  which resolves by *counting*: a single missed `ADDED` desynchronised it and
+  every subsequent callout in that group was wrong until the end of the pull.
+  This is the same failure mode as index-based series detection, rejected in
+  `Learn/Infer` for the same reason.
+
+  The `sync` rules already carry what is needed: each ability's offset within the
+  cycle (3212: 5, 12, 20, 28, 35, 41 s over 45 s). The phase of the incoming
+  event is computed and the nearest member selected. A missed observation shifts
+  nothing — the next phase is still correct. 8 of 9 sequence groups are fully
+  covered by sync offsets; the ninth falls back to uniform spacing by
+  `sequenceOrder`.
+
+  **Drift tracking.** The nominal cycle is not the real one — a real capture
+  shows 24.28 s where the data says 24. Uncorrected, the error accumulates and
+  eventually crosses half the member spacing. The residual is tracked by a
+  moving average with a low gain, and bounded to a quarter of the spacing so a
+  doubtful resolution cannot drag the anchor.
+
+  Where the phase cannot be computed (joined mid-encounter, so no pull anchor),
+  the previous round-robin behaviour is kept as a fallback.
+
+### Testing
+
+- `Tools/test_phase.lua` replays the real capture of encounter 3074 (three
+  abilities at 24 s, offsets 3 / 9 / 15) against both strategies. On the intact
+  stream both score zero. With a single event dropped, round-robin reaches **17
+  errors out of 17 remaining events** in the worst case and 8.5 on average;
+  phase matching stays at **zero** in every case.
+
+## [2.4.0]
+
+### Fixed
+
+- **The event bridge was never re-posted after a settings change.** What the game
+  plays is baked in at the moment the sound is posted: file path (voice pack,
+  voice on/off, generic fallback), volume, channel, trigger and colours. `Apply`
+  only ran on login and zone change, so changing the voice pack or the volume
+  slider mid-dungeon left the game playing the *old* files at the *old* volume
+  until the next zone change. Every relevant option now triggers a re-post.
+
+  Two safeguards make this safe rather than merely correct:
+
+  - **Debounced** (0.4 s). Dragging a slider emits dozens of callbacks and a
+    single post covers several hundred entries.
+  - **Deferred out of combat.** `Apply` starts with `Clear`, which empties
+    `_willPlay` — re-posting during an encounter would briefly convince
+    `BlizzTimeline` that the game is no longer announcing, and the callout would
+    fire twice. A refresh requested in combat is held and replayed on
+    `PLAYER_REGEN_ENABLED`.
+
+- Applying learned data with `/tmb learn apply` now refreshes the bridge and
+  invalidates `BlizzTimeline`'s event-ID index, so freshly learned timings
+  actually reach the game instead of waiting for a zone change.
+
+### Added
+
+- **`/tmb bridge` is now a real command.** The bridge settings existed in the
+  saved profile with no way to change them in game: `on`/`off`, `son`,
+  `couleurs`, `generique`, `declencheur 0|1|2`, `reposer`. Each toggle triggers a
+  re-post.
+- `/tmb bridge` and `/tmb learn` are listed in `/tmb aide` (both locales).
+- `Tools/test_bridge.lua` — offline harness for the refresh logic (debounce,
+  combat deferral, last-reason-wins, inactive module). Six cases.
+
+## [2.3.9]
+
+### Changed
+
+- **Occurrences are anchored on the moment the mechanic lands**, not on the
+  moment the server posts the event. A paired cast anchors on its completion; a
+  timeline-only ability anchors on `fire`. Abilities seeded by the pull-start
+  batch were previously given `firstSeenSec = 0`, which is not when anything
+  happens — the Academy corpus now correctly reports 2 s, 5 s, 15 s, 40 s
+  matching their announced durations.
+- **Overfitting guard on series detection.** Each series position is a free
+  parameter; with fewer than two observations per position, a long series
+  "explains" noise. Emberdawn folded 9 occurrences into 6 positions across 3
+  cycles — 1.5 points per bucket — and produced a six-value series where
+  `{35.2, 15.8}` describes the same thing. Two observations per position are now
+  required, and a single pull honestly reports low confidence instead.
+
+### Added
+
+- **Provenance tracking.** Every encounter definition now carries a
+  `provenance` field (`exboss` / `littlewigs` / `bossreminder` / `observed` /
+  `journal`), and `/tmb learn provenance` reports how much of the timing data
+  still rests on third-party values. Data applied by `/tmb learn apply` is
+  stamped `observed`, so the counter advances by itself.
+- `PROVENANCE.md` states the situation plainly: neither EXBoss nor LittleWigs
+  publishes a permissive licence — the LittleWigs repository has no LICENSE file
+  at all, which means all rights reserved rather than freely reusable. Deleting
+  the attribution comments would remove the paper trail without changing where
+  the values came from; the document sets out the actual plan instead.
+
+### Fixed
+
+- The French voice pack credit is now consistent between the README and the
+  in-game strings.
+
+## [2.3.8]
+
+Driven by a real corpus: 8 encounters across 2 dungeons (Academy 2526,
+Terrace 2811), 340 observations. Every item below is a defect the corpus
+exposed and no synthetic dataset had produced.
+
+### Fixed
+
+- **Circular clusters were measured as if sorted.** A phase bucket is a circular
+  arc built in traversal order, so `last - first` could be negative, the
+  wrap-around unwrap never triggered, and a perfectly regular ability was
+  rejected. Seen on real data: occurrences at 0 / 44.00 / 88.02 with an estimated
+  cycle of 44.01 — the 44.00 phase does not fold onto 0 because it is smaller.
+  Each value is now unwrapped relative to the arc's first element, which is exact
+  by construction and drops the half-cycle heuristic entirely.
+- **Series ceiling was too low.** `MAX_PERIOD` was 4; the Academy corpus contains
+  a five-value series — `{8.5, 9.5, 8.5, 7.5, 10.0}`, summing to exactly the 44 s
+  loop. The pattern was inexpressible and collapsed to a mean 8.5 s cooldown,
+  wrong every other cast. Raised to 8.
+- **Instant casts all collapsed into one group.** An instant cast has zero
+  duration and therefore no identity; every instant in an encounter merged into a
+  single meaningless bucket (29 instants from five council members fused
+  together). They are now separated by unit token.
+- **Sentinel durations polluted the analysis.** Values above 300 s are encounter
+  markers (enrage, phase aura), not cooldowns — 999 s and 975.9 s were observed.
+  Filtered.
+- **The dump verdict was misleading.** It counted instant casts as measured
+  casts, so captures with zero usable duration still announced "both streams
+  responding, identity can be (npcID, measured duration)". The verdict now
+  distinguishes timed casts from instants and reports npcID availability.
+
+### Changed
+
+- A series that is a whole repetition of a shorter prefix collapses to that
+  prefix: `{11, 3.5, 8.5, 10, 11, 3.5, 8.5, 10}` on a 66 s cycle is the 33 s loop
+  written twice.
+
+### Testing
+
+- `Tools/corpus_real.lua` — the 8 real captures are now a permanent regression
+  fixture, checked alongside the synthetic cases and the Emberdawn golden case.
+  61 abilities extracted across the corpus without error.
+
 ## [2.3.7]
 
 Everything here is derived from a real capture (Emberdawn, 233 s, 92

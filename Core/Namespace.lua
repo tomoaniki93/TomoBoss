@@ -56,6 +56,23 @@ function NS:IsSecret(v)
 end
 
 -- Convertit en nombre en sécurité (renvoie nil si masqué / invalide).
+-- Pendant de SafeNumber pour les chaînes.
+--
+-- Son absence a coûté deux bugs identiques : sans helper, le test « chaîne
+-- lisible et non vide » est réécrit à la main à chaque fois, et l'ordre des
+-- opérandes finit par glisser. Or `n ~= ""` évalué AVANT NS:IsSecret(n) lève
+-- le taint — c'est précisément la comparaison censée écarter les valeurs vides
+-- qui plante sur une valeur masquée.
+--
+-- Renvoie la chaîne si elle est lisible et non vide, nil sinon. Jamais d'erreur.
+function NS:SafeString(v)
+    if v == nil then return nil end
+    if self:IsSecret(v) then return nil end
+    if type(v) ~= "string" then return nil end
+    if v == "" then return nil end
+    return v
+end
+
 function NS:SafeNumber(v)
     if self:IsSecret(v) then return nil end
     local ok, n = pcall(tonumber, v)

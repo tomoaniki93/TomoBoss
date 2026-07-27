@@ -29,12 +29,36 @@ NS.Learn.Infer = Infer
 
 local Store = NS.Learn.Store
 
-local MAX_PERIOD  = 4      -- longueur maximale d'une série cyclique testée
+-- Longueur maximale d'une série cyclique testée. Portée de 4 à 8 sur corpus
+-- réel : à l'Académie (2562), les 15 instantanés d'un boss suivent une série de
+-- CINQ valeurs — { 8.5, 9.5, 8.5, 7.5, 10.0 }, dont la somme fait exactement la
+-- boucle de 44 s. Plafonner à 4 rendait ce motif inexprimable et le faisait
+-- retomber sur un cooldown moyen de 8,5 s, faux une fois sur deux.
+local MAX_PERIOD  = 8
 
--- Fenêtre d'appariement ADD <-> début d'incantation. La capture donne un écart
--- de 0,000 s dans 16 cas sur 18 et 0,010 s dans les deux autres : 0,05 s est
--- large sans être laxiste.
-local PAIR_TOL    = 0.05
+-- Au-delà, une durée n'est pas un cooldown mais un marqueur de rencontre
+-- (enrage, aura de phase). Relevé à la Terrasse : 999 et 975,9 s.
+local SENTINEL_DUR = 300
+
+-- Observations minimales par position de série, contre le surajustement.
+local MIN_PER_CLUSTER = 2
+
+-- Écart de durée d'incantation au-delà duquel deux positions d'une même série
+-- sont considérées comme deux capacités distinctes. Corpus : 0,02 s pour une
+-- capacité unique, 3,52 s pour six capacités confondues.
+local SPLIT_CAST_TOL = 0.50
+
+-- Fenêtre d'appariement ADD <-> début d'incantation.
+--
+-- Elle valait 0,05 s, calibrée sur Emberdawn où la coïncidence est exacte
+-- (0,000 s dans 16 cas sur 18). D'autres rencontres décalent le début de
+-- l'incantation de plus d'un demi-seconde après l'ADD — relevé jusqu'à 0,61 s
+-- sur Maisara. Une fenêtre trop serrée laissait ces positions sans durée
+-- mesurée et empêchait toute analyse d'identité.
+--
+-- Élargir impose de choisir le cast le PLUS PROCHE et non le premier venu,
+-- sans quoi une fenêtre large apparie n'importe quoi.
+local PAIR_TOL    = 0.75
 
 -- Déduplication. Deux formes de doublon coexistent dans la capture, et les
 -- confondre casse tout — dédupliquer sur le seul `fire` faisait s'annuler deux
@@ -117,7 +141,7 @@ local function dedupAdds(obs)
     -- passe 1 : combien de fois chaque durée nominale apparaît-elle ?
     local seen = {}
     for _, o in ipairs(obs) do
-        if o[2] == Store.KIND_TIMELINE and o[3] then
+        if o[2] == Store.KIND_TIMELINE and o[3] and o[3] < SENTINEL_DUR then
             local b = bucket(o[3])
             seen[b] = (seen[b] or 0) + 1
         end
@@ -125,7 +149,7 @@ local function dedupAdds(obs)
 
     local out = {}
     for _, o in ipairs(obs) do
-        if o[2] == Store.KIND_TIMELINE and o[3] then
+        if o[2] == Store.KIND_TIMELINE and o[3] and o[3] < SENTINEL_DUR then
             local t, dur, fire = o[1], o[3], o[6]
             local dup = false
             for _, u in ipairs(out) do
@@ -153,7 +177,8 @@ local function castStarts(obs)
     for _, o in ipairs(obs) do
         local k = o[2]
         if k == Store.KIND_CAST or k == Store.KIND_CHANNEL or k == Store.KIND_INSTANT then
-            out[#out + 1] = { t = o[1] - (o[3] or 0), dur = o[3] or 0, kind = k, used = false }
+            out[#out + 1] = { t = o[1] - (o[3] or 0), dur = o[3] or 0, kind = k,
+                              unit = o[5], used = false }
         end
     end
     table.sort(out, function(a, b) return a.t < b.t end)
@@ -175,31 +200,63 @@ local function collectAbilities(pulls)
         local adds  = dedupAdds(p.obs)
         local casts = castStarts(p.obs)
 
-        -- a) événements timeline, appariés à leur incantation quand elle existe
+        -- a) événements timeline, appariés à leur incantation quand elle existe.
+        --
+        -- L'occurrence retenue est l'instant où la MÉCANIQUE TOMBE, pas celui où
+        -- le serveur poste l'événement :
+        --   * incantation appariée -> fin de l'incantation (t_ADD + durée mesurée),
+        --     c'est le moment où l'effet part ;
+        --   * sinon -> `fire`, l'instant que le serveur annonce et vers lequel la
+        --     barre décompte déjà.
+        -- Sans ça, les capacités amorcées par le lot initial se voyaient attribuer
+        -- firstSeenSec = 0, alors que rien ne tombe au pull : la mécanique arrive
+        -- à `fire`.
         for _, a in ipairs(adds) do
             local key = string.format("tl:%.2f", bucket(a.dur))
             local e = slot(key, { tlDur = bucket(a.dur), tl = true })
             e.pulls[pullIdx] = e.pulls[pullIdx] or {}
             local list = e.pulls[pullIdx]
-            list[#list + 1] = a.t
+
+            local landed, cdur
+            local pick, pickD
             for _, c in ipairs(casts) do
-                if not c.used and math.abs(c.t - a.t) <= PAIR_TOL then
-                    c.used = true
-                    if c.dur > 0 then e.durs[#e.durs + 1] = c.dur end
-                    e.kind = c.kind
-                    break
+                if not c.used then
+                    local d = math.abs(c.t - a.t)
+                    if d <= PAIR_TOL and (not pickD or d < pickD) then pick, pickD = c, d end
                 end
             end
+            if pick then
+                pick.used = true
+                if pick.dur > 0 then e.durs[#e.durs + 1] = pick.dur end
+                e.kind = pick.kind
+                cdur = pick.dur
+                landed = a.t + pick.dur          -- fin d'incantation
+            end
+            -- la durée d'incantation est conservée AVEC l'occurrence : c'est
+            -- elle qui permettra de distinguer « une capacité qui revient N
+            -- fois » de « N capacités partageant une durée-identité ».
+            list[#list + 1] = { t = landed or a.fire or (a.t + a.dur), dur = cdur, seed = a.t <= 0.5 and a.fire or nil }
         end
 
         -- b) incantations orphelines : invisibles pour la timeline, mais bien réelles
         for _, c in ipairs(casts) do
             if not c.used then
-                local key = string.format("cast:%.2f", bucket(c.dur))
-                local e = slot(key, { tl = false, kind = c.kind })
+                -- Une incantation instantanée a une durée de 0 : elle ne porte
+                -- AUCUNE identité. Sans distinction supplémentaire, tous les
+                -- instantanés d'une rencontre s'agglutinent en un seul groupe
+                -- (relevé : 29 instantanés de cinq membres d'un conseil fondus
+                -- ensemble). Le jeton d'unité les sépare.
+                local key
+                if c.dur <= 0.01 then
+                    key = "instant:" .. (c.unit or "?")
+                else
+                    key = string.format("cast:%.2f", bucket(c.dur))
+                end
+                local e = slot(key, { tl = false, kind = c.kind, unit = c.unit })
                 e.pulls[pullIdx] = e.pulls[pullIdx] or {}
                 local list = e.pulls[pullIdx]
-                list[#list + 1] = c.t
+                -- même principe : on retient la FIN de l'incantation
+                list[#list + 1] = { t = c.t + c.dur, dur = c.dur }
                 if c.dur > 0 then e.durs[#e.durs + 1] = c.dur end
             end
         end
@@ -209,7 +266,10 @@ local function collectAbilities(pulls)
     for _, e in pairs(out) do
         local dense = {}
         for i = 1, #pulls do
-            if e.pulls[i] then table.sort(e.pulls[i]); dense[#dense + 1] = e.pulls[i] end
+            if e.pulls[i] then
+                table.sort(e.pulls[i], function(x, y) return x.t < y.t end)
+                dense[#dense + 1] = e.pulls[i]
+            end
         end
         e.pulls = dense
     end
@@ -259,6 +319,13 @@ local function estimateCycle(perPullDeltas, p)
     return median(sums), #sums
 end
 
+-- Écart circulaire signé entre deux phases.
+local function phaseDelta(a, b, cycle)
+    local d = (a - b) % cycle
+    if d > cycle / 2 then d = d - cycle end
+    return d
+end
+
 -- Replie les instants modulo T et renvoie p paquets ordonnés, ou nil si le
 -- repliement ne tient pas la route.
 local function foldPhases(times, T, p)
@@ -294,16 +361,32 @@ local function foldPhases(times, T, p)
     if #cur > 0 then clusters[#clusters + 1] = cur end
     if #clusters ~= p then return nil end
 
-    -- centres et dispersion, en SECONDES. Un paquet peut chevaucher 0
-    -- (ex. phases 0.1 et T-0.1) : on le déroule avant de calculer la médiane.
+    -- Garde-fou de SURAJUSTEMENT. Chaque position de la série est un paramètre
+    -- libre : sans preuve suffisante par position, une longue série « explique »
+    -- n'importe quel bruit. Relevé sur Emberdawn — 9 occurrences repliées en 6
+    -- positions sur 3 cycles donnaient 1,5 point par paquet et une série à six
+    -- valeurs, là où { 35.2, 15.8 } sur un seul cycle décrit la même chose.
+    -- Exiger 2 observations par position élimine ces descriptions creuses.
+    for _, c in ipairs(clusters) do
+        if #c < MIN_PER_CLUSTER then return nil end
+    end
+
+    -- Centres et dispersion, en SECONDES.
+    --
+    -- Un paquet est un ARC circulaire et il est construit dans l'ordre du
+    -- parcours, pas trié : `c[#c] - c[1]` pouvait donc être négatif, le test de
+    -- chevauchement ne se déclenchait pas, et un groupe parfaitement régulier
+    -- était rejeté. Cas relevé sur corpus réel : des instants à 0 / 44,00 /
+    -- 88,02 avec un cycle estimé à 44,01 — la phase 44,00 ne se replie pas sur
+    -- 0 puisqu'elle lui est inférieure.
+    --
+    -- On déroule donc chaque valeur PAR RAPPORT AU PREMIER élément de l'arc.
+    -- C'est exact par construction et sans heuristique de demi-cycle.
     local centers, worst = {}, 0
     for _, c in ipairs(clusters) do
-        local span = c[#c] - c[1]
-        local vals = c
-        if span > T / 2 then
-            vals = {}
-            for _, v in ipairs(c) do vals[#vals + 1] = (v < T / 2) and (v + T) or v end
-        end
+        local base = c[1]
+        local vals = {}
+        for i, v in ipairs(c) do vals[i] = base + ((v - base) % T) end
         local m = median(vals)
         local d = devQuantile(vals, m, TIGHT_Q) or 0
         if Infer._trace and Infer._traceDur == Infer._curDur then
@@ -370,11 +453,34 @@ local function detectSeries(perPullDeltas, times, firstSeen)
                     for _, v in ipairs(series) do
                         if math.abs(v - m) > tolFor(m) then flat = false; break end
                     end
-                    if flat then series = { m }; T = m end
+                    if flat then
+                        series = { m }; T = m
+                    else
+                        -- Une série qui est la RÉPÉTITION entière d'un préfixe
+                        -- décrit la même chose que ce préfixe. Relevé sur corpus :
+                        -- { 11, 3.5, 8.5, 10, 11, 3.5, 8.5, 10 } sur un cycle de
+                        -- 66 s, soit deux fois la boucle réelle de 33 s.
+                        for q = 1, math.floor(#series / 2) do
+                            if #series % q == 0 then
+                                local ok = true
+                                for i = q + 1, #series do
+                                    local ref = series[((i - 1) % q) + 1]
+                                    if math.abs(series[i] - ref) > tolFor(ref) then ok = false; break end
+                                end
+                                if ok then
+                                    local short, sum = {}, 0
+                                    for i = 1, q do short[i] = series[i]; sum = sum + series[i] end
+                                    series, T = short, sum
+                                    break
+                                end
+                            end
+                        end
+                    end
                 end
 
                 return { period = #series, series = series, cycle = T,
-                         dispSec = dispSec, score = dispSec / T, ok = true }
+                         centers = centers, dispSec = dispSec,
+                         score = dispSec / T, ok = true }
             end
         end
     end
@@ -412,13 +518,17 @@ function Infer:Analyze(key)
     for akey, e in pairs(abilities) do
         local firsts, perPullDeltas, allTimes, total, horizon = {}, {}, {}, 0, 0
 
-        for _, times in ipairs(e.pulls) do
-            firsts[#firsts + 1] = times[1]
-            total = total + #times
-            if times[#times] > horizon then horizon = times[#times] end
-            for _, t in ipairs(times) do allTimes[#allTimes + 1] = t end
+        local allOcc = {}
+        for _, occ in ipairs(e.pulls) do
+            firsts[#firsts + 1] = occ[1].t
+            total = total + #occ
+            if occ[#occ].t > horizon then horizon = occ[#occ].t end
+            for _, o in ipairs(occ) do
+                allTimes[#allTimes + 1] = o.t
+                allOcc[#allOcc + 1] = o
+            end
             local d = {}
-            for i = 2, #times do d[#d + 1] = times[i] - times[i - 1] end
+            for i = 2, #occ do d[#d + 1] = occ[i].t - occ[i - 1].t end
             if #d > 0 then perPullDeltas[#perPullDeltas + 1] = d end
         end
 
@@ -467,6 +577,82 @@ function Infer:Analyze(key)
                 .. "aucune incantation appariée — mécanique sans cast visible (add, zone au sol...)"
         end
 
+        -- ── Une capacité, ou plusieurs partageant une durée-identité ? ──
+        --
+        -- Relevé sur capture réelle (Maisara, rencontre 3212) : dix-huit
+        -- événements de durée 45 s correspondent en fait à SIX capacités
+        -- distinctes, chacune revenant toutes les 45 s à sa propre phase
+        -- (5, 12, 20, 28, 35 et 41 s). Les modéliser comme une seule capacité
+        -- à six positions décrit correctement le MINUTAGE mais fausse
+        -- l'identité — et c'est l'identité qui porte le rôle, la sévérité et
+        -- la voix.
+        --
+        -- Le discriminant est la DURÉE D'INCANTATION par position : six sorts
+        -- différents ont six durées différentes. Mesuré sur le corpus, la
+        -- séparation est nette — 3,52 s d'étendue pour 3212 contre 0,02 s
+        -- partout où il s'agit réellement d'une capacité unique.
+        local split
+        if det and det.ok and det.centers and #det.centers > 1 then
+            local byPos, firstAt = {}, {}
+            for i = 1, #det.centers do byPos[i] = {} end
+            for _, o in ipairs(allOcc) do
+                local ph, best, bestD = o.t % det.cycle, 1, nil
+                for i, cpos in ipairs(det.centers) do
+                    local d = math.abs(phaseDelta(ph, cpos, det.cycle))
+                    if not bestD or d < bestD then best, bestD = i, d end
+                end
+                if o.dur and o.dur > 0 then table.insert(byPos[best], o.dur) end
+                -- première retombée RÉELLE de ce membre : le centre de phase ne
+                -- convient pas, il peut franchir la fin du cycle et rendre 0,5 s
+                -- pour une capacité qui tombe en réalité à 45,5 s.
+                if not firstAt[best] or o.t < firstAt[best] then firstAt[best] = o.t end
+            end
+            -- Il suffit que DEUX positions soient documentées pour trancher :
+            -- exiger que toutes le soient rendait la règle inapplicable dès
+            -- qu'une seule incantation n'avait pas été appariée.
+            local meds, known = {}, 0
+            local lo, hi
+            for i = 1, #det.centers do
+                if #byPos[i] > 0 then
+                    meds[i] = median(byPos[i])
+                    known = known + 1
+                    if not lo or meds[i] < lo then lo = meds[i] end
+                    if not hi or meds[i] > hi then hi = meds[i] end
+                end
+            end
+            if known >= 2 and (hi - lo) > SPLIT_CAST_TOL then
+                -- positions sans mesure : on leur laisse la médiane globale
+                local fallback = median(e.durs) or 0
+                for i = 1, #det.centers do meds[i] = meds[i] or fallback end
+                split = { centers = det.centers, meds = meds, firstAt = firstAt }
+            end
+        end
+
+        if split then
+            for i, cpos in ipairs(split.centers) do
+                results[#results + 1] = {
+                    key          = string.format("%s#%d", akey, i),
+                    timelineDur  = e.tlDur,
+                    fromTimeline = e.tl,
+                    castDuration = NS.round(split.meds[i], 2),
+                    firstSeenSec = NS.round(split.firstAt[i] or cpos, 1),
+                    cdSeriesSec  = { NS.round(det.cycle, 1) },
+                    cycle        = NS.round(det.cycle, 1),
+                    samples      = total,
+                    pulls        = nPulls,
+                    spread       = det.score,
+                    quality      = quality,
+                    warn         = warn,
+                    channel      = e.kind == Store.KIND_CHANNEL,
+                    splitOf      = akey,
+                    -- instant de DÉBUT d'incantation : c'est lui que le lot
+                    -- d'amorçage annonce, et donc lui qui sert à repérer les
+                    -- doublons de première occurrence.
+                    offset       = NS.round((split.firstAt[i] or cpos) - (split.meds[i] or 0), 1),
+                }
+            end
+        else
+        -- (pas de goto en Lua 5.1 : le cas non découpé est le bloc else)
         results[#results + 1] = {
             key          = akey,
             timelineDur  = e.tlDur,
@@ -483,6 +669,29 @@ function Infer:Analyze(key)
             warn         = warn,
             channel      = e.kind == Store.KIND_CHANNEL,
         }
+        end
+    end
+
+    -- Les singletons du lot d'amorçage annoncent la PREMIÈRE occurrence d'une
+    -- capacité, avec sa latence initiale et non son cooldown. Quand leur
+    -- déclenchement retombe sur l'offset d'un membre issu d'un découpage,
+    -- c'est la même capacité : on écarte le doublon.
+    local offsets = {}
+    for _, r in ipairs(results) do
+        if r.offset then offsets[#offsets + 1] = r.offset end
+    end
+    if #offsets > 0 then
+        local keep = {}
+        for _, r in ipairs(results) do
+            local dup = false
+            if not r.offset and r.samples == 1 and r.fromTimeline then
+                for _, off in ipairs(offsets) do
+                    if math.abs(r.firstSeenSec - off) <= 0.6 then dup = true; break end
+                end
+            end
+            if not dup then keep[#keep + 1] = r end
+        end
+        results = keep
     end
 
     table.sort(results, function(a, b) return a.firstSeenSec < b.firstSeenSec end)

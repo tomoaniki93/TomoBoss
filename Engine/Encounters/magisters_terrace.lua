@@ -9,6 +9,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Arcane Crowd Dispersing Construct  (encounterID 3071)
 R(3071, {
     name = "Arcane Crowd Dispersing Construct",
+    provenance = "exboss",
     dungeon = "Terrasse des Magistères",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 474496, eventID = 286, castType = "begincast", castDuration = 2.5, firstSeenSec = 5, cdSeriesSec = { 23.1, 46.2 }, severity = 0 },
@@ -21,6 +22,7 @@ R(3071, {
 -- Selanar Sunlash  (encounterID 3072)
 R(3072, {
     name = "Selanar Sunlash",
+    provenance = "exboss",
     dungeon = "Terrasse des Magistères",
     events = {
         { role = "heal", voice = "prepare-clear-stack", spellID = 1225792, eventID = 95, castType = "begincast", castDuration = 3, firstSeenSec = 7.3, cdSeriesSec = { 29.2, 26.7, 29.2, 28, 29.2, 28 }, severity = 1 },
@@ -33,6 +35,7 @@ R(3072, {
 -- Gemellus  (encounterID 3073)
 R(3073, {
     name = "Gemellus",
+    provenance = "exboss",
     dungeon = "Terrasse des Magistères",
     events = {
         { role = "mechanic", spellID = 1223847, eventID = 635, castType = "begincast", castDuration = 2.5, firstSeenSec = 5.1, cdSeriesSec = { 96 }, severity = 1 },
@@ -46,6 +49,7 @@ R(3073, {
 -- Degentrius  (encounterID 3074)
 R(3074, {
     name = "Degentrius",
+    provenance = "exboss",
     dungeon = "Terrasse des Magistères",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 1280113, eventID = 420, castType = "begincast", castDuration = 3, firstSeenSec = 3.8, cdSeriesSec = { 23.1 }, severity = 0 },

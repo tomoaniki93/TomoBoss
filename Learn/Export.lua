@@ -66,6 +66,9 @@ function Export:BuildDef(key, minQuality)
     local def = {
         name    = (encID and NS.Learn.Journal:EncounterName(encID)) or tostring(key),
         dungeon = select(1, GetInstanceInfo()) or "?",
+        -- Toute donnée produite ici vient de mes propres pulls : l'estampille
+        -- fait avancer le compteur de /tmb learn provenance sans intervention.
+        provenance = "observed",
         events  = events,
     }
     return def, nil, skipped
@@ -91,7 +94,13 @@ function Export:Apply(key, minQuality)
 
     NS.Engine:MergeEncounter(encID, def)
     -- l'index de correspondance de BlizzTimeline est mis en cache par rencontre
-    if NS.BlizzTimeline then NS.BlizzTimeline._index[encID] = nil end
+    if NS.BlizzTimeline then
+        NS.BlizzTimeline._index[encID] = nil
+        NS.BlizzTimeline._byEventID[encID] = nil
+    end
+    -- le pont a posé ses sons à partir de l'ancienne définition : sans re-pose,
+    -- les données fraîchement apprises n'atteignent pas le jeu
+    if NS.EventBridge then NS.EventBridge:Refresh("apprentissage appliqué") end
 
     NS:Print(string.format("|cff8bd5ca%d capacité(s)|r appliquée(s) à la rencontre %d pour cette session%s.",
         #def.events, encID, skipped > 0 and string.format(" (%d écartée(s))", skipped) or ""))
@@ -117,11 +126,13 @@ function Export:Emit(key, minQuality)
 
     w("-- Généré par TomoBoss (apprentissage) le " .. date("%Y-%m-%d %H:%M"))
     w("-- Source : observations de MES propres pulls. Aucune donnée tierce.")
+    w("-- provenance = \"observed\" : suivi par /tmb learn provenance.")
     w("-- Identité = durée (le serveur ne livre ni nom ni GUID sous Midnight).")
     w("-- À RÉGLER avant publication : spellID, role, voice, severity, preAlertSec.")
     w("")
     w(string.format("R(%d, {", encID))
     w(string.format("    name = %q,", def.name))
+    w('    provenance = "observed",')
     w(string.format("    dungeon = %q,", def.dungeon))
     w("    events = {")
 

@@ -9,6 +9,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Chief Corewright Kasreth  (encounterID 3328)
 R(3328, {
     name = "Chief Corewright Kasreth",
+    provenance = "exboss",
     dungeon = "Point de Nexus : Xenas",
     events = {
         { role = "other", voice = "target-clear-line", spellID = 1251772, eventID = 107, castType = "begincast", castDuration = 2.1, firstSeenSec = 5.7, cdSeriesSec = { 12.1, 12.1, 25.8 }, severity = 2, preAlertSec = 3 },
@@ -20,6 +21,7 @@ R(3328, {
 -- Corewarden Nysarra  (encounterID 3332)
 R(3332, {
     name = "Corewarden Nysarra",
+    provenance = "exboss",
     dungeon = "Point de Nexus : Xenas",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 1247937, eventID = 35, castType = "begincast", castDuration = 0.8, firstSeenSec = 3.8, cdSeriesSec = { 17.8, 38.8, 18.6, 17.8, 25.9, 17 }, severity = 0 },
@@ -31,6 +33,7 @@ R(3332, {
 -- Lothraxion  (encounterID 3333)
 R(3333, {
     name = "Lothraxion",
+    provenance = "exboss",
     dungeon = "Point de Nexus : Xenas",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 1253950, eventID = 111, castType = "begincast", castDuration = 3, firstSeenSec = 2.2, cdSeriesSec = { 26.9, 38.9, 3.9, 22.8, 3.9, 33.5, 16.3, 10.5, 16.3, 21.6, 17.3, 9.4, 17.3 }, severity = 0 },

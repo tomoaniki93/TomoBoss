@@ -13,6 +13,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Rotmire  (encounterID 3159)
 R(3159, {
     name = "Rotmire",
+    provenance = "bossreminder",
     dungeon = "Sporefall",
     bridgeOnly = true,
     events = {

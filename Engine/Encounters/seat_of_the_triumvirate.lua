@@ -9,6 +9,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Zuraal the Ascended  (encounterID 2065)
 R(2065, {
     name = "Zuraal the Ascended",
+    provenance = "exboss",
     dungeon = "Siège du Triumvirat",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 1263440, eventID = 226, castType = "cast", firstSeenSec = 4.1, cdSeriesSec = { 40, 17 }, severity = 1 },
@@ -22,6 +23,7 @@ R(2065, {
 -- Saprish  (encounterID 2066)
 R(2066, {
     name = "Saprish",
+    provenance = "exboss",
     dungeon = "Siège du Triumvirat",
     events = {
         { role = "other", voice = "interrupt-now", spellID = 248831, eventID = 236, castType = "begincast", castDuration = 5, firstSeenSec = 5.2, cdSeriesSec = { 16.6, 14.3, 16, 15.8, 15.7, 16.3, 15.2, 15.4, 15.8 }, severity = 1 },
@@ -34,6 +36,7 @@ R(2066, {
 -- Viceroy Nezhar  (encounterID 2067)
 R(2067, {
     name = "Viceroy Nezhar",
+    provenance = "exboss",
     dungeon = "Siège du Triumvirat",
     events = {
         { role = "other", voice = "prepare-interrupt", spellID = 244750, eventID = 244, castType = "begincast", castDuration = 2, firstSeenSec = 4, cdSeriesSec = { 4, 12, 16, 6, 27 }, severity = 1 },
@@ -46,6 +49,7 @@ R(2067, {
 -- L'ura  (encounterID 2068)
 R(2068, {
     name = "L'ura",
+    provenance = "exboss",
     dungeon = "Siège du Triumvirat",
     events = {
         { role = "heal", voice = "prepare-aoe", spellID = 1265419, eventID = 248, castType = "cast", firstSeenSec = 0, cdSeriesSec = { 97.1, 33.4, 63.8 }, severity = 1 },

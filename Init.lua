@@ -11,7 +11,8 @@ local function PrintHelp()
     NS:Print("|cff33e6a6" .. L.HELP_HEADER .. "|r")
     for _, line in ipairs({
         L.HELP_OPTIONS, L.HELP_PULL, L.HELP_PULLSTOP, L.HELP_TEST, L.HELP_TESTSTOP,
-        L.HELP_LOCK, L.HELP_RESET, L.HELP_VOICE, L.HELP_KICKS, L.HELP_VERSION,
+        L.HELP_LOCK, L.HELP_RESET, L.HELP_VOICE, L.HELP_KICKS,
+        L.HELP_BRIDGE, L.HELP_LEARN, L.HELP_VERSION,
     }) do
         print("  |cff8a968f•|r " .. line)
     end
@@ -56,7 +57,7 @@ local function HandleSlash(input)
         NS.Recorder:Handle(rest)
 
     elseif cmd == "bridge" or cmd == "pont" then
-        NS.EventBridge:Report()
+        NS.EventBridge:HandleSlash(rest)
 
     elseif cmd == "debug" then
         NS.db.profile.debug = not NS.db.profile.debug

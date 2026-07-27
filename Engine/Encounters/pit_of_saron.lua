@@ -9,6 +9,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Forgemaster Garfrost  (encounterID 1999)
 R(1999, {
     name = "Forgemaster Garfrost",
+    provenance = "exboss",
     dungeon = "Fosse de Saron",
     events = {
         { role = "other", voice = "watch-dodge", spellID = 1261299, eventID = 146, castType = "begincast", castDuration = 2, firstSeenSec = 7, cdSeriesSec = { 41.5 }, severity = 1 },
@@ -21,6 +22,7 @@ R(1999, {
 -- Ick and Krick  (encounterID 2001)
 R(2001, {
     name = "Ick and Krick",
+    provenance = "exboss",
     dungeon = "Fosse de Saron",
     events = {
         { role = "mechanic", voice = "prepare-aoe", spellID = 1264027, eventID = 204, castType = "begincast", castDuration = 4, firstSeenSec = 0, cdSeriesSec = { 82.8 }, severity = 1 },
@@ -34,6 +36,7 @@ R(2001, {
 -- Scourgelord Tyrannus  (encounterID 2000)
 R(2000, {
     name = "Scourgelord Tyrannus",
+    provenance = "exboss",
     dungeon = "Fosse de Saron",
     events = {
         { role = "heal", voice = "prepare-aoe", spellID = 1276648, eventID = 167, castType = "begincast", castDuration = 3, firstSeenSec = 0, cdSeriesSec = { 85 }, severity = 1 },

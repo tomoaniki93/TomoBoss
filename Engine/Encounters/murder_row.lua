@@ -12,6 +12,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Kystia Manaheart  (encounterID 3101)
 R(3101, {
     name = "Kystia Manaheart",
+    provenance = "littlewigs",
     dungeon = "Murder Row",
     matchOnly = true,
     events = {
@@ -24,6 +25,7 @@ R(3101, {
 -- Zaen Bladesorrow  (encounterID 3102)
 R(3102, {
     name = "Zaen Bladesorrow",
+    provenance = "littlewigs",
     dungeon = "Murder Row",
     matchOnly = true,
     events = {
@@ -38,6 +40,7 @@ R(3102, {
 -- Xathuux the Annihilator  (encounterID 3103)
 R(3103, {
     name = "Xathuux the Annihilator",
+    provenance = "littlewigs",
     dungeon = "Murder Row",
     matchOnly = true,
     events = {
@@ -51,6 +54,7 @@ R(3103, {
 -- Lithiel Cinderfury  (encounterID 3105)
 R(3105, {
     name = "Lithiel Cinderfury",
+    provenance = "littlewigs",
     dungeon = "Murder Row",
     matchOnly = true,
     events = {

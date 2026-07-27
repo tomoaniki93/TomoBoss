@@ -11,6 +11,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- The Golden Serpent  (encounterID 2139)
 R(2139, {
     name = "The Golden Serpent",
+    provenance = "littlewigs",
     dungeon = "Kings' Rest",
     matchOnly = true,
     events = {
@@ -24,6 +25,7 @@ R(2139, {
 -- The Council of Tribes  (encounterID 2140)
 R(2140, {
     name = "The Council of Tribes",
+    provenance = "littlewigs",
     dungeon = "Kings' Rest",
     matchOnly = true,
     events = {
@@ -40,6 +42,7 @@ R(2140, {
 -- Mchimba the Embalmer  (encounterID 2142)
 R(2142, {
     name = "Mchimba the Embalmer",
+    provenance = "littlewigs",
     dungeon = "Kings' Rest",
     matchOnly = true,
     events = {
@@ -53,6 +56,7 @@ R(2142, {
 -- Dazar, The First King  (encounterID 2143)
 R(2143, {
     name = "Dazar, The First King",
+    provenance = "littlewigs",
     dungeon = "Kings' Rest",
     matchOnly = true,
     events = {

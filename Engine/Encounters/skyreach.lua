@@ -9,6 +9,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Ranjit  (encounterID 1698)
 R(1698, {
     name = "Ranjit",
+    provenance = "exboss",
     dungeon = "Cime-du-Ciel",
     events = {
         { role = "other", voice = "watch-knockback", spellID = 1252690, eventID = 298, castType = "begincast", castDuration = 3, firstSeenSec = 5, cdSeriesSec = { 40 }, severity = 1 },
@@ -21,6 +22,7 @@ R(1698, {
 -- Araknath  (encounterID 1699)
 R(1699, {
     name = "Araknath",
+    provenance = "exboss",
     dungeon = "Cime-du-Ciel",
     events = {
         { role = "tank", voice = "watch-frontal", spellID = 154113, eventID = 302, castType = "begincast", castDuration = 3, firstSeenSec = 5, cdSeriesSec = { 15, 20, 34, 15, 5, 19, 30, 5, 19, 10, 5, 15, 5 }, severity = 1 },
@@ -31,6 +33,7 @@ R(1699, {
 -- Rukhran  (encounterID 1700)
 R(1700, {
     name = "Rukhran",
+    provenance = "exboss",
     dungeon = "Cime-du-Ciel",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 1253519, eventID = 306, castType = "begincast", castDuration = 3, firstSeenSec = 5, cdSeriesSec = { 12, 35 }, severity = 1 },
@@ -43,6 +46,7 @@ R(1700, {
 -- High Sage Viryx  (encounterID 1701)
 R(1701, {
     name = "High Sage Viryx",
+    provenance = "exboss",
     dungeon = "Cime-du-Ciel",
     events = {
         { role = "heal", voice = "prepare-target", spellID = 1253538, eventID = 309, castType = "cast", firstSeenSec = 5, cdSeriesSec = { 10, 10, 19 }, severity = 1 },

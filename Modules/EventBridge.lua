@@ -213,6 +213,9 @@ function EB:Apply(reason)
         if ok and val == "0" then pcall(C_CVar.SetCVar, "encounterWarningsEnabled", "1") end
     end
 
+    -- une pose effective rend caduque toute demande mise de côté
+    self._deferred = nil
+
     self:Clear()                     -- incrémente _gen
     local gen = self._gen
     local entries = self:Collect()
@@ -250,6 +253,43 @@ end
 function EB:Count() return self._count end
 
 --------------------------------------------------------------------------
+-- Rafraîchissement sur changement de configuration.
+--------------------------------------------------------------------------
+-- Ce qui est posé côté jeu dépend de la config AU MOMENT de la pose : chemin
+-- du fichier (pack de langue, voix activée, repli générique), volume, canal,
+-- déclencheur, couleurs. Sans re-pose, changer le pack vocal ou le volume en
+-- plein donjon laissait le jeu jouer les ANCIENS fichiers à l'ANCIEN volume
+-- jusqu'au prochain changement de zone.
+--
+-- Deux précautions :
+--   * anti-rebond, parce qu'un glissement de curseur émet des dizaines
+--     d'appels et qu'une pose représente plusieurs centaines d'entrées ;
+--   * report hors combat. Apply() commence par Clear(), ce qui vide _willPlay :
+--     re-poser pendant une rencontre ferait momentanément croire à
+--     BlizzTimeline que le jeu ne joue plus rien, et l'annonce partirait en
+--     double. On attend donc la fin du combat.
+local REFRESH_DELAY = 0.4
+
+function EB:Refresh(reason)
+    if not self.frame then return end          -- module inactif
+    self._pending = reason or "config"
+    if self._scheduled then return end
+    self._scheduled = true
+    C_Timer.After(REFRESH_DELAY, function()
+        EB._scheduled = false
+        local r = EB._pending
+        EB._pending = nil
+        if not r then return end
+        if InCombatLockdown() then
+            EB._deferred = r
+            NS:Debug("EventBridge : re-pose reportée à la fin du combat (", r, ")")
+            return
+        end
+        EB:Apply(r)
+    end)
+end
+
+--------------------------------------------------------------------------
 -- Diagnostic : /tmb bridge
 --------------------------------------------------------------------------
 function EB:Report()
@@ -280,6 +320,60 @@ end
 --------------------------------------------------------------------------
 -- Init.
 --------------------------------------------------------------------------
+--------------------------------------------------------------------------
+-- Commandes.
+--------------------------------------------------------------------------
+-- Les réglages du pont existaient en base sans aucun moyen de les changer en
+-- jeu. Chaque bascule déclenche une re-pose : sans elle, le réglage n'aurait
+-- d'effet qu'au prochain changement de zone.
+local function onOff(word, current)
+    if word == "on" or word == "oui" then return true end
+    if word == "off" or word == "non" then return false end
+    return not current
+end
+
+function EB:HandleSlash(rest)
+    local sub, arg = tostring(rest or ""):match("^(%S*)%s*(%S*)$")
+    local c = cfg()
+
+    if sub == "" then
+        self:Report()
+        NS:Print("  |cff8bd5ca/tmb bridge on|off|r  |cff8bd5cason|r  |cff8bd5cacouleurs|r  "
+            .. "|cff8bd5cadeclencheur 0|1|2|r  |cff8bd5careposer|r")
+    elseif sub == "on" or sub == "off" then
+        c.enabled = (sub == "on")
+        if c.enabled then self:Refresh("activation") else self:Clear("désactivé") end
+        NS:Print("Pont : " .. (c.enabled and "|cff8bd5caactif|r" or "|cffe06c75coupé|r"))
+    elseif sub == "son" or sub == "sons" then
+        c.sounds = onOff(arg, c.sounds)
+        self:Refresh("sons")
+        NS:Print("Sons confiés au jeu : " .. (c.sounds and "oui" or "non"))
+    elseif sub == "couleurs" or sub == "colors" then
+        c.colors = onOff(arg, c.colors)
+        self:Refresh("couleurs")
+        NS:Print("Teinte des barres Blizzard : " .. (c.colors and "oui" or "non"))
+    elseif sub == "generique" or sub == "generic" then
+        c.genericFallback = onOff(arg, c.genericFallback)
+        self:Refresh("repli générique")
+        NS:Print("Voix générique de repli : " .. (c.genericFallback and "oui" or "non"))
+    elseif sub == "declencheur" or sub == "trigger" then
+        local n = tonumber(arg)
+        if n ~= 0 and n ~= 1 and n ~= 2 then
+            NS:Print("Usage : |cff8bd5ca/tmb bridge declencheur 0|1|2|r "
+                .. "(0 avertissement texte, 1 capacité lancée, 2 ~5 s avant)")
+            return
+        end
+        c.trigger = n
+        self:Refresh("déclencheur")
+        NS:Print("Déclencheur : " .. n)
+    elseif sub == "reposer" or sub == "refresh" then
+        self:Refresh("manuel")
+        NS:Print("Re-pose demandée.")
+    else
+        self:Report()
+    end
+end
+
 function EB:Init()
     if not self:Available() then
         NS:Debug("EventBridge : C_EncounterEvents absent — module inactif.")
@@ -289,7 +383,17 @@ function EB:Init()
     self.frame = f
     f:RegisterEvent("PLAYER_ENTERING_WORLD")
     f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-    f:SetScript("OnEvent", function()
+    f:RegisterEvent("PLAYER_REGEN_ENABLED")
+    f:SetScript("OnEvent", function(_, event)
+        if event == "PLAYER_REGEN_ENABLED" then
+            -- une re-pose demandée pendant le combat a été mise de côté
+            local r = EB._deferred
+            if r then
+                EB._deferred = nil
+                C_Timer.After(0.2, function() EB:Apply(r) end)
+            end
+            return
+        end
         C_Timer.After(0.3, function() EB:Apply("changement de zone") end)
     end)
     C_Timer.After(0.5, function() EB:Apply("init") end)

@@ -226,7 +226,12 @@ function Config:BuildGeneral(page)
         label = L.VOICE_BOOST, min = 100, max = 300, step = 25, value = prof.voice.boost or 100, width = 300,
         fmt = function(v) return string.format("%d %%", v) end,
     })
-    boost:SetCallback(function(v) prof.voice.boost = math.floor(v + 0.5) end)
+    boost:SetCallback(function(v)
+        prof.voice.boost = math.floor(v + 0.5)
+        -- le volume est figé dans l'entrée posée côté jeu : sans re-pose, le
+        -- curseur n'a aucun effet tant qu'on n'a pas changé de zone
+        if NS.EventBridge then NS.EventBridge:Refresh("volume") end
+    end)
     lay:Add(boost, 46)
     local boostDesc = page:CreateFontString(nil, "OVERLAY")
     NS.Theme:Font(boostDesc, 11, "muted")
@@ -356,7 +361,10 @@ function Config:BuildVoice(page)
 
     local en = NS.Theme:CreateCheck(page, L.VOICE_ENABLED)
     en:SetChecked(v.enabled)
-    en:SetCallback(function(val) v.enabled = val end)
+    en:SetCallback(function(val)
+        v.enabled = val
+        if NS.EventBridge then NS.EventBridge:Refresh("voix on/off") end
+    end)
     lay:Add(en, 20)
 
     local enDesc = page:CreateFontString(nil, "OVERLAY")
@@ -371,7 +379,11 @@ function Config:BuildVoice(page)
     for _, pk in ipairs(NS.VOICE_PACKS or {}) do packItems[#packItems + 1] = pk end
     local packDD = NS.Theme:CreateDropdown(page, {
         width = 300, items = packItems,
-        onSelect = function(val) v.pack = val end,
+        onSelect = function(val)
+            v.pack = val
+            -- change le chemin des fichiers déjà posés côté jeu
+            if NS.EventBridge then NS.EventBridge:Refresh("pack vocal") end
+        end,
     })
     do
         local cur = v.pack or "auto"

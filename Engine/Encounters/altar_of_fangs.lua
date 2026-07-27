@@ -12,6 +12,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Rav'i  (encounterID 3456)
 R(3456, {
     name = "Rav'i",
+    provenance = "littlewigs",
     dungeon = "Altar of Fangs",
     matchOnly = true,
     events = {
@@ -25,6 +26,7 @@ R(3456, {
 -- The Writhing Coil  (encounterID 3457)
 R(3457, {
     name = "The Writhing Coil",
+    provenance = "littlewigs",
     dungeon = "Altar of Fangs",
     matchOnly = true,
     events = {
@@ -41,6 +43,7 @@ R(3457, {
 -- Zul'jan  (encounterID 3458)
 R(3458, {
     name = "Zul'jan",
+    provenance = "littlewigs",
     dungeon = "Altar of Fangs",
     matchOnly = true,
     events = {

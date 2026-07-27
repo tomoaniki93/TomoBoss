@@ -12,6 +12,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Lightblossom Trinity  (encounterID 3199)
 R(3199, {
     name = "Lightblossom Trinity",
+    provenance = "littlewigs",
     dungeon = "The Blinding Vale",
     matchOnly = true,
     events = {
@@ -25,6 +26,7 @@ R(3199, {
 -- Ikuzz the Light Hunter  (encounterID 3200)
 R(3200, {
     name = "Ikuzz the Light Hunter",
+    provenance = "littlewigs",
     dungeon = "The Blinding Vale",
     matchOnly = true,
     events = {
@@ -37,6 +39,7 @@ R(3200, {
 -- Lightwarden Ruia  (encounterID 3201)
 R(3201, {
     name = "Lightwarden Ruia",
+    provenance = "littlewigs",
     dungeon = "The Blinding Vale",
     matchOnly = true,
     events = {
@@ -51,6 +54,7 @@ R(3201, {
 -- Ziekket  (encounterID 3202)
 R(3202, {
     name = "Ziekket",
+    provenance = "littlewigs",
     dungeon = "The Blinding Vale",
     matchOnly = true,
     events = {

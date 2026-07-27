@@ -78,22 +78,36 @@ function Dump:Build(key, index)
     end
     w("Totaux : " .. table.concat(parts, "  "))
 
-    -- verdict lisible, pour éviter d'interpréter à la main
-    local casts = (counts[1] or 0) + (counts[2] or 0) + (counts[4] or 0)
-    local tl    = counts[3] or 0
+    -- Verdict lisible, pour éviter d'interpréter à la main.
+    -- Une incantation INSTANTANÉE ne porte aucune durée, donc aucune identité :
+    -- la compter comme une incantation mesurée était trompeur (des captures
+    -- annonçaient « les deux flux répondent » avec zéro durée exploitable).
+    local timed   = (counts[1] or 0) + (counts[2] or 0)   -- durée mesurable
+    local instant = counts[4] or 0
+    local tl      = counts[3] or 0
+    local anyNpc  = false
+    for _, o in ipairs(p.obs) do if o[4] then anyNpc = true; break end end
     w("")
-    if casts == 0 and tl > 0 then
-        w("VERDICT : aucun événement d'incantation sur les unités boss, mais la")
-        w("timeline est alimentée. L'identité doit donc reposer sur la durée-identité")
-        w("de C_EncounterTimeline seule.")
-    elseif casts > 0 and tl > 0 then
-        w("VERDICT : les deux flux répondent. La corrélation timeline <-> incantation")
-        w("est possible ; l'identité peut être le couple (npcID, durée mesurée).")
-    elseif casts > 0 then
+    if timed == 0 and instant == 0 and tl > 0 then
+        w("VERDICT : aucun événement d'incantation sur les unités boss. L'identité")
+        w("repose entièrement sur la durée-identité de C_EncounterTimeline.")
+    elseif timed == 0 and instant > 0 then
+        w("VERDICT : incantations uniquement INSTANTANÉES (durée nulle). Elles ne")
+        w("portent aucune identité propre : elles sont regroupées par unité, et leur")
+        w("cadence est déduite du repliement de phase. La durée-identité de la")
+        w("timeline reste la seule identité des autres capacités.")
+    elseif timed > 0 and tl > 0 then
+        w("VERDICT : durées d'incantation mesurables ET timeline alimentée. La")
+        w("corrélation timeline <-> incantation est exploitable.")
+    elseif timed > 0 then
         w("VERDICT : incantations reçues mais timeline muette — vérifier que")
         w("C_EncounterTimeline est disponible sur ce contenu.")
     else
         w("VERDICT : aucun des deux flux n'a produit d'observation.")
+    end
+    if not anyNpc then
+        w("npcID indisponible sur ce contenu (UnitGUID masqué) — sans effet :")
+        w("l'identité ne repose pas dessus.")
     end
 
     return table.concat(out, "\n")

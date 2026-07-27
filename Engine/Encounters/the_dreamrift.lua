@@ -13,6 +13,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Chimaeroth, God of the Undreamed  (encounterID 3306)
 R(3306, {
     name = "Chimaeroth, God of the Undreamed",
+    provenance = "bossreminder",
     dungeon = "The Dreamrift",
     bridgeOnly = true,
     events = {

@@ -130,8 +130,9 @@ function J:ResolveCurrentEncounter()
 
     local names = {}
     for i = 1, 8 do
-        local n = UnitName("boss" .. i)
-        if n and n ~= "" then names[#names + 1] = n:lower() end
+        -- même piège qu'à Recorder.lua : le nom d'une unité boss peut être masqué
+        local n = NS:SafeString(UnitName("boss" .. i))
+        if n then names[#names + 1] = n:lower() end
     end
     if #names == 0 then return nil end
 

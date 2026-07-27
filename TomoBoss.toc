@@ -3,7 +3,7 @@
 ## Notes: Minuteurs de boss + voix française. Commande : /tmb
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## Author: TomoAniki
-## Version: 2.3.7
+## Version: 2.5.0
 ## SavedVariables: TomoBossDB, TomoBossRecorderDB
 ## IconTexture: Interface\Icons\Achievement_Boss_Lichking
 
@@ -92,6 +92,7 @@ Learn\Recorder.lua
 Learn\Infer.lua
 Learn\Export.lua
 Learn\Dump.lua
+Learn\Provenance.lua
 Learn\Slash.lua
 
 # ── Pull + options

@@ -13,6 +13,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Beloran, Heir of Arcane  (encounterID 3182)
 R(3182, {
     name = "Beloran, Heir of Arcane",
+    provenance = "bossreminder",
     dungeon = "March on Quel'Danas",
     bridgeOnly = true,
     events = {
@@ -41,6 +42,7 @@ R(3182, {
 -- Midnight Descends  (encounterID 3183)
 R(3183, {
     name = "Midnight Descends",
+    provenance = "bossreminder",
     dungeon = "March on Quel'Danas",
     bridgeOnly = true,
     events = {

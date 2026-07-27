@@ -9,6 +9,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Vexamus  (encounterID 2562)
 R(2562, {
     name = "Vexamus",
+    provenance = "exboss",
     dungeon = "Académie d'Algeth'ar",
     events = {
         { role = "other", voice = "block-ball", spellID = 387691, eventID = 274, castType = "cast", firstSeenSec = 2, cdSeriesSec = { 18, 26 }, severity = 1 },
@@ -21,6 +22,7 @@ R(2562, {
 -- Overgrown Ancient  (encounterID 2563)
 R(2563, {
     name = "Overgrown Ancient",
+    provenance = "exboss",
     dungeon = "Académie d'Algeth'ar",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 388544, eventID = 282, castType = "begincast", castDuration = 1, firstSeenSec = 9, cdSeriesSec = { 28 }, severity = 1 },
@@ -33,6 +35,7 @@ R(2563, {
 -- Crawth  (encounterID 2564)
 R(2564, {
     name = "Crawth",
+    provenance = "exboss",
     dungeon = "Académie d'Algeth'ar",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 376997, eventID = 278, castType = "begincast", castDuration = 3, firstSeenSec = 5, cdSeriesSec = { 24, 24, 28.4, 3.7, 2.4, 17.9, 3.7, 2.4, 17.9, 3.7, 2.4, 21.6, 2.4, 20.9, 6, 12.1, 6.1, 4.6, 13.3, 6, 4.7 }, severity = 1 },
@@ -44,6 +47,7 @@ R(2564, {
 -- Echo of Doragosa  (encounterID 2565)
 R(2565, {
     name = "Echo of Doragosa",
+    provenance = "exboss",
     dungeon = "Académie d'Algeth'ar",
     events = {
         { role = "tank", voice = "tank-buster", spellID = 1282251, eventID = 294, castType = "begincast", castDuration = 3, firstSeenSec = 9, cdSeriesSec = { 12, 21 }, severity = 1 },

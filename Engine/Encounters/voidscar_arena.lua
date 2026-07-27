@@ -12,6 +12,7 @@ local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 -- Taz'Rah  (encounterID 3285)
 R(3285, {
     name = "Taz'Rah",
+    provenance = "littlewigs",
     dungeon = "Voidscar Arena",
     matchOnly = true,
     events = {
@@ -28,6 +29,7 @@ R(3285, {
 -- Atroxus  (encounterID 3286)
 R(3286, {
     name = "Atroxus",
+    provenance = "littlewigs",
     dungeon = "Voidscar Arena",
     matchOnly = true,
     events = {
@@ -42,6 +44,7 @@ R(3286, {
 -- Charonus  (encounterID 3287)
 R(3287, {
     name = "Charonus",
+    provenance = "littlewigs",
     dungeon = "Voidscar Arena",
     matchOnly = true,
     events = {
