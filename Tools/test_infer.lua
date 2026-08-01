@@ -211,7 +211,18 @@ for line in raw:gmatch("[^\n]+") do
         else obs[#obs + 1] = { t, k == "H" and K_CHAN or K_CAST, d, nil, "boss1" } end
     end
 end
-record("3056", { mkPull(obs, 233) })
+-- ACCUMULATION : le pull d'origine (233 s, wipe) + celui du 1er août
+-- (119 s, kill). C'est le scénario réel d'usage — l'inférence doit gagner en
+-- confiance à mesure que les pulls s'ajoutent, pas seulement fonctionner sur un.
+local corpusEarly = assert(loadfile("Tools/corpus_real.lua"))()
+local second = corpusEarly["3056"]
+if second then
+    second.schema, second.date = Store.SCHEMA, "corpus"
+    record("3056", { mkPull(obs, 233), second })
+    print("  (2 pulls : 233 s wipe + 119 s kill)")
+else
+    record("3056", { mkPull(obs, 233) })
+end
 NS.Learn.Infer:PrintReport("3056")
 
 print(("\n%s"):format(pass and ">>> CAS SYNTHÉTIQUES : TOUS PASSENT" or ">>> AU MOINS UN CAS SYNTHÉTIQUE ÉCHOUE"))
@@ -261,7 +272,7 @@ print("  OK — aucun faux positif.")
 -- elles contiennent des motifs qu'aucun jeu de données synthétique n'avait
 -- produits (séries de 5 valeurs, incantations toutes instantanées, durées
 -- sentinelles, conseils à cinq unités, amorçage par lots).
-print("\n=== CORPUS RÉEL (14 rencontres, 4 donjons) ===")
+print("\n=== CORPUS RÉEL (22 rencontres, 6 donjons) ===")
 local corpus = assert(loadfile("Tools/corpus_real.lua"))()
 local expect = {
     -- clé, groupe attendu, série attendue (les cas verifies a la main)
@@ -273,6 +284,9 @@ local expect = {
     -- fondue en une capacité unique à six positions.
     { "3212", "tl:45.00#3",    { 45 } },
     { "3328", "tl:12.00",      { 12 } },
+    -- Siège du Triumvirat : marqueur à 102 s sur un pull de 124 s. Un seuil
+    -- fixe à 300 s le manquait ; la règle observationnelle le rattrape.
+    { "2065", "tl:102.00",     { 24.9, 32.2 } },
 }
 local corpusOK = true
 for key, c in pairs(corpus) do

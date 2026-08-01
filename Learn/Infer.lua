@@ -20,6 +20,21 @@
 -- L'identité n'est ni un nom (masqué) ni un npcID (UnitGUID est masqué sur les
 -- unités hostiles) : c'est la DURÉE.
 --
+-- LIMITE CONNUE — alignement inter-pulls.
+--
+-- Le repliement de phase mélange les occurrences de TOUS les pulls sur un même
+-- cycle. Cela suppose que les phases s'alignent d'un pull à l'autre, ce qui est
+-- vrai pour un boss à cycle régulier mais FAUX dès qu'un intermède de durée
+-- variable décale la suite du combat. Mesuré sur Emberdawn : la même capacité
+-- se replie à 7,6 s dans un pull et 13,3 s dans un autre.
+--
+-- Conséquence : accumuler des pulls sur ces rencontres n'améliore pas encore la
+-- confiance — le repliement échoue et l'analyse retombe sur la médiane, dûment
+-- signalée « aucune période stable trouvée ». C'est le comportement voulu
+-- (déclarer l'incertitude plutôt que l'affirmer), mais ce n'est pas la réponse
+-- définitive. La correction consiste à replier CHAQUE pull séparément puis à
+-- combiner les séries obtenues, et non à replier le tout en bloc.
+--
 -- Ce module ne fait AUCUN appel en combat.
 
 local NS = select(2, ...)
@@ -36,8 +51,22 @@ local Store = NS.Learn.Store
 -- retomber sur un cooldown moyen de 8,5 s, faux une fois sur deux.
 local MAX_PERIOD  = 8
 
--- Au-delà, une durée n'est pas un cooldown mais un marqueur de rencontre
--- (enrage, aura de phase). Relevé à la Terrasse : 999 et 975,9 s.
+-- MARQUEUR : événement dont la « durée » sert d'identifiant et non de compte à
+-- rebours. Le `fire` annoncé tombe alors hors du combat et n'est pas un
+-- minutage exploitable ; c'est l'instant de l'ADD qui l'est.
+--
+-- Ces événements ne sont PAS à jeter : sur 3058, les durées 999 et 1004
+-- s'apparient à une incantation à chaque fois (3,0 s et 5,0 s) et reviennent
+-- toutes les ~66 s. Ce sont de vraies capacités.
+--
+-- Le critère est OBSERVÉ, pas supposé. Un seuil fixe (300 s) manquait les
+-- marqueurs à 102 et 104 s vus au Siège du Triumvirat et à la Terrasse, et
+-- aurait un jour rejeté un vrai minuteur long. On regarde donc si le `fire`
+-- retombe réellement dans le combat : sur le corpus, 8 groupes sur 129 ne le
+-- font jamais, et ce sont exactement les marqueurs.
+--
+-- Le seuil ne subsiste que comme garde-fou pour un groupe vu une seule fois,
+-- où l'observation ne peut pas trancher.
 local SENTINEL_DUR = 300
 
 -- Observations minimales par position de série, contre le surajustement.
@@ -137,11 +166,43 @@ local function bucket(v) return math.floor(v / DUR_BUCKET + 0.5) * DUR_BUCKET en
 -- Déduplique les ADD d'un pull par leur instant de déclenchement.
 -- Le PREMIER fait foi : sur un ré-ADD, `duration` ne contient plus l'intervalle
 -- mais le temps restant (constaté : 15.50 réécrit en 10.64 pour le même `fire`).
+-- Durée nulle : l'événement se déclenche à l'instant même où il est posté
+-- (fire == t, relevé sur 3058 — trois exemplaires au même instant). Ce n'est
+-- pas une annonce mais un signal de déclenchement immédiat, sans identité de
+-- durée exploitable. On l'écarte de l'analyse de cycle.
+local ZERO_DUR = 0.01
+
+-- Repère les durées dont AUCUNE occurrence ne retombe dans le combat.
+local function markerDurations(obs)
+    local last = 0
+    for _, o in ipairs(obs) do
+        if o[1] and o[1] > last then last = o[1] end
+    end
+    local seen, inside = {}, {}
+    for _, o in ipairs(obs) do
+        if o[2] == Store.KIND_TIMELINE and o[3] and o[3] > ZERO_DUR then
+            local b = bucket(o[3])
+            seen[b] = (seen[b] or 0) + 1
+            if o[6] and o[6] <= last then inside[b] = true end
+        end
+    end
+    local out = {}
+    for b, n in pairs(seen) do
+        -- observé sur au moins deux occurrences, aucune ne retombant dans le
+        -- combat ; ou vu une seule fois avec une durée hors de toute échelle
+        if (n >= 2 and not inside[b]) or (n < 2 and b >= SENTINEL_DUR) then
+            out[b] = true
+        end
+    end
+    return out
+end
+
 local function dedupAdds(obs)
     -- passe 1 : combien de fois chaque durée nominale apparaît-elle ?
     local seen = {}
+    local markers = markerDurations(obs)
     for _, o in ipairs(obs) do
-        if o[2] == Store.KIND_TIMELINE and o[3] and o[3] < SENTINEL_DUR then
+        if o[2] == Store.KIND_TIMELINE and o[3] and o[3] > ZERO_DUR then
             local b = bucket(o[3])
             seen[b] = (seen[b] or 0) + 1
         end
@@ -149,8 +210,11 @@ local function dedupAdds(obs)
 
     local out = {}
     for _, o in ipairs(obs) do
-        if o[2] == Store.KIND_TIMELINE and o[3] and o[3] < SENTINEL_DUR then
+        if o[2] == Store.KIND_TIMELINE and o[3] and o[3] > ZERO_DUR then
             local t, dur, fire = o[1], o[3], o[6]
+            local isMarker = markers[bucket(dur)]
+            -- marqueur : la durée identifie, elle ne décompte pas
+            if isMarker then fire = nil end
             local dup = false
             for _, u in ipairs(out) do
                 -- (a) même instant, même durée nominale : re-post du même lot
@@ -164,7 +228,10 @@ local function dedupAdds(obs)
                     dup = true; break
                 end
             end
-            if not dup then out[#out + 1] = { t = t, dur = dur, fire = fire } end
+            if not dup then
+                out[#out + 1] = { t = t, dur = dur, fire = fire,
+                                  marker = isMarker or nil }
+            end
         end
     end
     return out
@@ -213,7 +280,8 @@ local function collectAbilities(pulls)
         -- à `fire`.
         for _, a in ipairs(adds) do
             local key = string.format("tl:%.2f", bucket(a.dur))
-            local e = slot(key, { tlDur = bucket(a.dur), tl = true })
+            local e = slot(key, { tlDur = bucket(a.dur), tl = true,
+                                  marker = a.marker })
             e.pulls[pullIdx] = e.pulls[pullIdx] or {}
             local list = e.pulls[pullIdx]
 
@@ -235,7 +303,11 @@ local function collectAbilities(pulls)
             -- la durée d'incantation est conservée AVEC l'occurrence : c'est
             -- elle qui permettra de distinguer « une capacité qui revient N
             -- fois » de « N capacités partageant une durée-identité ».
-            list[#list + 1] = { t = landed or a.fire or (a.t + a.dur), dur = cdur, seed = a.t <= 0.5 and a.fire or nil }
+            -- pour un marqueur, ni `fire` ni `t + dur` n'ont de sens :
+            -- l'instant de l'ADD est le seul ancrage valable
+            local anchor = landed or a.fire or (a.marker and a.t) or (a.t + a.dur)
+            list[#list + 1] = { t = anchor, dur = cdur,
+                                seed = a.t <= 0.5 and a.fire or nil }
         end
 
         -- b) incantations orphelines : invisibles pour la timeline, mais bien réelles
@@ -657,6 +729,7 @@ function Infer:Analyze(key)
             key          = akey,
             timelineDur  = e.tlDur,
             fromTimeline = e.tl,
+            marker       = e.marker,
             castDuration = NS.round(median(e.durs) or 0, 2),
             castSpread   = e.durs[1] and NS.round(mad(e.durs) or 0, 2) or nil,
             firstSeenSec = NS.round(firstSeen, 1),

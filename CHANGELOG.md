@@ -1,5 +1,75 @@
 # Changelog
 
+## [2.5.2]
+
+Corpus extended to 22 encounters across 6 dungeons (Seat of the Triumvirate 1753
+added). 1015 observations.
+
+### Fixed
+
+- **Marker events are now detected by observation, not by a fixed threshold.**
+  2.5.1 treated durations above 300 s as identifiers rather than countdowns. The
+  Triumvirate capture shows why a constant is the wrong tool: encounter 2065
+  posts a 102 s duration on a 124 s pull, and its announced `fire` never falls
+  inside the fight — it is a marker, but 102 is nowhere near 300. The same
+  applies to the 104 s value on 3072.
+
+  The rule is now the thing actually being asked: does the announced `fire` ever
+  land inside the fight? Across the corpus, 8 groups out of 129 never do, and
+  those are exactly the markers — including the two a fixed threshold missed. The
+  300 s constant survives only as a fallback for a group seen once, where
+  observation cannot decide.
+
+  Practical effect on 2065: two abilities that were being read as broken timers
+  are now recovered, one of them correctly split into two distinct spells.
+
+### Testing
+
+- 197 abilities extracted across the 22-encounter corpus without error. A new
+  assertion covers the 102 s marker so a return to threshold-based detection
+  fails the bench.
+
+## [2.5.1]
+
+Corpus extended to 18 encounters across 5 dungeons (Windrunner Spire 2805 added).
+
+### Fixed
+
+- **Out-of-scale durations were discarded as sentinels — they are real
+  abilities.** Values above 300 s were filtered on the assumption they were
+  encounter markers. On 3058, durations 999 and 1004 pair with a cast every
+  single time (3.0 s and 5.0 s) and recur every ~66 s: three abilities of that
+  boss were being thrown away.
+
+  What is genuinely unusable is their *countdown*: the announced `fire` falls
+  outside the fight in 18 cases out of 18. So the duration serves as a stable
+  identifier while the ADD timestamp provides the timing. They are now kept as
+  identities, anchored on the ADD rather than on `fire`.
+
+- **Zero-duration timeline events are excluded from cycle analysis.** They fire
+  at the instant they are posted (`fire == t`, three at once on 3058) — an
+  immediate trigger signal, not an announcement, and with no duration identity.
+
+### Known limitation
+
+- **Phase folding mixes all pulls onto one cycle**, which assumes phases line up
+  from pull to pull. That holds for a regular boss but breaks when a
+  variable-length intermission shifts the rest of the fight: on Emberdawn the
+  same ability folds to 7.6 s in one pull and 13.3 s in another.
+
+  Accumulating pulls on those encounters therefore does not yet increase
+  confidence — folding fails and the analysis falls back to the median, flagged
+  "no stable period found". That is the intended behaviour (declare uncertainty
+  rather than assert it), but it is not the final answer: the fix is to fold each
+  pull separately and combine the resulting series. Documented in the module
+  header so it is not rediscovered as a bug.
+
+### Testing
+
+- 155 abilities extracted across the 18-encounter corpus without error. The
+  Emberdawn golden case now runs on two pulls (233 s wipe + 119 s kill), which is
+  what surfaced the alignment limitation above.
+
 ## [2.5.0]
 
 Corpus extended to 14 encounters across 4 dungeons (Academy 2526, Terrace 2811,
