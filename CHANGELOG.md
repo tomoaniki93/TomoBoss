@@ -1,5 +1,163 @@
 # Changelog
 
+## [2.6.2]
+
+### Fixed
+
+- **Kills were being recorded as "abandon".** When a boss dies, combat drops
+  *immediately*, so `PLAYER_REGEN_ENABLED` usually arrives **before**
+  `ENCOUNTER_END` — the only event carrying the actual outcome. The safety-net
+  close fired first and overwrote the authoritative signal. In the captured
+  corpus this hit 17 pulls out of 25, all of them recorded as abandoned while the
+  bosses had in fact been killed.
+
+  The fallback now waits three seconds before closing the pull, and
+  `ENCOUNTER_END` cancels that deferred close. The pull keeps recording during
+  the grace period, so nothing is lost either way.
+
+### Testing
+
+- `Tools/test_finish.lua` — six cases on a simulated clock: kill with combat
+  dropping first, wipe announced by `ENCOUNTER_END`, abandon when
+  `ENCOUNTER_END` never comes, direct kill, and the pull staying open during the
+  grace period then closing after it.
+
+## [2.6.1]
+
+Corpus extended to 25 encounters across 7 dungeons (Skyreach 1209 added).
+
+### Added
+
+- **A missed encounter now says so.** With recording disabled, a boss could be
+  fought and its data lost without a word — and a pull cannot be replayed. When
+  an encounter starts inside the covered scope while recording is off, a single
+  notice per session points at `/tmb learn on`. Once, not repeatedly: the goal is
+  to inform, not to nag.
+
+  `/tmb learn off` also states that the reminder will appear at the next dungeon
+  or raid boss, and re-arms it, since switching off and forgetting to switch back
+  on is exactly the case that loses data.
+
+### Testing
+
+- Skyreach's two recorded bosses join the regression fixture: both fold cleanly
+  onto a single cycle (54 s and 39 s) across every ability, so they also serve as
+  a check that regular encounters stay regular.
+
+## [2.6.0]
+
+Groundwork for building Season 2 data from scratch.
+
+### Added
+
+- **Per-pull phase folding.** Pooled folding is still tried first — when phases
+  line up across pulls it is the strongest evidence available. When it fails,
+  each pull is now folded on its own and the resulting series are combined
+  position by position. A series is a sequence of intervals, so it survives a
+  phase shift that destroys absolute positions. Verified: three pulls offset by
+  16 s recover `{19, 63.8}` exactly, where pooled folding cannot.
+
+  This is what lets confidence grow as pulls accumulate, which is the whole point
+  of recording a fresh season.
+
+### Corrected
+
+- **The 2.5.1 diagnosis of Emberdawn was wrong.** I attributed the failure to
+  inter-pull misalignment. It isn't: a single pull already fails to fold. The
+  intervals run 36.4 / 15.8 / 36.4 / 18.2 / 31.6 — that is not a noisy cyclic
+  series, it is a ~15.8 s cooldown *suspended* during the 16 s channelled
+  intermission, so the long gaps are "cooldown + pause" with a varying pause.
+
+  No amount of folding can describe that; the cyclic-series model is simply the
+  wrong model for those encounters. The fix is to detect pause intervals — the
+  intermissions are already identified as abilities — and subtract them before
+  measuring the cycle. Documented in the module header with the corrected cause.
+
+  Until then those encounters fall back to the median, flagged "no stable period
+  found".
+
+## [2.5.5]
+
+### Fixed
+
+- **Encounter names now come from `ENCOUNTER_START`, not from the journal.**
+  The in-game diagnostic settled it: the journal loads, every `EJ_*` function is
+  present, instance and encounter lookups work — but `EJ_GetEncounterInfoByIndex`
+  returns **nil** for the dungeonEncounterID that Blizzard's documentation places
+  in 7th position. The bridge between the two ID spaces does not exist by that
+  route on this client.
+
+  `ENCOUNTER_START` already carries the localized encounter name as its second
+  argument. It is now stored with the pull, which removes the dependency on any
+  ID matching. Spell lookups reach the journal by *name*, and only when that name
+  is unique across the whole journal — an ambiguous name returns nil rather than
+  risking another boss's abilities.
+
+- `ResolveCurrentEncounter` compared a DungeonEncounterID against a name and
+  could never match. It now takes its reference names from the engine's own
+  encounter data, which is indexed on the same ID space as `ENCOUNTER_START`.
+
+### Note
+
+Captures recorded before this version carry no encounter name and will keep
+showing `?`. New pulls will be named. `/tmb learn journal <key|name>` reports how
+many encounters were indexed and traces a single lookup.
+
+## [2.5.4]
+
+### Fixed
+
+- **The Encounter Journal is a load-on-demand addon.** Until the player opens it,
+  the `EJ_*` functions may be absent or silent — which is why 2.5.3's ID
+  translation still resolved nothing. `Blizzard_EncounterJournal` is now loaded
+  explicitly before any journal walk.
+
+### Added
+
+- **`/tmb learn journal [id]`** — reports what each API actually returns instead
+  of assuming: whether the journal addon loaded, which `EJ_*` functions exist,
+  what `EJ_GetNumTiers` gives back, what a sample encounter lookup produces,
+  whether the dungeonEncounterID really arrives in 7th position, and how many
+  mappings got built. Pass an encounter ID to trace that specific lookup.
+
+  This exists because the ID-space theory has now failed once in game. If loading
+  the addon is not the whole story, this command says where it breaks rather than
+  prompting another guess.
+
+## [2.5.3]
+
+### Fixed
+
+- **Two encounter-ID spaces were being confused.** `ENCOUNTER_START` delivers a
+  **DungeonEncounterID**; the `EJ_*` functions expect a **JournalEncounterID**.
+  These are different namespaces — the `ENCOUNTER_END` documentation states it
+  outright. Passing one for the other raises no error, it just fails silently:
+  the boss name never resolves, `/tmb learn` prints the raw ID twice
+  ("1895  1895"), and every analysis report said "spellID not resolved".
+
+  `EJ_GetEncounterInfo` returns the dungeonEncounterID as its 7th value, so the
+  reverse index can be built by walking the journal once — done lazily, out of
+  combat, cached for the session. Unknown IDs return nil rather than a wrong
+  name.
+
+- **The recorder had no scope filter.** `ENCOUNTER_START` fires everywhere: old
+  raids farmed solo, world bosses, delves, scenarios. Recording is now limited to
+  party and raid instances, and skips encounters fought alone — those die in
+  seconds, produce no usable cycle, and consume an encounter's pull quota.
+
+### Added
+
+- `/tmb learn` now separates encounters the engine covers from the rest, and
+  shows each one's instance ID, so stray entries are identifiable at a glance.
+- `/tmb learn purge` removes encounters outside the covered content.
+
+### Note
+
+The ID-space fix is derived from Blizzard's documentation and needs confirming in
+game: after `/reload`, `/tmb learn` should show real boss names instead of
+repeated numeric IDs. If names still fail to resolve, the journal walk is the
+thing to instrument.
+
 ## [2.5.2]
 
 Corpus extended to 22 encounters across 6 dungeons (Seat of the Triumvirate 1753

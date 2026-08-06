@@ -272,7 +272,7 @@ print("  OK — aucun faux positif.")
 -- elles contiennent des motifs qu'aucun jeu de données synthétique n'avait
 -- produits (séries de 5 valeurs, incantations toutes instantanées, durées
 -- sentinelles, conseils à cinq unités, amorçage par lots).
-print("\n=== CORPUS RÉEL (22 rencontres, 6 donjons) ===")
+print("\n=== CORPUS RÉEL (25 rencontres, 7 donjons) ===")
 local corpus = assert(loadfile("Tools/corpus_real.lua"))()
 local expect = {
     -- clé, groupe attendu, série attendue (les cas verifies a la main)
@@ -287,6 +287,9 @@ local expect = {
     -- Siège du Triumvirat : marqueur à 102 s sur un pull de 124 s. Un seuil
     -- fixe à 300 s le manquait ; la règle observationnelle le rattrape.
     { "2065", "tl:102.00",     { 24.9, 32.2 } },
+    -- Orée du Ciel : boss réguliers, toutes les capacités sur un même cycle.
+    { "1699", "tl:24.00",      { 54 } },
+    { "1701", "tl:30.00",      { 39 } },
 }
 local corpusOK = true
 for key, c in pairs(corpus) do
@@ -338,3 +341,36 @@ assert(table.concat(starts, ",") == "5,12,20,28,35,41",
 print("  OK — identités séparées et offsets conformes.")
 assert(corpusOK, "REGRESSION sur le corpus réel")
 print("  OK — corpus réel conforme.")
+
+
+--========================================================================
+-- D. Pulls désalignés — repliement pull par pull
+--========================================================================
+-- Chaque pull est régulier, mais démarre à une phase différente. Le repliement
+-- groupé échoue (les paquets se mélangent) ; le repliement pull par pull doit
+-- s'en sortir, une série étant invariante par décalage.
+print("\n=== PULLS DÉSALIGNÉS ===")
+do
+    local S = { 19, 63.8 }
+    local function mk(start, n)
+        local obs, x = {}, start
+        for k = 1, n do
+            obs[#obs + 1] = obsTL(NS.round(x, 2), 19)
+            obs[#obs + 1] = obsCast(NS.round(x, 2), 2.0)
+            x = x + S[((k - 1) % #S) + 1]
+        end
+        return mkPull(obs, 400)
+    end
+    record("shift", { mk(11, 8), mk(27, 8), mk(41, 8) })
+    local got
+    for _, r in ipairs(NS.Learn.Infer:Analyze("shift") or {}) do
+        if r.timelineDur == 19 then got = r end
+    end
+    local ok = got and #got.cdSeriesSec == 2
+        and math.abs(got.cdSeriesSec[1] - 19) < 1
+        and math.abs(got.cdSeriesSec[2] - 63.8) < 1
+    print(("  3 pulls décalés de 16 s -> {%s}  %s"):format(
+        got and table.concat(got.cdSeriesSec, ", ") or "absent",
+        ok and "OK" or "ÉCHEC"))
+    assert(ok, "le repliement pull par pull doit encaisser un décalage de phase")
+end

@@ -21,6 +21,8 @@ local function help()
     NS:Print("  |cff8bd5ca/tmb learn export <clé> [seuil]|r bloc Lua à coller dans Engine/Encounters/")
     NS:Print("  |cff8bd5ca/tmb learn rekey <clé> <encID>|r  relier une clé synthétique à un encounterID")
     NS:Print("  |cff8bd5ca/tmb learn clear [clé]|r        effacer une rencontre (ou tout)")
+    NS:Print("  |cff8bd5ca/tmb learn purge|r               effacer les rencontres hors contenu couvert")
+    NS:Print("  |cff8bd5ca/tmb learn journal [clé|nom]|r  diagnostic de résolution des noms")
     NS:Print("  |cff8bd5ca/tmb learn provenance [tout]|r  d'où viennent mes données de minutage")
     NS:Print("  seuil = |cff8bd5cafaible|r | |cff8bd5camoyen|r (défaut) | |cff8bd5cabon|r")
 end
@@ -34,14 +36,41 @@ local function status()
         NS:Print("Aucun pull enregistré. Fais un boss, les données arrivent toutes seules.")
         return
     end
+    local known, foreign = {}, {}
     for _, k in ipairs(keys) do
         local list = Store:GetPulls(k)
-        local label = tonumber(k) and (Learn.Journal:EncounterName(tonumber(k)) or k) or (list[1].boss or k)
-        local kills = 0
-        for _, p in ipairs(list) do if p.outcome == "kill" then kills = kills + 1 end end
-        NS:Print(string.format("  |cff8bd5ca%s|r  %s  — %d pull(s), %d kill(s)%s",
-            k, tostring(label), #list, kills,
-            Store:IsSynthetic(k) and "  |cffe8c07d(clé à relier)|r" or ""))
+        if list then
+            local id = tonumber(k)
+            -- Le nom vient de l'enregistrement (ENCOUNTER_START le fournit
+            -- localisé). Le Journal ne peut PAS le donner : sa table ne relie
+            -- pas les JournalEncounterID aux DungeonEncounterID.
+            local name = list[1].name or list[1].boss
+            local kills = 0
+            for _, p in ipairs(list) do if p.outcome == "kill" then kills = kills + 1 end end
+            local inst = list[1].inst
+            -- une rencontre que le moteur connaît est du contenu visé ; les
+            -- autres sont probablement des restes d'ancien contenu ou de
+            -- rencontres enregistrées avant le filtre de périmètre.
+            local entry = {
+                -- « ? » : capture antérieure à l'enregistrement du nom.
+                k = k, name = name, inst = inst,
+                n = #list, kills = kills,
+                mine = NS.Engine:GetEncounter(id) ~= nil,
+            }
+            if entry.mine then known[#known + 1] = entry else foreign[#foreign + 1] = entry end
+        end
+    end
+
+    local function show(e)
+        NS:Print(string.format("  |cff8bd5ca%s|r  %-26s inst %-6s — %d pull(s), %d kill(s)",
+            e.k, tostring(e.name or "?"), tostring(e.inst or "?"), e.n, e.kills))
+    end
+    for _, e in ipairs(known) do show(e) end
+    if #foreign > 0 then
+        NS:Print(string.format("|cffe8c07d%d rencontre(s) hors du contenu couvert|r "
+            .. "(ancien contenu, ou enregistrées avant le filtre de périmètre) :", #foreign))
+        for _, e in ipairs(foreign) do show(e) end
+        NS:Print("  Nettoyage : |cff8bd5ca/tmb learn purge|r")
     end
     NS:Print("Détail : |cff8bd5ca/tmb learn show <clé>|r")
 end
@@ -53,13 +82,42 @@ function Learn:HandleSlash(rest)
         status()
     elseif sub == "on" or sub == "off" then
         NS.db.profile.learn.enabled = (sub == "on")
+        -- réarme le rappel : couper puis oublier de rallumer est le cas visé
+        Learn.Recorder._warnedOff = nil
         NS:Print("Enregistrement " .. (sub == "on" and "|cff8bd5caactivé|r" or "|cffe06c75coupé|r") .. ".")
+        if sub == "off" then
+            NS:Print("Un rappel s'affichera au prochain boss de donjon ou de raid.")
+        end
     elseif sub == "dump" then
         if arg1 == "" then NS:Print("Précise une clé. |cff8bd5ca/tmb learn|r pour la liste."); return end
         NS.Learn.Dump:Show(arg1, arg2 ~= "" and arg2 or nil)
     elseif sub == "dumpc" then
         if arg1 == "" then NS:Print("Précise une clé."); return end
         NS.Learn.Dump:Print(arg1, arg2 ~= "" and arg2 or nil)
+    elseif sub == "journal" then
+        -- accepte une clé (le nom est alors lu dans la capture) ou un nom direct
+        local probe = arg1 ~= "" and arg1 or nil
+        if probe and tonumber(probe) then
+            local l = Store:GetPulls(probe)
+            probe = l and l[1] and (l[1].name or l[1].boss) or nil
+            if not probe then NS:Print("Cette capture ne porte pas de nom de rencontre.") end
+        end
+        Learn.Journal:Diagnose(probe)
+    elseif sub == "purge" then
+        local removed = {}
+        for _, k in ipairs(Store:Keys()) do
+            local id = tonumber(k)
+            if not id or not NS.Engine:GetEncounter(id) then
+                removed[#removed + 1] = k
+                Store:Clear(k)
+            end
+        end
+        if #removed == 0 then
+            NS:Print("Rien à purger : toutes les rencontres sont dans le contenu couvert.")
+        else
+            NS:Print(string.format("%d rencontre(s) effacée(s) : %s",
+                #removed, table.concat(removed, ", ")))
+        end
     elseif sub == "prune" then
         local n = Store:PruneLegacy()
         NS:Print(string.format("%d capture(s) de schéma périmé supprimée(s).", n))

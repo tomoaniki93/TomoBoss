@@ -37,6 +37,10 @@ function Export:BuildDef(key, minQuality)
     local res, err = Infer:Analyze(key)
     if not res then return nil, err end
 
+    -- nom de la rencontre : enregistré au pull, pas déduit du Journal
+    local pulls = NS.Learn.Store:GetPulls(key)
+    local encName = pulls and pulls[1] and (pulls[1].name or pulls[1].boss) or nil
+
     local floor = MIN_QUALITY_ORDER[minQuality or "moyen"] or 2
     local encID = tonumber(key)
     local events, skipped = {}, 0
@@ -64,7 +68,7 @@ function Export:BuildDef(key, minQuality)
     end
 
     local def = {
-        name    = (encID and NS.Learn.Journal:EncounterName(encID)) or tostring(key),
+        name    = encName or tostring(key),
         dungeon = select(1, GetInstanceInfo()) or "?",
         -- Toute donnée produite ici vient de mes propres pulls : l'estampille
         -- fait avancer le compteur de /tmb learn provenance sans intervention.

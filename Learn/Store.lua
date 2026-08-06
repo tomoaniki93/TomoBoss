@@ -126,6 +126,7 @@ function Store:Commit(outcome)
         len     = NS.round(GetTime() - cur.t0, 1),
         outcome = outcome or "wipe",
         boss    = cur.meta.boss,
+        name    = cur.meta.name,      -- nom de la rencontre, livré par ENCOUNTER_START
         npc     = cur.meta.npc,
         inst    = cur.meta.inst,
         obs     = cur.obs,

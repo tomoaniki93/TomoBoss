@@ -29,6 +29,17 @@ local Store = NS.Learn.Store
 
 local PENDING_TIMEOUT = 30   -- une incantation en cours abandonnée au-delà
 
+-- Délai de grâce entre la fin du combat et la clôture du pull.
+--
+-- Quand le boss meurt, le combat retombe IMMÉDIATEMENT : PLAYER_REGEN_ENABLED
+-- arrive alors le plus souvent AVANT ENCOUNTER_END, qui porte pourtant la seule
+-- information fiable sur l'issue. Clore aussitôt faisait passer un kill pour un
+-- « abandon » — 17 cas sur 25 dans le corpus, alors que les boss étaient tués.
+--
+-- Le filet de sécurité ne doit donc pas devancer le signal autoritatif : on
+-- laisse à ENCOUNTER_END le temps d'arriver, et il annule la clôture différée.
+local END_GRACE = 3.0
+
 local function cfg() return NS.db.profile.learn end
 
 --------------------------------------------------------------------------
@@ -50,9 +61,53 @@ end
 --------------------------------------------------------------------------
 -- Démarrage / arrêt.
 --------------------------------------------------------------------------
+-- Périmètre d'enregistrement.
+--
+-- ENCOUNTER_START se déclenche PARTOUT : anciens raids farmés en solo, boss de
+-- monde, gouffres, scénarios. Sans filtre, la base se remplit de rencontres
+-- sans rapport avec le contenu visé — constaté en jeu avec des clés d'anciennes
+-- extensions mêlées à celles de la saison.
+--
+-- On se limite donc aux donjons et raids, ce qui est le périmètre de l'addon,
+-- et on écarte les rencontres jouées SEUL : elles meurent en quelques secondes
+-- et ne produisent aucun cycle exploitable, tout en consommant le quota de
+-- pulls d'une rencontre.
+local function inScope()
+    local _, itype = GetInstanceInfo()
+    if itype ~= "party" and itype ~= "raid" then return false, "hors instance" end
+    local n = GetNumGroupMembers and GetNumGroupMembers() or 0
+    if n <= 1 then return false, "en solo" end
+    return true
+end
+
 function R:Begin(reason)
-    if not cfg().enabled then return end
     if Store:IsRecording() then return end
+
+    -- Le périmètre est évalué AVANT l'état d'activation : une rencontre hors
+    -- périmètre ne doit déclencher aucun rappel.
+    local ok, why = inScope()
+    if not ok then
+        NS:Debug("Apprentissage : rencontre ignorée (", why, ")")
+        return
+    end
+
+    -- Rappel d'oubli.
+    --
+    -- Rien ne signalait qu'une rencontre passait à la trappe : l'enregistrement
+    -- coupé, un boss se joue et ses données sont perdues sans un mot. On ne peut
+    -- pas rejouer un pull, donc le rappel arrive au moment où il est encore
+    -- utile — au début du combat, pas après.
+    --
+    -- Une seule fois par session pour ne pas devenir du bruit : le but est
+    -- d'informer, pas d'insister.
+    if not cfg().enabled then
+        if not self._warnedOff then
+            self._warnedOff = true
+            NS:Print("|cffe8c07dEnregistrement coupé|r — cette rencontre ne sera pas apprise. "
+                .. "|cff8bd5ca/tmb learn on|r pour l'activer.")
+        end
+        return
+    end
 
     local instID = select(8, GetInstanceInfo())
     local encID  = self._pendingEncID or NS.Learn.Journal:ResolveCurrentEncounter()
@@ -65,14 +120,32 @@ function R:Begin(reason)
     local npc = npcIDOf("boss1")
     local key = Store:MakeKey(encID, instID, npc)
 
-    Store:BeginPull(key, { npc = npc, inst = instID, boss = UnitName("boss1") })
-    self._pendingEncID = nil
+    Store:BeginPull(key, {
+        npc  = npc,
+        inst = instID,
+        name = self._pendingEncName,          -- nom de la rencontre (ENCOUNTER_START)
+        boss = NS:SafeString(UnitName("boss1")),
+    })
+    self._pendingEncID, self._pendingEncName = nil, nil
     self._pending = {}
     self._seenTL = {}
     NS:Debug("Apprentissage v2 : enregistrement démarré (", reason, ") clé =", key, "npc =", tostring(npc))
 end
 
+-- Clôture différée : laisse sa chance à ENCOUNTER_END.
+function R:FinishSoon(outcome)
+    if not Store:IsRecording() then return end
+    if self._closing then return end
+    self._closing = true
+    C_Timer.After(END_GRACE, function()
+        if not R._closing then return end        -- ENCOUNTER_END a tranché
+        R._closing = nil
+        R:Finish(outcome)
+    end)
+end
+
 function R:Finish(outcome)
+    self._closing = nil                          -- annule toute clôture différée
     if not Store:IsRecording() then return end
     local key, n = Store:Commit(outcome)
     self._pending, self._seenTL = nil, nil
@@ -187,14 +260,22 @@ function R:Init()
     f:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
     f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4, a5)
         if event == "ENCOUNTER_START" then
-            self._pendingEncID = NS:SafeNumber(a1)
+            -- ENCOUNTER_START livre l'ID **et le NOM** de la rencontre, déjà
+            -- localisé. C'est la source la plus sûre : elle ne dépend d'aucun
+            -- appariement d'identifiants entre deux espaces, contrairement au
+            -- Journal, dont la table ne relie pas les deux (dungeonEncounterID
+            -- absent des retours de EJ_GetEncounterInfoByIndex).
+            self._pendingEncID   = NS:SafeNumber(a1)
+            self._pendingEncName = NS:SafeString(a2)
             self:Begin("ENCOUNTER_START")
         elseif event == "ENCOUNTER_END" then
             self:Finish(NS:SafeNumber(a5) == 1 and "kill" or "wipe")
         elseif event == "INSTANCE_ENCOUNTER_ENGAGE_UNIT" then
-            if Store:IsRecording() and not UnitExists("boss1") then self:Finish("abandon") end
+            if Store:IsRecording() and not UnitExists("boss1") then self:FinishSoon("abandon") end
         elseif event == "PLAYER_REGEN_ENABLED" then
-            self:Finish("abandon")
+            -- différé : sur un kill, ENCOUNTER_END arrive juste après et porte
+            -- l'issue réelle. Clore ici tout de suite l'écraserait.
+            self:FinishSoon("abandon")
         elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
             self:OnTimelineAdded(a1)
         end

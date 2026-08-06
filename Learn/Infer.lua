@@ -20,20 +20,25 @@
 -- L'identité n'est ni un nom (masqué) ni un npcID (UnitGUID est masqué sur les
 -- unités hostiles) : c'est la DURÉE.
 --
--- LIMITE CONNUE — alignement inter-pulls.
+-- LIMITE CONNUE — cooldowns MIS EN PAUSE par les phases.
 --
--- Le repliement de phase mélange les occurrences de TOUS les pulls sur un même
--- cycle. Cela suppose que les phases s'alignent d'un pull à l'autre, ce qui est
--- vrai pour un boss à cycle régulier mais FAUX dès qu'un intermède de durée
--- variable décale la suite du combat. Mesuré sur Emberdawn : la même capacité
--- se replie à 7,6 s dans un pull et 13,3 s dans un autre.
+-- Le désalignement entre pulls est traité : le repliement se fait pull par pull
+-- quand le repliement groupé échoue (voir detectSeries).
 --
--- Conséquence : accumuler des pulls sur ces rencontres n'améliore pas encore la
--- confiance — le repliement échoue et l'analyse retombe sur la médiane, dûment
--- signalée « aucune période stable trouvée ». C'est le comportement voulu
--- (déclarer l'incertitude plutôt que l'affirmer), mais ce n'est pas la réponse
--- définitive. La correction consiste à replier CHAQUE pull séparément puis à
--- combiner les séries obtenues, et non à replier le tout en bloc.
+-- Ce qui reste ouvert est différent, et ma première analyse s'était trompée de
+-- cause. Sur Emberdawn, les écarts d'une même capacité valent 36,4 / 15,8 /
+-- 36,4 / 18,2 / 31,6… Ce n'est pas une série cyclique bruitée : le cooldown vaut
+-- ~15,8 s et il est SUSPENDU pendant l'intermède canalisé de 16 s. Les écarts
+-- longs sont donc « cooldown + durée de pause », et la pause varie.
+--
+-- Aucun repliement, groupé ou non, ne peut décrire cela : le modèle « série
+-- cyclique » est le mauvais modèle. Il faudrait détecter les intervalles de
+-- pause (les intermèdes sont déjà identifiés comme capacités) et les retrancher
+-- avant de mesurer le cycle.
+--
+-- En attendant, ces rencontres retombent sur la médiane, dûment signalée
+-- « aucune période stable trouvée » — déclarer l'incertitude plutôt que
+-- l'affirmer.
 --
 -- Ce module ne fait AUCUN appel en combat.
 
@@ -474,91 +479,127 @@ local function foldPhases(times, T, p)
     return centers, worst
 end
 
--- times : tous les instants d'apparition, tous pulls confondus.
+-- Construit la série cyclique depuis les centres de paquets, en démarrant au
+-- paquet le plus proche de l'ancre.
+local function seriesFromCenters(centers, T, anchor)
+    local p = #centers
+    local phase0 = anchor % T
+    local startIdx, bestD = 1, nil
+    for i, c in ipairs(centers) do
+        local d = math.min(math.abs(c - phase0), T - math.abs(c - phase0))
+        if not bestD or d < bestD then startIdx, bestD = i, d end
+    end
+    local series = {}
+    for i = 1, p do
+        local x = centers[((startIdx - 1 + i - 1) % p) + 1]
+        local y = centers[((startIdx - 1 + i) % p) + 1]
+        local d = y - x
+        if d <= 0 then d = d + T end
+        series[i] = d
+    end
+    return series
+end
+
+-- Canonisation puis emballage, commun aux deux stratégies de repliement.
+local function finish(series, T, dispSec, centers, folded)
+    if #series > 1 then
+        -- toutes les positions égales -> cooldown fixe
+        local m, flat = median(series), true
+        for _, v in ipairs(series) do
+            if math.abs(v - m) > tolFor(m) then flat = false; break end
+        end
+        if flat then
+            series, T = { m }, m
+        else
+            -- répétition entière d'un préfixe -> ce préfixe
+            for q = 1, math.floor(#series / 2) do
+                if #series % q == 0 then
+                    local ok = true
+                    for i = q + 1, #series do
+                        local ref = series[((i - 1) % q) + 1]
+                        if math.abs(series[i] - ref) > tolFor(ref) then ok = false; break end
+                    end
+                    if ok then
+                        local short, sum = {}, 0
+                        for i = 1, q do short[i] = series[i]; sum = sum + series[i] end
+                        series, T = short, sum
+                        break
+                    end
+                end
+            end
+        end
+    end
+    return { period = #series, series = series, cycle = T, centers = centers,
+             dispSec = dispSec, pullsFolded = folded,
+             score = dispSec / T, ok = true }
+end
+
+-- perPullTimes : instants d'apparition SÉPARÉS PAR PULL.
 --
--- Le cycle T candidat et le nombre de positions p restent LIÉS : T est estimé à
--- partir des sommes de p intervalles consécutifs, et validé par un repliement en
--- p paquets. Découpler les deux (essayer chaque T avec chaque p) a été testé et
--- dégrade nettement — une mauvaise combinaison passe le repliement avant la
--- bonne. On garde donc la contrainte, et on retient la plus petite période.
-local function detectSeries(perPullDeltas, times, firstSeen)
+-- Deux stratégies, dans cet ordre :
+--
+--   1. repliement GROUPÉ, tous pulls confondus. Quand les phases s'alignent
+--      d'un pull à l'autre — boss à cycle régulier — c'est le plus solide :
+--      toutes les observations appuient les mêmes paquets.
+--
+--   2. repliement PULL PAR PULL, puis combinaison des séries. Un intermède de
+--      durée variable décale la suite du combat, et les phases absolues ne
+--      coïncident plus (relevé sur Emberdawn : 7,6 s dans un pull, 13,3 s dans
+--      un autre). Une SÉRIE, elle, est invariante par décalage — c'est une
+--      suite d'intervalles, pas de positions. On replie donc chaque pull
+--      séparément et on combine position par position.
+--
+-- Sans la seconde, accumuler des pulls sur ces rencontres n'apportait rien.
+local function detectSeries(perPullDeltas, perPullTimes, firstSeen)
     local all = {}
     for _, deltas in ipairs(perPullDeltas) do
         for _, d in ipairs(deltas) do all[#all + 1] = d end
     end
     if #all == 0 then return nil end
 
+    local pooled = {}
+    for _, times in ipairs(perPullTimes) do
+        for _, t in ipairs(times) do pooled[#pooled + 1] = t end
+    end
+
     for p = 1, MAX_PERIOD do
         local T, nSums = estimateCycle(perPullDeltas, p)
         if T and nSums >= 2 then
-            local centers, dispSec = foldPhases(times, T, p)
-            if Infer._trace and Infer._traceDur == Infer._curDur then
-                print(string.format("    [trace] p=%d T=%.2f centres=%s disp=%s tol=%.2f -> %s",
-                    p, T, centers and #centers or 0,
-                    dispSec and string.format("%.3f", dispSec) or "-", tolFor(T),
-                    (centers and dispSec <= tolFor(T)) and "ACCEPTE" or "rejete"))
-            end
-            if centers and dispSec <= tolFor(T) then
-                -- ordonne la série à partir du paquet contenant la première apparition
-                local phase0 = firstSeen % T
-                local startIdx, bestD = 1, nil
-                for i, c in ipairs(centers) do
-                    local d = math.min(math.abs(c - phase0), T - math.abs(c - phase0))
-                    if not bestD or d < bestD then startIdx, bestD = i, d end
+            -- 1. groupé
+            if #pooled >= p * MIN_PER_CLUSTER then
+                local c, disp = foldPhases(pooled, T, p)
+                if c and disp <= tolFor(T) then
+                    return finish(seriesFromCenters(c, T, firstSeen), T, disp, c, #perPullTimes)
                 end
+            end
+
+            -- 2. pull par pull
+            local list, worst, used, ref = {}, 0, 0, nil
+            for _, times in ipairs(perPullTimes) do
+                if #times >= p * MIN_PER_CLUSTER then
+                    local c, disp = foldPhases(times, T, p)
+                    if c and disp <= tolFor(T) then
+                        list[#list + 1] = seriesFromCenters(c, T, times[1])
+                        ref = ref or c
+                        if disp > worst then worst = disp end
+                        used = used + 1
+                    end
+                end
+            end
+            if used > 0 then
                 local series = {}
                 for i = 1, p do
-                    local a = centers[((startIdx - 1 + i - 1) % p) + 1]
-                    local b = centers[((startIdx - 1 + i) % p) + 1]
-                    local d = b - a
-                    if d <= 0 then d = d + T end
-                    series[i] = d
-                end
-
-                -- Canonisation : une série dont toutes les positions sont égales
-                -- décrit en réalité un cooldown FIXE. { 41.5, 41.9 } et { 41.5 }
-                -- prédisent la même chose ; la seconde forme est la bonne.
-                -- Le cas se produit quand des pertes d'observations empêchent
-                -- d'estimer le cycle simple et que seul le cycle double se replie.
-                if p > 1 then
-                    local m, flat = median(series), true
-                    for _, v in ipairs(series) do
-                        if math.abs(v - m) > tolFor(m) then flat = false; break end
+                    local col = {}
+                    for _, sr in ipairs(list) do
+                        if sr[i] then col[#col + 1] = sr[i] end
                     end
-                    if flat then
-                        series = { m }; T = m
-                    else
-                        -- Une série qui est la RÉPÉTITION entière d'un préfixe
-                        -- décrit la même chose que ce préfixe. Relevé sur corpus :
-                        -- { 11, 3.5, 8.5, 10, 11, 3.5, 8.5, 10 } sur un cycle de
-                        -- 66 s, soit deux fois la boucle réelle de 33 s.
-                        for q = 1, math.floor(#series / 2) do
-                            if #series % q == 0 then
-                                local ok = true
-                                for i = q + 1, #series do
-                                    local ref = series[((i - 1) % q) + 1]
-                                    if math.abs(series[i] - ref) > tolFor(ref) then ok = false; break end
-                                end
-                                if ok then
-                                    local short, sum = {}, 0
-                                    for i = 1, q do short[i] = series[i]; sum = sum + series[i] end
-                                    series, T = short, sum
-                                    break
-                                end
-                            end
-                        end
-                    end
+                    series[i] = median(col)
                 end
-
-                return { period = #series, series = series, cycle = T,
-                         centers = centers, dispSec = dispSec,
-                         score = dispSec / T, ok = true }
+                return finish(series, T, worst, ref, used)
             end
         end
     end
 
-    -- aucune période stable : on rend la médiane des intervalles, explicitement
-    -- marquée « weak » pour que le rapport le signale au lieu de faire illusion.
     return { period = 1, series = { median(all) }, score = spread(all),
              dispSec = mad(all) or 0, weak = true }
 end
@@ -617,7 +658,15 @@ function Infer:Analyze(key)
         end
         local firstSeen = firsts[1] or 0
         for _, v in ipairs(firsts) do if v < firstSeen then firstSeen = v end end
-        local det = detectSeries(perPullDeltas, allTimes, firstSeen)
+        -- instants séparés par pull : le repliement groupé échoue dès qu'un
+        -- intermède décale les phases d'un pull à l'autre.
+        local perPullTimes = {}
+        for _, occ in ipairs(e.pulls) do
+            local ts = {}
+            for _, o in ipairs(occ) do ts[#ts + 1] = o.t end
+            perPullTimes[#perPullTimes + 1] = ts
+        end
+        local det = detectSeries(perPullDeltas, perPullTimes, firstSeen)
         local series = {}
         if det then
             for i, v in ipairs(det.series) do series[i] = NS.round(v, 1) end
