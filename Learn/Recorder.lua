@@ -81,7 +81,12 @@ local function inScope()
 end
 
 function R:Begin(reason)
-    if Store:IsRecording() then return end
+    if Store:IsRecording() then
+        -- ne devrait plus arriver : ENCOUNTER_START clôt d'abord. Filet, et on
+        -- le signale plutôt que de perdre la rencontre sans un mot.
+        NS:Debug("Apprentissage : un pull était encore ouvert au démarrage.")
+        self:Finish("abandon")
+    end
 
     -- Le périmètre est évalué AVANT l'état d'activation : une rencontre hors
     -- périmètre ne doit déclencher aucun rappel.
@@ -265,6 +270,16 @@ function R:Init()
             -- appariement d'identifiants entre deux espaces, contrairement au
             -- Journal, dont la table ne relie pas les deux (dungeonEncounterID
             -- absent des retours de EJ_GetEncounterInfoByIndex).
+            -- Un pull encore ouvert doit être clos MAINTENANT, sans quoi Begin
+            -- abandonne et la nouvelle rencontre n'est jamais enregistrée.
+            --
+            -- Le délai de grâce de trois secondes introduit en 2.6.2 rend ce cas
+            -- fréquent en clé : le combat retombe après un boss, le groupe
+            -- enchaîne, et le boss suivant démarre pendant la fenêtre. Sans cette
+            -- clôture, la rencontre entière est perdue en silence.
+            if Store:IsRecording() then
+                self:Finish("abandon")
+            end
             self._pendingEncID   = NS:SafeNumber(a1)
             self._pendingEncName = NS:SafeString(a2)
             self:Begin("ENCOUNTER_START")

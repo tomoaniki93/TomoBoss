@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.6.3]
+
+Corpus extended to 27 encounters across 8 dungeons (Pit of Saron 658 added).
+
+### Fixed
+
+- **An encounter starting during the grace period was silently dropped** —
+  a regression from 2.6.2. `Begin` gives up when a pull is still open, and the
+  three-second grace period introduced in 2.6.2 makes that window common in
+  Mythic+: combat drops after a boss, the group keeps moving, and the next boss
+  engages before the previous pull has closed. The whole encounter was then never
+  recorded. `ENCOUNTER_START` now closes any open pull before starting the new
+  one, and `Begin` closes as a backstop rather than giving up.
+
+- **Pulls below the observation minimum were discarded in silence.** A pull with
+  fewer than four observations is not useful, but dropping it without a word
+  looks exactly like the encounter never being recorded — and a boss is not
+  replayed on demand. The drop is now reported with its count and the reason.
+
+### Testing
+
+- `Tools/test_finish.lua` gains the regression case: an encounter starting inside
+  the grace period must be recorded with its own outcome.
+
 ## [2.6.2]
 
 ### Fixed

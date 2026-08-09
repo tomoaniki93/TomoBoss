@@ -272,7 +272,7 @@ print("  OK — aucun faux positif.")
 -- elles contiennent des motifs qu'aucun jeu de données synthétique n'avait
 -- produits (séries de 5 valeurs, incantations toutes instantanées, durées
 -- sentinelles, conseils à cinq unités, amorçage par lots).
-print("\n=== CORPUS RÉEL (25 rencontres, 7 donjons) ===")
+print("\n=== CORPUS RÉEL (27 rencontres, 8 donjons) ===")
 local corpus = assert(loadfile("Tools/corpus_real.lua"))()
 local expect = {
     -- clé, groupe attendu, série attendue (les cas verifies a la main)
@@ -290,6 +290,8 @@ local expect = {
     -- Orée du Ciel : boss réguliers, toutes les capacités sur un même cycle.
     { "1699", "tl:24.00",      { 54 } },
     { "1701", "tl:30.00",      { 39 } },
+    -- Fosse de Saron : cycle unique de 41,5 s, capacités hors timeline incluses.
+    { "1999", "tl:33.00",      { 41.5 } },
 }
 local corpusOK = true
 for key, c in pairs(corpus) do

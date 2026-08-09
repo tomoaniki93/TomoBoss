@@ -101,5 +101,26 @@ check("enregistrement encore ouvert pendant la grâce", Store:IsRecording(), tru
 advance(5)
 check("clos après la grâce", Store:IsRecording(), false)
 
+-- 6. RÉGRESSION : une rencontre qui démarre pendant le délai de grâce.
+-- En clé, le combat retombe puis le groupe enchaîne : si le pull précédent est
+-- encore ouvert, Begin abandonnait et la rencontre entière était perdue.
+NS.db.profile.learn.pulls = {}
+R._pendingEncID, R._pendingEncName, R._closing = 3212, "Boss A", nil
+R:Begin("test")
+for i = 1, 6 do Store:Add(Store.KIND_TIMELINE, 45, nil, nil, NOW + 45) end
+R:FinishSoon("abandon")          -- combat retombe
+advance(1.0)                     -- toujours dans la grâce
+-- le boss suivant démarre : ENCOUNTER_START doit clore puis rouvrir
+if Store:IsRecording() then R:Finish("abandon") end
+R._pendingEncID, R._pendingEncName = 3213, "Boss B"
+R:Begin("ENCOUNTER_START")
+check("nouvelle rencontre ouverte pendant la grâce", Store:IsRecording(), true)
+for i = 1, 6 do Store:Add(Store.KIND_TIMELINE, 30, nil, nil, NOW + 30) end
+R:Finish("kill")
+advance(5)
+local l = Store:GetPulls("3213")
+check("le boss suivant est bien enregistré", l and #l or 0, 1)
+check("et son issue est correcte", l and l[1] and l[1].outcome, "kill")
+
 print(ok and "\n>>> TOUS LES CAS PASSENT" or "\n>>> ÉCHEC")
 os.exit(ok and 0 or 1)

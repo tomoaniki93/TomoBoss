@@ -112,7 +112,13 @@ function Store:Commit(outcome)
     self.current = nil
     if not cur then return nil end
     if #cur.obs < MIN_OBS_TO_KEEP then
-        NS:Debug("Apprentissage : pull ignoré (", #cur.obs, "observations, minimum", MIN_OBS_TO_KEEP, ").")
+        -- Perte visible, pas silencieuse : un pull écarté sans message donne
+        -- l'impression que la rencontre n'a jamais été enregistrée, et on ne
+        -- rejoue pas un boss pour vérifier.
+        NS:Print(string.format(
+            "|cffe8c07dPull écarté|r (%s) — %d observation(s), minimum %d. "
+            .. "Combat trop court ou trop peu d'événements.",
+            tostring(cur.key), #cur.obs, MIN_OBS_TO_KEEP))
         return nil
     end
 
