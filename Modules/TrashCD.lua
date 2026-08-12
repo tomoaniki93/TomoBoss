@@ -1,7 +1,24 @@
 ---@diagnostic disable: undefined-global
 -- TomoBoss — TrashCD : barres d'incantation des capacités importantes des packs.
--- Filtre par npcID (base par donjon) ; nom et interruptibilité lus en direct
--- depuis l'incantation, donc robustes même quand le spellID est masqué (Midnight).
+-- SÉLECTION DES INCANTATIONS — refondue pour Midnight.
+--
+-- L'ancienne version filtrait par npcID, extrait de UnitGUID. Or UnitGUID est
+-- MASQUÉ sous Midnight : NpcID rendait nil, et le handler sortait dès sa
+-- deuxième ligne. Le module ne montrait donc jamais rien en donjon, quelle que
+-- soit la qualité de la base de données.
+--
+-- Trois critères le remplacent, tous lisibles même sous masquage, et combinés
+-- par un OU — une incantation retenue par n'importe lequel s'affiche :
+--
+--   1. IMPORTANTE — C_Spell.IsSpellImportant : le jeu lui-même classe le sort
+--      comme notable. C'est le critère le plus fiable et il ne demande aucune
+--      donnée de notre part. Déjà utilisé par le module de halo de plaque.
+--   2. ME VISE — l'incantation prend le joueur pour cible. En clé, un sort qui
+--      vous vise personnellement compte davantage que tout le reste.
+--   3. BASE — l'ancien filtre par npcID, conservé pour les rares cas où le GUID
+--      reste lisible. Ne coûte rien et ne peut que compléter.
+--
+-- Le npcID n'est donc plus une CONDITION mais un bonus.
 
 local NS = select(2, ...)
 local TC = {}
@@ -11,6 +28,7 @@ TC.Dungeons = TC.Dungeons or {}
 
 local COLOR_KICK = { 1.00, 0.55, 0.20 } -- interruptible (orange « à couper »)
 local COLOR_LOCK = { 0.40, 0.72, 1.00 } -- non interruptible (bleu)
+local COLOR_ONME = { 1.00, 0.30, 0.35 } -- dirigé sur le joueur (rouge)
 local DEFAULT_ICON = 134400
 
 local function cfg() return NS.db.profile.trash end
@@ -72,6 +90,11 @@ function TC:Init()
         end
     end
     self:RegisterEvents()
+
+    -- ticker de suivi du ciblage
+    if not self._watch then
+        self._watch = C_Timer.NewTicker(WATCH_PERIOD, function() TC:WatchTargets() end)
+    end
 end
 
 --------------------------------------------------------------------------
@@ -81,6 +104,30 @@ local function NpcID(guid)
     if not guid or NS:IsSecret(guid) then return nil end
     local id = select(6, strsplit("-", guid))
     return tonumber(id)
+end
+
+-- Le jeu classe-t-il ce sort comme important ?
+--
+-- Même critère que le halo de plaque : c'est Blizzard qui décide, donc aucune
+-- base à maintenir et une couverture automatique sur tout le contenu, y compris
+-- les donjons que nous n'avons pas encore renseignés.
+local function IsImportant(spellID)
+    local fn = C_Spell and C_Spell.IsSpellImportant
+    if not fn or not spellID then return false end
+    local ok, v = pcall(fn, spellID)
+    if not ok or NS:IsSecret(v) then return false end
+    return v == true
+end
+
+-- L'incantation vise-t-elle le joueur ?
+--
+-- Le jeton de cible d'une unité s'obtient en suffixant « target ». Il reste
+-- lisible sous Midnight, contrairement au GUID : c'est une comparaison d'unités
+-- faite par le client, pas une valeur qu'on inspecte.
+local function TargetsPlayer(unit)
+    local ok, same = pcall(UnitIsUnit, unit .. "target", "player")
+    if not ok or NS:IsSecret(same) then return false end
+    return same == true
 end
 
 local function IsTrackedUnit(unit)
@@ -118,20 +165,29 @@ function TC:OnCastStart(unit, isChannel)
     if not self._envOK or not self.currentMap then return end
     if not IsTrackedUnit(unit) then return end
 
-    local npc = NpcID(UnitGUID(unit))
-    if not npc then return end
-    local mob = self.currentMap.mobs[npc]
-    if not mob then return end
-
     local liveName, texture, endTime, duration, notInterruptible, spellID = ReadCast(unit, isChannel)
-
-    -- filtrage par sort si l'id est lisible
-    local spInfo
     local sid = NS:SafeNumber(spellID)
-    if sid then
-        spInfo = mob.spells[sid]
-        if not spInfo then return end -- sort connu mais non important
-    end
+
+    -- npcID quand il est lisible : bonus, plus une condition
+    local npc = NpcID(UnitGUID(unit))
+    local mob = npc and self.currentMap.mobs[npc] or nil
+    local spInfo = (mob and sid) and mob.spells[sid] or nil
+
+    -- 1. le jeu classe-t-il ce sort comme important ?
+    local important = sid and IsImportant(sid) or false
+
+    -- 2. l'incantation vise-t-elle le joueur ?
+    local onMe = TargetsPlayer(unit)
+
+    -- 3. la base le connaît-elle ?
+    local known = spInfo ~= nil
+    -- mob connu dont le sort n'est pas répertorié : on écarte, la base fait foi
+    if mob and sid and not spInfo then return end
+
+    if not (important or onMe or known) then return end
+    -- filtre volontaire : ne garder que ce que le jeu juge important, plus ce
+    -- qui vous vise. Utile sur les packs bavards où tout s'affiche.
+    if cfg().onlyImportant and not (important or onMe) then return end
 
     -- nom : live -> nameEN -> résolu -> repli
     local displayName = liveName
@@ -147,6 +203,16 @@ function TC:OnCastStart(unit, isChannel)
 
     local interruptible = (notInterruptible ~= true)
     local color = interruptible and COLOR_KICK or COLOR_LOCK
+    -- une incantation dirigée sur le joueur prime visuellement sur le reste
+    if onMe then color = COLOR_ONME end
+
+    -- mémorisé pour la ré-évaluation du ciblage (voir WatchTargets)
+    self._active = self._active or {}
+    self._active[unit] = {
+        name = displayName, icon = texture or DEFAULT_ICON,
+        duration = duration, endTime = endTime,
+        interruptible = interruptible, onMe = onMe,
+    }
 
     self.group:AddOrUpdate("u:" .. unit, {
         name = displayName,
@@ -176,8 +242,42 @@ function TC:OnCastStart(unit, isChannel)
 end
 
 function TC:OnCastEnd(unit)
+    if self._active then self._active[unit] = nil end
     if self.group then self.group:Remove("u:" .. tostring(unit)) end
     if NS.UI.Rings then NS.UI.Rings:Remove("u:" .. tostring(unit)) end
+end
+
+--------------------------------------------------------------------------
+-- Suivi du ciblage pendant l'incantation.
+--------------------------------------------------------------------------
+-- Un mob change de cible en cours d'incantation : un sort qui ne vous visait
+-- pas au départ peut vous viser une seconde plus tard. Évaluer le ciblage une
+-- seule fois, au début, raterait précisément les cas qui comptent.
+--
+-- On ré-évalue donc à intervalle court. Le coût est négligeable — quelques
+-- appels UnitIsUnit sur les incantations en cours, jamais sur toutes les
+-- plaques — et seule la couleur change, sans reconstruire la barre.
+local WATCH_PERIOD = 0.25
+
+function TC:WatchTargets()
+    if not self._active then return end
+    if not self.group then return end
+    for unit, a in pairs(self._active) do
+        local now = TargetsPlayer(unit)
+        if now ~= a.onMe then
+            a.onMe = now
+            local color = now and COLOR_ONME
+                or (a.interruptible and COLOR_KICK or COLOR_LOCK)
+            self.group:AddOrUpdate("u:" .. unit, {
+                name = a.name, icon = a.icon, color = color,
+                duration = a.duration, endTime = a.endTime,
+            })
+            -- Une incantation qui se retourne vers vous mérite d'être annoncée.
+            -- « target-on-you » existe déjà dans les deux packs vocaux : aucun
+            -- fichier à produire, et la formulation convient exactement.
+            if now and cfg().voiceOnMe then NS.Voice:Play("target-on-you") end
+        end
+    end
 end
 
 --------------------------------------------------------------------------

@@ -1,5 +1,35 @@
 # Changelog
 
+## [2.7.0]
+
+### Fixed
+
+- **Trash cast bars never appeared in dungeons.** The module filtered casts by
+  npcID, extracted from `UnitGUID` — which Midnight masks. `NpcID` returned nil
+  and the handler exited on its second line, every single cast, regardless of how
+  good the database was. The whole feature has been silently dead under Midnight.
+
+### Changed
+
+- **Cast selection rebuilt on data that survives masking.** Three criteria, any
+  one of which shows the bar:
+  - **Important** — `C_Spell.IsSpellImportant`, the game's own classification.
+    Requires no database of ours and covers dungeons we have not catalogued.
+  - **Targeting you** — the cast is aimed at the player.
+  - **Known** — the old npcID database, kept for the cases where the GUID is
+    readable. It is now a bonus rather than a precondition.
+
+### Added
+
+- **Casts aimed at you are highlighted in red** and tracked live. A mob can
+  switch target mid-cast, so targeting is re-evaluated four times a second rather
+  than once at cast start — evaluating only at the start would miss exactly the
+  cases that matter.
+- Optional voice callout when a trash cast turns onto you, using the existing
+  `target-on-you` line from both packs.
+- Optional filter to show only casts the game classes as important, plus anything
+  aimed at you — useful on noisy packs.
+
 ## [2.6.3]
 
 Corpus extended to 27 encounters across 8 dungeons (Pit of Saron 658 added).

@@ -1,9 +1,9 @@
-## Interface: 120100, 120007
+## Interface: 120100
 ## Title: |cff33e6a6Tomo|r|cffe6edeaBoss|r
 ## Notes: Minuteurs de boss + voix française. Commande : /tmb
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## Author: TomoAniki
-## Version: 2.6.3
+## Version: 2.7.0
 ## SavedVariables: TomoBossDB, TomoBossRecorderDB
 ## IconTexture: Interface\Icons\Achievement_Boss_Lichking
 
