@@ -7,6 +7,30 @@ local L = NS.L
 --------------------------------------------------------------------------
 -- Commande /tmb
 --------------------------------------------------------------------------
+-- Initialise un module en isolant ses erreurs.
+--
+-- Les modules étaient initialisés à la suite, sans filet : une erreur dans l'un
+-- interrompait la fonction entière et emportait TOUS les suivants — y compris
+-- l'enregistrement des commandes, ce qui rendait /tmb totalement muet. Un défaut
+-- dans un module secondaire ne doit pas priver l'utilisateur de l'addon.
+--
+-- On signale le module fautif dans le chat plutôt que de laisser un silence
+-- inexplicable : sans message, il n'y a aucun moyen de deviner lequel a cassé.
+local function SafeInit(name, obj, fn)
+    if type(obj) ~= "table" or type(obj[fn or "Init"]) ~= "function" then
+        NS:Debug("Module absent : ", name)
+        return false
+    end
+    local ok, err = pcall(obj[fn or "Init"], obj)
+    if not ok then
+        NS:Print("|cffe06c75Module " .. name .. " : échec d'initialisation.|r "
+            .. "Le reste de l'addon fonctionne.")
+        NS:Debug(name, "->", tostring(err))
+        return false
+    end
+    return true
+end
+
 local function PrintHelp()
     NS:Print("|cff33e6a6" .. L.HELP_HEADER .. "|r")
     for _, line in ipairs({
@@ -133,11 +157,24 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         NS.UI.Countdown:EnsureAnchor()
         NS.UI.FlashText:EnsureAnchor()
 
+        -- Commandes enregistrées EN PREMIER, avant tout module.
+        --
+        -- Elles étaient déclarées en fin d'initialisation : la moindre erreur en
+        -- amont laissait /tmb totalement muet, sans le moindre indice sur la
+        -- cause. C'est exactement ce qui s'est produit. Une commande qui répond
+        -- est le minimum vital pour diagnostiquer quoi que ce soit.
+        SLASH_TOMOBOSS1 = "/tmb"
+        SLASH_TOMOBOSS2 = "/tomoboss"
+        SlashCmdList["TOMOBOSS"] = HandleSlash
+
+        SLASH_TOMOBOSSVER1 = "/tmbv"
+        SlashCmdList["TOMOBOSSVER"] = function() if NS.Version then NS.Version:Query() end end
+
         -- initialise les modules (crée leurs groupes de barres + événements)
-        NS.InterruptTracker:Init()
-        NS.TrashCD:Init()
-        NS.InterruptTracker.group:EnsureAnchor()
-        NS.TrashCD.group:EnsureAnchor()
+        SafeInit("InterruptTracker", NS.InterruptTracker)
+        SafeInit("TrashCD", NS.TrashCD)
+        if NS.InterruptTracker.group then NS.InterruptTracker.group:EnsureAnchor() end
+        if NS.TrashCD.group then NS.TrashCD.group:EnsureAnchor() end
 
         -- groupe d'anneaux (affichage radial : entrées personnalisées, boss ou trash)
         NS.UI.Rings = NS.UI.CreateRingGroup("Rings", NS.db.profile.rings)
@@ -153,16 +190,16 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         NS.UI.Rings:EnsureAnchor()
 
         -- entrées personnalisées (moteur + trash désormais prêts)
-        NS.Custom:Init()
+        SafeInit("Custom", NS.Custom)
 
         -- module version (comparaison dans le groupe) + bouton minicarte
-        NS.Version:Init()
-        NS.Minimap:Init()
-        NS.BlizzTimeline:Init()
-        NS.EventBridge:Init()
+        SafeInit("Version", NS.Version)
+        SafeInit("Minimap", NS.Minimap)
+        SafeInit("BlizzTimeline", NS.BlizzTimeline)
+        SafeInit("EventBridge", NS.EventBridge)
         NS.Recorder:Init()
-        NS.NameplateGlow:Init()
-        NS.Learn.Recorder:Init()
+        SafeInit("NameplateGlow", NS.NameplateGlow)
+        SafeInit("Learn.Recorder", NS.Learn and NS.Learn.Recorder)
 
         NS.UI.Mover:Register("bars", NS.UI.TimerBars.anchor, L.MOVER_BARS,
             { point = "CENTER", x = -280, y = 80 }, function(on) NS.UI.TimerBars:ShowDemo(on) end)
@@ -182,14 +219,6 @@ boot:SetScript("OnEvent", function(_, event, arg1)
 
         NS:ApplyScale()
         NS.UI.Countdown:ApplyScale()
-
-        -- commande /tmb
-        SLASH_TOMOBOSS1 = "/tmb"
-        SLASH_TOMOBOSS2 = "/tomoboss"
-        SlashCmdList["TOMOBOSS"] = HandleSlash
-
-        SLASH_TOMOBOSSVER1 = "/tmbv"
-        SlashCmdList["TOMOBOSSVER"] = function() if NS.Version then NS.Version:Query() end end
 
         -- surveillance permanente des incantations de boss (auto-démarrage du moteur,
         -- indispensable car ENCOUNTER_START ne parvient pas aux addons sous Midnight)

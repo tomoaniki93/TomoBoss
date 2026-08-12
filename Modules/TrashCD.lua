@@ -29,6 +29,13 @@ TC.Dungeons = TC.Dungeons or {}
 local COLOR_KICK = { 1.00, 0.55, 0.20 } -- interruptible (orange « à couper »)
 local COLOR_LOCK = { 0.40, 0.72, 1.00 } -- non interruptible (bleu)
 local COLOR_ONME = { 1.00, 0.30, 0.35 } -- dirigé sur le joueur (rouge)
+
+-- Période de ré-évaluation du ciblage (voir TC:WatchTargets).
+-- DÉCLARÉE ICI, avec les autres constantes : un `local` n'existe qu'à partir de
+-- sa ligne, et TC:Init l'utilise bien plus haut dans le fichier. Déclarée près
+-- de la fonction qui la commente, elle valait nil à l'initialisation — le
+-- ticker levait une erreur et toute l'initialisation s'arrêtait là.
+local WATCH_PERIOD = 0.25
 local DEFAULT_ICON = 134400
 
 local function cfg() return NS.db.profile.trash end
@@ -257,8 +264,6 @@ end
 -- On ré-évalue donc à intervalle court. Le coût est négligeable — quelques
 -- appels UnitIsUnit sur les incantations en cours, jamais sur toutes les
 -- plaques — et seule la couleur change, sans reconstruire la barre.
-local WATCH_PERIOD = 0.25
-
 function TC:WatchTargets()
     if not self._active then return end
     if not self.group then return end

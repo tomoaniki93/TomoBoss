@@ -1,5 +1,35 @@
 # Changelog
 
+## [2.7.1]
+
+### Fixed
+
+- **`/tmb` did nothing and the addon appeared dead.** A constant added in 2.7.0
+  was declared near the function it documents, at line 260 — but used at line 96.
+  A Lua `local` only exists from its declaration line onward, so at line 96 it was
+  a global `nil`, `C_Timer.NewTicker(nil, …)` raised, and initialisation stopped
+  there. Everything after it, including slash command registration, never ran.
+  The file compiles cleanly; the failure only appears at runtime.
+
+### Changed
+
+- **Commands are now registered first, before any module.** They were declared at
+  the end of initialisation, so any earlier error left `/tmb` completely silent
+  with no clue as to the cause. A command that answers is the minimum needed to
+  diagnose anything.
+- **Each module is initialised in isolation.** Nine modules were initialised in
+  sequence with no protection: one failure took out every module after it. A
+  faulty module now reports itself in chat and the rest of the addon keeps
+  working.
+
+### Testing
+
+- `Tools/test_scope.lua` — static analysis for locals used above their
+  declaration line. This class of bug compiles, passes syntax checking, and only
+  surfaces at runtime by killing everything downstream. Verified both ways: it
+  reports the original fault when reintroduced, and nothing across the 60 files
+  of the fixed tree.
+
 ## [2.7.0]
 
 ### Fixed
