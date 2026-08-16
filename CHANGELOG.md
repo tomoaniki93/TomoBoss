@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.7.2]
+
+Corpus extended to 32 encounters across 10 dungeons, including the first
+Season 2 captures (Murder Row 2813, Altar of Fangs 2993). 1309 observations.
+
+### Added
+
+- **Chained casts are now identified and excluded from export.** A boss can
+  relaunch the same spell continuously — Murder Row's first boss casts a 3.00 s
+  spell every 3.65 s, leaving 0.65 s between them. That is not a cooldown, and
+  giving it a voice line would mean an announcement every three seconds.
+
+  When an ability's cycle barely exceeds its own cast time, the analysis says so
+  in plain terms and the export skips it. One group out of the whole corpus is
+  affected, so this is a label rather than a redesign — but it is exactly the
+  kind of entry that would have made the addon unusable on that fight.
+
+### Testing
+
+- 286 abilities extracted across the 32-encounter corpus without error.
+- A missing corpus key is now tolerated rather than failing the bench, so an
+  assertion referring to a capture not currently loaded reports as ignored
+  instead of red.
+
 ## [2.7.1]
 
 ### Fixed

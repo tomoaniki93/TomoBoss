@@ -82,6 +82,13 @@ local MIN_PER_CLUSTER = 2
 -- capacité unique, 3,52 s pour six capacités confondues.
 local SPLIT_CAST_TOL = 0.50
 
+-- Une capacité dont l'écart entre deux occurrences dépasse à peine sa propre
+-- durée d'incantation n'a pas de cooldown : le boss la RÉENCHAÎNE en continu.
+-- Relevé sur 3101 — une incantation de 3,00 s revenant toutes les 3,65 s, soit
+-- 0,65 s de pause. L'annoncer à chaque fois serait intenable en jeu ; il faut
+-- pouvoir la distinguer d'un vrai cooldown court avant de lui donner une voix.
+local CHAINED_RATIO = 1.5
+
 -- Fenêtre d'appariement ADD <-> début d'incantation.
 --
 -- Elle valait 0,05 s, calibrée sur Emberdawn où la coïncidence est exacte
@@ -681,8 +688,20 @@ function Infer:Analyze(key)
         elseif det and det.ok and nPulls >= 2 then quality = "moyen"
         else quality = "faible" end
 
+        -- incantation enchaînée : le cycle n'excède guère la durée du sort
+        local castMed = median(e.durs)
+        local chained = false
+        if castMed and castMed > 0 and cycle > 0 and total >= 4 then
+            chained = cycle < castMed * CHAINED_RATIO
+        end
+
         local warn
-        if #series == 0 then
+        if chained then
+            warn = string.format(
+                "incantation ENCHAÎNÉE — %.2fs de sort pour %.2fs de cycle, soit %.2fs de pause. "
+                .. "Le boss la relance en continu : à ne pas annoncer à chaque fois.",
+                castMed, cycle, cycle - castMed)
+        elseif #series == 0 then
             warn = "aucun cycle observé (capacité unique ou de phase ?)"
         elseif weak then
             warn = "aucune période stable trouvée — cooldown moyen, à vérifier"
@@ -790,6 +809,7 @@ function Infer:Analyze(key)
             quality      = quality,
             warn         = warn,
             channel      = e.kind == Store.KIND_CHANNEL,
+            chained      = chained or nil,
         }
         end
     end

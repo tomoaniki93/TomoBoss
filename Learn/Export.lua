@@ -47,7 +47,10 @@ function Export:BuildDef(key, minQuality)
 
     for _, r in ipairs(res) do
         local q = MIN_QUALITY_ORDER[r.quality] or 1
-        if q < floor or #r.cdSeriesSec == 0 then
+        -- Une incantation enchaînée n'a pas de cooldown : lui donner une entrée
+        -- reviendrait à programmer une annonce toutes les trois secondes. Elle
+        -- est écartée de l'export, et le rapport explique pourquoi.
+        if q < floor or #r.cdSeriesSec == 0 or r.chained then
             skipped = skipped + 1
         else
             events[#events + 1] = {

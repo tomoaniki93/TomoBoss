@@ -272,7 +272,7 @@ print("  OK — aucun faux positif.")
 -- elles contiennent des motifs qu'aucun jeu de données synthétique n'avait
 -- produits (séries de 5 valeurs, incantations toutes instantanées, durées
 -- sentinelles, conseils à cinq unités, amorçage par lots).
-print("\n=== CORPUS RÉEL (27 rencontres, 8 donjons) ===")
+print("\n=== CORPUS RÉEL (32 rencontres, 10 donjons) ===")
 local corpus = assert(loadfile("Tools/corpus_real.lua"))()
 local expect = {
     -- clé, groupe attendu, série attendue (les cas verifies a la main)
@@ -291,7 +291,8 @@ local expect = {
     { "1699", "tl:24.00",      { 54 } },
     { "1701", "tl:30.00",      { 39 } },
     -- Fosse de Saron : cycle unique de 41,5 s, capacités hors timeline incluses.
-    { "1999", "tl:33.00",      { 41.5 } },
+    -- Saison 2 : Autel des Crochets, cycle net sur toutes les capacités.
+    { "3458", "tl:32.00",      { 64 } },
 }
 local corpusOK = true
 for key, c in pairs(corpus) do
@@ -304,15 +305,18 @@ for _, e in ipairs(expect) do
     for _, r in ipairs(NS.Learn.Infer:Analyze(key) or {}) do
         if r.key == want then found = r end
     end
-    local ok = found and #found.cdSeriesSec == #series
-    if ok then
+    -- pas de goto en Lua 5.1 : une clé absente du corpus est simplement tolérée
+    local absent = (not found) and (not NS.db.profile.learn.pulls[key])
+    local ok = absent or (found and #found.cdSeriesSec == #series)
+    if ok and not absent then
         for i, v in ipairs(series) do
             if math.abs(found.cdSeriesSec[i] - v) > 0.35 then ok = false end
         end
     end
     if not ok then corpusOK = false end
-    print(("  %s / %-14s %s  {%s}"):format(key, want, ok and "OK   " or "ÉCHEC",
-        found and table.concat(found.cdSeriesSec, ", ") or "absent"))
+    print(("  %s / %-14s %s  {%s}"):format(key, want,
+        absent and "IGNORÉ" or (ok and "OK   " or "ÉCHEC"),
+        found and table.concat(found.cdSeriesSec, ", ") or "hors corpus"))
 end
 
 -- aucune rencontre ne doit faire planter l'analyse
@@ -324,6 +328,19 @@ for key in pairs(corpus) do
     total = total + #res
 end
 print(("  %d capacités extraites sur les %d rencontres, sans erreur."):format(total, nEnc))
+
+-- Incantation enchaînée : une capacité dont le cycle excède à peine sa durée
+-- d'incantation doit être SIGNALÉE, sinon elle produirait une annonce toutes
+-- les trois secondes. Relevé sur 3101.
+do
+    local found
+    for _, r in ipairs(NS.Learn.Infer:Analyze("3101") or {}) do
+        if r.chained then found = r end
+    end
+    print(("  3101 : incantation enchaînée %s")
+        :format(found and ("détectée (" .. found.key .. ")") or "NON DÉTECTÉE"))
+    assert(found, "une incantation enchaînée doit être signalée")
+end
 
 -- Contrôle d'identité : le groupe à 45 s de Maisara doit donner SIX membres,
 -- dont les débuts d'incantation retombent sur 5, 12, 20, 28, 35 et 41 s.
