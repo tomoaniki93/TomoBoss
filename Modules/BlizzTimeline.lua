@@ -27,7 +27,9 @@ BT._pullTime = nil   -- 1er ADDED depuis le dernier reset = pull
 local TOL   = 0.75 -- tolérance de correspondance de durée (s)
 local SYNC_WINDOW = 10 -- fenêtre après le pull où les règles « sync » sont éligibles (s)
 local DEDUP = 1.0  -- fenêtre anti-doublon (ré-ADD du même sort)
-
+local MATCH_TIE_EPS = 0.01 -- deux candidats aussi proches => ambiguïté, jamais de choix arbitraire
+local GENERIC_DEDUP_TOL = 0.05 -- doublons génériques stricts vus dans les captures 12.1
+local SENTINEL_MIN = 900 -- valeurs ~999/1003 observées en 12.1 : signaux d'état, pas timers joueur
 -- Ré-ADD : le serveur re-poste un événement DÉJÀ programmé, et dans ce cas
 -- `duration` ne contient plus l'intervalle mais le TEMPS RESTANT. Relevé sur
 -- capture réelle (Emberdawn) : fire=128,77 posté à 113,27 avec duration 15,50,
@@ -35,6 +37,10 @@ local DEDUP = 1.0  -- fenêtre anti-doublon (ré-ADD du même sort)
 -- AUTRE capacité, ou fait basculer en mode générique.
 -- Signature retenue : même instant de déclenchement ET durée réduite.
 local READD_TOL = 0.25  -- coïncidence de fin (s)
+
+local function isSentinelDuration(d)
+    return type(d) == "number" and d >= SENTINEL_MIN
+end
 
 local function cfg() return NS.db.profile.blizzTimeline end
 
@@ -306,16 +312,27 @@ function BT:MatchDuration(duration)
         end
     end
 
-    -- 2) repli : index historique par durée (plus proche, toutes durées confondues)
+    -- 2) repli : index historique par durée.
+    --
+    -- IMPORTANT : si plusieurs événements distincts sont aussi proches de la
+    -- durée reçue, on NE choisit plus le premier. Une alerte générique est
+    -- préférable à une mauvaise capacité / mauvaise voix.
     local best, bestDelta, bestEnc
+    local tied = {}
     for _, encID in ipairs(order) do
         local idx = self:BuildMatchIndex(encID)
         if idx then
             for _, entry in ipairs(idx) do
                 for _, d in ipairs(entry.durs) do
                     local delta = math.abs(duration - d)
-                    if delta <= TOL and (not bestDelta or delta < bestDelta) then
-                        best, bestDelta, bestEnc = entry.ev, delta, encID
+                    if delta <= TOL then
+                        if not bestDelta or delta < (bestDelta - MATCH_TIE_EPS) then
+                            best, bestDelta, bestEnc = entry.ev, delta, encID
+                            wipe(tied)
+                            tied[entry.ev] = true
+                        elseif math.abs(delta - bestDelta) <= MATCH_TIE_EPS then
+                            tied[entry.ev] = true
+                        end
                     end
                 end
             end
@@ -323,6 +340,18 @@ function BT:MatchDuration(duration)
         if best and encID == self._activeEnc then break end
     end
     if best then
+        local distinct = 0
+        for _ in pairs(tied) do
+            distinct = distinct + 1
+            if distinct > 1 then break end
+        end
+        if distinct > 1 then
+            self._lastMatchHow = "ambiguë"
+            NS:Debug("Timeline : durée ", tostring(duration),
+                " ambiguë entre plusieurs capacités — repli générique.")
+            return nil
+        end
+
         self._lastMatchHow = "durée"
         if not self._activeEnc then
             self._activeEnc = bestEnc
@@ -354,6 +383,25 @@ function BT:OnAdded(x)
     local matchDur = NS:SafeNumber(info.duration)   -- identité (≈ intervalle, matche mes données)
     local fireDur  = timeRemaining(id) or matchDur   -- minutage (temps réel restant côté serveur)
     if not (matchDur or fireDur) then return end
+
+    -- Certaines rencontres 12.1 exposent des valeurs autour de 999/1003 s.
+    -- Les captures Learn montrent qu'il s'agit de sentinelles / états de
+    -- timeline et non de capacités à afficher au joueur. On les conserve pour
+    -- Recorder + futur PhaseDetector, sans créer de barre/voix.
+    if isSentinelDuration(matchDur) then
+        self._lastMatchHow = "sentinelle"
+        if NS.Recorder and NS.Recorder:IsRecording() then
+            NS.Recorder:OnAdded(id, matchDur, fireDur, nil, self._lastMatchHow, info)
+        end
+        if NS.Bus then
+            NS.Bus:Emit("TMB_TIMELINE_SENTINEL", {
+                id = id, matchDur = matchDur, fireDur = fireDur,
+            })
+        end
+        NS:Debug("Timeline : sentinelle ignorée pour le rendu (durée ",
+            tostring(matchDur), " s).")
+        return
+    end
 
     -- premier événement depuis le dernier reset : c'est le pull, il ouvre la
     -- fenêtre où les règles « sync » sont éligibles.
@@ -403,6 +451,22 @@ function BT:OnAdded(x)
     if ev then
         for _, e in pairs(self.active) do
             if e.evRef == ev and math.abs(e.endTime - endTime) <= DEDUP then return end
+        end
+    else
+        -- Les captures 12.1 montrent aussi des ADDED strictement dupliqués
+        -- (même durée, même instant de fin), parfois x2/x3. Sans identité
+        -- fiable on ne peut pas distinguer deux mécaniques réellement
+        -- simultanées ; mieux vaut une seule alerte générique que 2-3 doublons.
+        for _, e in pairs(self.active) do
+            if not e.evRef
+                and matchDur and e.matchDur
+                and math.abs(e.endTime - endTime) <= DEDUP
+                and math.abs(e.matchDur - matchDur) <= GENERIC_DEDUP_TOL
+            then
+                NS:Debug("Timeline : doublon générique ignoré (durée ",
+                    tostring(matchDur), ").")
+                return
+            end
         end
     end
 
@@ -556,6 +620,7 @@ function BT:Init()
     f:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_REMOVED")
     f:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
     f:RegisterEvent("ENCOUNTER_TIMELINE_STATE_UPDATED")
+    f:RegisterEvent("ENCOUNTER_END")
     f:RegisterEvent("PLAYER_REGEN_ENABLED")
     f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     f:SetScript("OnEvent", function(_, event, a1)
@@ -567,8 +632,25 @@ function BT:Init()
             self:OnRemoved(a1)
         elseif event == "ZONE_CHANGED_NEW_AREA" then
             self._candidates = nil
-        else -- STATE_UPDATED / PLAYER_REGEN_ENABLED
+        elseif event == "ENCOUNTER_END" then
             self:ClearAll()
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            -- Ne pas détruire la timeline au milieu d'une rencontre si le
+            -- joueur sort brièvement de combat. On revalide après un court
+            -- délai, et ENCOUNTER_END reste l'autorité principale.
+            C_Timer.After(0.25, function()
+                local inCombat = InCombatLockdown and InCombatLockdown()
+                local encounterActive = IsEncounterInProgress and IsEncounterInProgress()
+                if not inCombat and not encounterActive then
+                    self:ClearAll()
+                end
+            end)
+        elseif event == "ENCOUNTER_TIMELINE_STATE_UPDATED" then
+            -- IMPORTANT : cet événement décrit une mise à jour d'état de la
+            -- timeline Blizzard. Il ne signifie pas "fin de combat".
+            -- Les EVENT_REMOVED / STATE_CHANGED maintiennent déjà les entrées
+            -- individuelles ; aucun reset destructif ici.
+            NS:Debug("Timeline : état global mis à jour — conservation des timers actifs.")
         end
     end)
     f._acc = 0

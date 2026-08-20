@@ -1,5 +1,42 @@
 # Changelog
 
+## [2.7.3]
+
+BlizzTimeline hardening pass, from 12.1 capture review: three failure modes
+that produced wrong or duplicate alerts are now guarded against, and the
+in-combat frame no longer resets the timeline on the wrong event.
+
+### Added
+
+- **Sentinel durations (~900 s+) are no longer rendered as timers.** 12.1
+  captures show `ENCOUNTER_TIMELINE_EVENT_ADDED` occasionally carrying values
+  around 999/1003 s — these are Blizzard state signals, not player-facing
+  cooldowns. They are now recognised and skipped for bars/voice, while still
+  being forwarded to the Recorder and broadcast on `TMB_TIMELINE_SENTINEL` for
+  future phase-detection work.
+- **`ENCOUNTER_END` is now handled explicitly** and is the primary trigger for
+  clearing the timeline.
+
+### Fixed
+
+- **Ambiguous duration matches no longer pick an arbitrary winner.** When two
+  or more distinct abilities fall within the match tolerance of each other,
+  `MatchDuration` used to silently return the first one found. It now detects
+  the tie and falls back to a generic alert instead of risking the wrong
+  ability (and the wrong voice line).
+- **Duplicate generic `ADDED` events are now suppressed.** Some 12.1 captures
+  post the same unidentified event two or three times in a row (same duration,
+  same end time). Without an identity to compare, these looked like separate
+  mechanics and produced repeated alerts; they are now deduplicated the same
+  way identified events already were.
+- **`PLAYER_REGEN_ENABLED` no longer tears down the timeline mid-fight.**
+  Leaving combat briefly (e.g. a short lull) used to reset everything. It now
+  waits 0.25 s and only clears if the player is confirmed out of combat and no
+  encounter is in progress; `ENCOUNTER_END` remains the authoritative signal.
+- **`ENCOUNTER_TIMELINE_STATE_UPDATED` no longer triggers a destructive
+  reset.** This event describes a state update, not a combat end — individual
+  entries are already maintained via `ADDED`/`REMOVED`/`STATE_CHANGED`.
+
 ## [2.7.2]
 
 Corpus extended to 32 encounters across 10 dungeons, including the first

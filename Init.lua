@@ -133,7 +133,7 @@ local function OnCombatEvent(_, event, a1, a2, a3, a4, a5)
     elseif event == "START_PLAYER_COUNTDOWN" then
         NS.Engine.Pull:OnStartCountdown(a1, a2, a3)
 
-    elseif event == "CANCEL_PLAYER_COUNTDOWN" or event == "STOP_PLAYER_COUNTDOWN" then
+    elseif event == "CANCEL_PLAYER_COUNTDOWN" then
         NS.Engine.Pull:OnCancelCountdown()
     end
 end
@@ -228,7 +228,7 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         local ev = CreateFrame("Frame")
         for _, e in ipairs({
             "ENCOUNTER_START", "ENCOUNTER_END", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED",
-            "START_PLAYER_COUNTDOWN", "CANCEL_PLAYER_COUNTDOWN", "STOP_PLAYER_COUNTDOWN",
+            "START_PLAYER_COUNTDOWN", "CANCEL_PLAYER_COUNTDOWN",
         }) do
             ev:RegisterEvent(e)
         end
