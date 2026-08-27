@@ -1,0 +1,6 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="Namespace.lua"/>
+    <Include file="Locale.lua"/>
+    <Include file="DB.lua"/>
+    <Include file="Theme.lua"/>
+</Ui>

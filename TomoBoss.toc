@@ -1,103 +1,55 @@
 ## Interface: 120100
 ## Title: |cff33e6a6Tomo|r|cffe6edeaBoss|r
-## Notes: Minuteurs de boss + voix française. Commande : /tmb
+## Notes: Boss timers, voice callouts & Season 2 learning for Midnight. /tmb
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## Author: TomoAniki
-## Version: 2.7.3
+## Version: 2.8.0-beta5d1
 ## SavedVariables: TomoBossDB, TomoBossRecorderDB
 ## IconTexture: Interface\Icons\Achievement_Boss_Lichking
 
-# ── Bibliothèques
-Libs\LibStub\LibStub.lua
-Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
-Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.lua
+# Libraries and core
+Libs\Libs.xml
+Core\Core.xml
+Voice\Catalog.xml
+Core\Media.xml
+Voice\Engine.xml
 
-# ── Cœur
-Core\Namespace.lua
-Core\Locale.lua
-Core\DB.lua
-Core\Theme.lua
+# Encounter engine and encounter data
+Engine\Engine.xml
+Engine\Encounters\Encounters.xml
 
-# ── Voix (catalogue avant l'enregistrement des médias)
-Voice\Catalog.lua
-Core\Media.lua
-Voice\Engine.lua
+# UI
+UI\UI.xml
 
-# ── Moteur (Timeline définit RegisterEncounter, avant les données)
-Engine\Timeline.lua
+# Combat/trash/custom data
+Data\Interrupts.xml
+Modules\Combat.xml
+Data\Trash.xml
+Data\TrashCDReference.lua
+Custom\Custom.xml
 
-# ── Donjons (saison 12.0 S1) — timelines converties depuis EXBoss
-Engine\Encounters\pit_of_saron.lua
-Engine\Encounters\skyreach.lua
-Engine\Encounters\seat_of_the_triumvirate.lua
-Engine\Encounters\algethar_academy.lua
-Engine\Encounters\windrunner_spire.lua
-Engine\Encounters\magisters_terrace.lua
-Engine\Encounters\maisara_caverns.lua
-Engine\Encounters\nexus_point_xenas.lua
+# Timeline and utility modules
+Modules\Utility.xml
+Data\Timeline.xml
+Modules\Timeline.xml
+Debug\Debug.xml
+Modules\Visual.xml
 
-# ── Donjons hors-saison Midnight (matching seul, pas de prédiction)
-Engine\Encounters\murder_row.lua
-Engine\Encounters\den_of_nalorakk.lua
-Engine\Encounters\the_blinding_vale.lua
-Engine\Encounters\voidscar_arena.lua
-Engine\Encounters\altar_of_fangs.lua
+# Optional external timer sources (diagnostic/audit only)
+Integrations\Integrations.xml
 
-# ── Donjons saison 2 recyclés (matching seul)
-Engine\Encounters\temple_of_sethraliss.lua
-Engine\Encounters\kings_rest.lua
-Engine\Encounters\ruby_life_pools.lua
+# External reference catalog (observation-only; never player-facing authority)
+Data\References.xml
 
-# ── Raids (EventBridge seul : eventID + voix, aucun minutage)
-Engine\Encounters\sporefall.lua
-Engine\Encounters\the_voidspire.lua
-Engine\Encounters\march_on_quel_danas.lua
-Engine\Encounters\the_dreamrift.lua
+# Learn + guarded state resolution + phase observation + diagnostics
+Learn\Learn.xml
+Engine\Phases\Phases.xml
+Diagnostics\Diagnostics.xml
 
-# ── Interface (widgets)
-UI\Mover.lua
-UI\BarGroup.lua
-UI\RingGroup.lua
-UI\RingProgress.lua
-UI\TimerBars.lua
-UI\Countdown.lua
-UI\FlashText.lua
-
-# ── Modules (interruptions, trash) — le module TrashCD précède ses données
-Data\Interrupts.lua
-Modules\InterruptTracker.lua
-Modules\TrashCD.lua
-Data\TrashCD.lua
-
-# ── Personnalisation (partage + entrées custom, après moteur et trash)
-Custom\Share.lua
-Custom\Custom.lua
-
-# ── Version (comparaison groupe) + bouton minicarte
-Modules\Version.lua
-Modules\Minimap.lua
-Data\DungeonMaps.lua
-Data\DurationRules.lua
-Modules\BlizzTimeline.lua
-Modules\EventBridge.lua
-Debug\TimelineRecorder.lua
-Modules\NameplateGlow.lua
-
-# ── Apprentissage (données maison : observation -> inférence -> export)
-# Store avant Recorder (le Recorder l'utilise au chargement), Journal avant Infer,
-# Infer avant Export, Slash en dernier (il référence les trois autres).
-Learn\Store.lua
-Learn\Journal.lua
-Learn\Recorder.lua
-Learn\Infer.lua
-Learn\Export.lua
-Learn\Dump.lua
-Learn\Provenance.lua
-Learn\Slash.lua
-
-# ── Pull + options
-Engine\PullCountdown.lua
-GUI\Config.lua
-
-# ── Démarrage (en dernier)
+# Pull/options/startup
+Engine\Pull.xml
+GUI\GUI.xml
 Init.lua
+
+# Post-init command extension (/tmb doctor)
+Diagnostics\PostInit.xml

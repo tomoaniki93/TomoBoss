@@ -1,0 +1,6 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="Season1.xml"/>
+    <Include file="MidnightSeason2.xml"/>
+    <Include file="Raids.xml"/>
+    <Include file="Season2Corrections.lua"/>
+</Ui>

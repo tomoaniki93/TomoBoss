@@ -1,0 +1,4 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="Version.lua"/>
+    <Include file="Minimap.lua"/>
+</Ui>

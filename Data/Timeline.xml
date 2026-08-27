@@ -1,0 +1,5 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="DungeonMaps.lua"/>
+    <Include file="DurationRules.lua"/>
+    <Include file="Season2DurationRules.lua"/>
+</Ui>

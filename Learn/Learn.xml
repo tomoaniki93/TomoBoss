@@ -1,0 +1,12 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="Store.lua"/>
+    <Include file="Journal.lua"/>
+    <Include file="Recorder.lua"/>
+    <Include file="Infer.lua"/>
+    <Include file="Confidence.lua"/>
+    <Include file="ProfileEvidence.lua"/>
+    <Include file="Export.lua"/>
+    <Include file="Dump.lua"/>
+    <Include file="Provenance.lua"/>
+    <Include file="Slash.lua"/>
+</Ui>

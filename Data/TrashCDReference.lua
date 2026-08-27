@@ -1,0 +1,181 @@
+---@diagnostic disable: undefined-global
+-- TomoBoss 2.8.0-beta5d — TrashCD reference catalog.
+-- Derived from the user-provided EXBossData TrashCDData/TrashCDPreset files.
+-- Diagnostic/reference only. Runtime enemy cast identity must first be exposed
+-- by Blizzard as a non-secret spellID before any row can be matched.
+
+local addonName, NS = ...
+if type(NS) ~= "table" then return end
+
+local R = NS.TrashCDReference or {}
+NS.TrashCDReference = R
+R.mode = "reference-only"
+R.maps = {
+    [249] = {
+        [270003] = { npcID=133935, spellID=270003, first=6.4, cdMedian=18.3, cdMin=18.3, cdMax=18.3, castTime=3.5, channelTime=nil, voiceKey="dodge", enabled=true, voiceEnabled=true, previewEligible=true },
+        [269928] = { npcID=134158, spellID=269928, first=12, cdMedian=18.1, cdMin=18.1, cdMax=18.1, castTime=nil, channelTime=6, voiceKey="behind", enabled=true, voiceEnabled=true, previewEligible=true },
+        [269976] = { npcID=134158, spellID=269976, first=18.2, cdMedian=23.1, cdMin=23.1, cdMax=23.1, castTime=1, channelTime=nil, voiceKey="soothe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1305945] = { npcID=134158, spellID=1305945, first=7.5, cdMedian=20.1, cdMin=20.1, cdMax=20.1, castTime=4, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [269972] = { npcID=134174, spellID=269972, first=12.4, cdMedian=19.6, cdMin=19.6, cdMax=19.6, castTime=3.5, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [1294815] = { npcID=134174, spellID=1294815, first=0, cdMedian=3.6, cdMin=3.6, cdMax=3.6, castTime=2.5, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [270901] = { npcID=134251, spellID=270901, first=10.1, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=2.5, channelTime=nil, voiceKey="interrupt", enabled=false, voiceEnabled=false, previewEligible=false },
+        [270889] = { npcID=134331, spellID=270889, first=16.2, cdMedian=14.8, cdMin=14.8, cdMax=14.8, castTime=3, channelTime=4, voiceKey="dodge", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1296719] = { npcID=134331, spellID=1296719, first=48.7, cdMedian=4.8, cdMin=3.6, cdMax=9.7, castTime=2.5, channelTime=nil, voiceKey=nil, enabled=false, voiceEnabled=false, previewEligible=false },
+        [270293] = { npcID=134739, spellID=270293, first=2.8, cdMedian=8.9, cdMin=8.9, cdMax=8.9, castTime=2, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [270482] = { npcID=135167, spellID=270482, first=15.9, cdMedian=17.6, cdMin=16.4, cdMax=18.8, castTime=3, channelTime=nil, voiceKey="move", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1301851] = { npcID=135167, spellID=1301851, first=5.9, cdMedian=17.4, cdMin=14.6, cdMax=33.2, castTime=2, channelTime=nil, voiceKey="bleed", enabled=true, voiceEnabled=true, previewEligible=false },
+        [270502] = { npcID=135192, spellID=270502, first=5.8, cdMedian=10, cdMin=10, cdMax=10, castTime=nil, channelTime=5, voiceKey="cc", enabled=true, voiceEnabled=true, previewEligible=true },
+        [270514] = { npcID=135231, spellID=270514, first=16.8, cdMedian=19.3, cdMin=19.3, cdMax=19.3, castTime=5, channelTime=nil, voiceKey="dodge", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1302028] = { npcID=135231, spellID=1302028, first=5.3, cdMedian=19.15, cdMin=18.1, cdMax=20.6, castTime=2.5, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1296671] = { npcID=137473, spellID=1296671, first=4, cdMedian=21.8, cdMin=21.8, cdMax=21.8, castTime=2.5, channelTime=nil, voiceKey="purge", enabled=true, voiceEnabled=true, previewEligible=true },
+        [270927] = { npcID=137474, spellID=270927, first=12.8, cdMedian=14, cdMin=14, cdMax=14, castTime=2.5, channelTime=6, voiceKey="spread", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1306049] = { npcID=137474, spellID=1306049, first=6.8, cdMedian=17.6, cdMin=17.6, cdMax=17.6, castTime=3, channelTime=nil, voiceKey="spread", enabled=true, voiceEnabled=true, previewEligible=true },
+        [270920] = { npcID=137478, spellID=270920, first=6.8, cdMedian=13.95, cdMin=13, cdMax=14.9, castTime=2.5, channelTime=10, voiceKey="interrupt", enabled=false, voiceEnabled=false, previewEligible=false },
+        [1294972] = { npcID=137478, spellID=1294972, first=52.9, cdMedian=4.6, cdMin=4.6, cdMax=4.6, castTime=2.5, channelTime=nil, voiceKey="interrupt", enabled=false, voiceEnabled=false, previewEligible=false },
+        [1297918] = { npcID=137484, spellID=1297918, first=4.9, cdMedian=20.95, cdMin=20.1, cdMax=21.8, castTime=2.5, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1297970] = { npcID=137484, spellID=1297970, first=13.3, cdMedian=21.8, cdMin=20.6, cdMax=23, castTime=2.5, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1305982] = { npcID=137486, spellID=1305982, first=5.3, cdMedian=16.2, cdMin=16.2, cdMax=16.2, castTime=nil, channelTime=2, voiceKey="move", enabled=true, voiceEnabled=true, previewEligible=true },
+        [270502] = { npcID=137487, spellID=270502, first=8.3, cdMedian=7.1, cdMin=7.1, cdMax=7.1, castTime=nil, channelTime=5, voiceKey="frontal", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1297763] = { npcID=137487, spellID=1297763, first=nil, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=2.5, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [271555] = { npcID=137969, spellID=271555, first=14.6, cdMedian=20, cdMin=20, cdMax=20, castTime=3, channelTime=nil, voiceKey="save", enabled=true, voiceEnabled=true, previewEligible=true },
+    },
+    [250] = {
+        [1291622] = { npcID=134390, spellID=1291622, first=10, cdMedian=5.1, cdMin=5.1, cdMax=5.1, castTime=2.5, channelTime=nil, voiceKey="move", enabled=true, voiceEnabled=true, previewEligible=false },
+        [1308113] = { npcID=134600, spellID=1308113, first=3.3, cdMedian=8.6, cdMin=8.6, cdMax=8.6, castTime=nil, channelTime=9, voiceKey="ccinterrupt", enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [272655] = { npcID=134629, spellID=272655, first=5, cdMedian=14.9, cdMin=13.7, cdMax=18.5, castTime=4.5, channelTime=nil, voiceKey="frontal", enabled=true, voiceEnabled=true, previewEligible=false },
+        [1292990] = { npcID=134629, spellID=1292990, first=19.4, cdMedian=25.4, cdMin=25.4, cdMax=25.4, castTime=2.5, channelTime=nil, voiceKey="adds", enabled=true, voiceEnabled=true, previewEligible=true },
+        [272654] = { npcID=134686, spellID=272654, first=nil, cdMedian=18.9, cdMin=18.9, cdMax=18.9, castTime=3, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [272655] = { npcID=134686, spellID=272655, first=nil, cdMedian=15.8, cdMin=15.8, cdMax=15.8, castTime=4.5, channelTime=nil, voiceKey="frontal", enabled=true, voiceEnabled=true, previewEligible=true },
+        [265966] = { npcID=134991, spellID=265966, first=13.7, cdMedian=25.1, cdMin=25.1, cdMax=25.1, castTime=4, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1291468] = { npcID=134991, spellID=1291468, first=1.6, cdMedian=17.6, cdMin=17.6, cdMax=17.6, castTime=3, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1303443] = { npcID=135007, spellID=1303443, first=20, cdMedian=20.6, cdMin=20.6, cdMax=20.6, castTime=2.5, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1303486] = { npcID=135007, spellID=1303486, first=27.3, cdMedian=24, cdMin=24, cdMax=24, castTime=3.5, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1293464] = { npcID=136076, spellID=1293464, first=19.4, cdMedian=5.8, cdMin=5.8, cdMax=8.2, castTime=1.5, channelTime=nil, voiceKey="soothe", enabled=true, voiceEnabled=true, previewEligible=false },
+        [1293475] = { npcID=136076, spellID=1293475, first=4.9, cdMedian=25, cdMin=25, cdMax=25, castTime=3, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1293650] = { npcID=136076, spellID=1293650, first=10.9, cdMedian=11.8, cdMin=11.8, cdMax=11.8, castTime=1.5, channelTime=nil, voiceKey="move", enabled=true, voiceEnabled=true, previewEligible=true },
+        [268013] = { npcID=136250, spellID=268013, first=4.4, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=4, channelTime=nil, voiceKey="interrupt", enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [1300803] = { npcID=268344, spellID=1300803, first=8.3, cdMedian=10.5, cdMin=10.5, cdMax=10.5, castTime=2.5, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1302153] = { npcID=268491, spellID=1302153, first=19.4, cdMedian=15, cdMin=15, cdMax=15, castTime=2, channelTime=nil, voiceKey=nil, enabled=true, voiceEnabled=true, previewEligible=false },
+        [1302158] = { npcID=268491, spellID=1302158, first=14.5, cdMedian=13, cdMin=13, cdMax=13, castTime=4, channelTime=nil, voiceKey="interrupt", enabled=nil, voiceEnabled=nil, previewEligible=false },
+    },
+    [399] = {
+        [372047] = { npcID=187897, spellID=372047, first=9.2, cdMedian=16.6, cdMin=16.6, cdMax=16.6, castTime=1, channelTime=3, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [372087] = { npcID=187897, spellID=372087, first=13.2, cdMedian=16.6, cdMin=16.6, cdMax=16.6, castTime=4, channelTime=nil, voiceKey="charge", enabled=true, voiceEnabled=true, previewEligible=true },
+        [372743] = { npcID=188067, spellID=372743, first=9.6, cdMedian=10.5, cdMin=10.5, cdMax=10.5, castTime=nil, channelTime=15, voiceKey="cc", enabled=true, voiceEnabled=true, previewEligible=true },
+        [372730] = { npcID=188244, spellID=372730, first=7.5, cdMedian=18.1, cdMin=18.1, cdMax=18.1, castTime=2.5, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1305201] = { npcID=188244, spellID=1305201, first=8.8, cdMedian=23.2, cdMin=23.2, cdMax=23.2, castTime=3.5, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [373017] = { npcID=189886, spellID=373017, first=nil, cdMedian=6.2, cdMin=6.2, cdMax=6.2, castTime=3.5, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [373087] = { npcID=189886, spellID=373087, first=nil, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=5, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [384823] = { npcID=189886, spellID=384823, first=16, cdMedian=10.1, cdMin=10.1, cdMax=10.1, castTime=3, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [373614] = { npcID=190034, spellID=373614, first=nil, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=5, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [373692] = { npcID=190034, spellID=373692, first=10.4, cdMedian=22, cdMin=22, cdMax=22, castTime=3.5, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [384139] = { npcID=190034, spellID=384139, first=5.2, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=1.5, channelTime=nil, voiceKey="adds", enabled=true, voiceEnabled=true, previewEligible=false },
+        [1305955] = { npcID=190034, spellID=1305955, first=nil, cdMedian=13, cdMin=13, cdMax=13, castTime=4, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [373972] = { npcID=190206, spellID=373972, first=nil, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=nil, channelTime=15, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [385536] = { npcID=190206, spellID=385536, first=7.9, cdMedian=16.6, cdMin=16.6, cdMax=16.6, castTime=nil, channelTime=10, voiceKey="cc", enabled=true, voiceEnabled=true, previewEligible=true },
+        [385310] = { npcID=195119, spellID=385310, first=nil, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=2.5, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [385313] = { npcID=195119, spellID=385313, first=4, cdMedian=12.6, cdMin=12.6, cdMax=12.6, castTime=2, channelTime=nil, voiceKey=nil, enabled=true, voiceEnabled=true, previewEligible=false },
+        [1306366] = { npcID=197535, spellID=1306366, first=20.7, cdMedian=25.7, cdMin=25.7, cdMax=25.7, castTime=nil, channelTime=7, voiceKey="targeted", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1307511] = { npcID=197535, spellID=1307511, first=4.9, cdMedian=30.4, cdMin=30.4, cdMax=30.4, castTime=2, channelTime=nil, voiceKey="adds", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1310355] = { npcID=197535, spellID=1310355, first=12.2, cdMedian=32.8, cdMin=32.8, cdMax=32.8, castTime=nil, channelTime=nil, voiceKey="shield", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1310361] = { npcID=197535, spellID=1310361, first=nil, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=nil, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [1310363] = { npcID=197535, spellID=1310363, first=nil, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=nil, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [391723] = { npcID=197697, spellID=391723, first=3.5, cdMedian=12.4, cdMin=12.4, cdMax=12.4, castTime=4, channelTime=3, voiceKey="frontal", enabled=true, voiceEnabled=true, previewEligible=true },
+        [392394] = { npcID=197697, spellID=392394, first=14.4, cdMedian=18.1, cdMin=18.1, cdMax=18.1, castTime=2.5, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [391726] = { npcID=197698, spellID=391726, first=nil, cdMedian=17.3, cdMin=17.3, cdMax=17.3, castTime=4, channelTime=3, voiceKey="frontal", enabled=true, voiceEnabled=true, previewEligible=true },
+        [392395] = { npcID=197698, spellID=392395, first=nil, cdMedian=18.2, cdMin=18.2, cdMax=18.2, castTime=2.5, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [392640] = { npcID=197698, spellID=392640, first=nil, cdMedian=32.5, cdMin=32.5, cdMax=32.5, castTime=1.5, channelTime=nil, voiceKey="targeted", enabled=true, voiceEnabled=true, previewEligible=true },
+        [392576] = { npcID=198047, spellID=392576, first=0, cdMedian=19.1, cdMin=19.1, cdMax=19.1, castTime=4, channelTime=nil, voiceKey="interrupt", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1306366] = { npcID=198047, spellID=1306366, first=7.3, cdMedian=15.7, cdMin=15.7, cdMax=15.7, castTime=nil, channelTime=7, voiceKey="targeted", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1307502] = { npcID=198047, spellID=1307502, first=17, cdMedian=6.4, cdMin=6.4, cdMax=6.4, castTime=2, channelTime=nil, voiceKey="adds", enabled=true, voiceEnabled=true, previewEligible=true },
+    },
+    [584] = {
+        [1237855] = { npcID=245346, spellID=1237855, first=5.6, cdMedian=19.3, cdMin=19.3, cdMax=19.3, castTime=2.5, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1255205] = { npcID=245346, spellID=1255205, first=14.4, cdMedian=30.6, cdMin=30.6, cdMax=30.6, castTime=3, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1238368] = { npcID=245513, spellID=1238368, first=3.4, cdMedian=15, cdMin=15, cdMax=15, castTime=2, channelTime=6, voiceKey="targeted", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1238642] = { npcID=245513, spellID=1238642, first=12.1, cdMedian=21.8, cdMin=20, cdMax=23.6, castTime=3, channelTime=nil, voiceKey="move", enabled=true, voiceEnabled=true, previewEligible=false },
+        [1242135] = { npcID=246871, spellID=1242135, first=5, cdMedian=15.5, cdMin=15.5, cdMax=15.5, castTime=2.5, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1242138] = { npcID=246871, spellID=1242138, first=12.6, cdMedian=20, cdMin=20, cdMax=20, castTime=3, channelTime=nil, voiceKey="frontal", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1250100] = { npcID=249756, spellID=1250100, first=20.2, cdMedian=24.7, cdMin=24.7, cdMax=24.7, castTime=2, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1250199] = { npcID=249756, spellID=1250199, first=5.4, cdMedian=24.9, cdMin=24.9, cdMax=24.9, castTime=3, channelTime=nil, voiceKey="adds", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1250937] = { npcID=249756, spellID=1250937, first=13.9, cdMedian=24.7, cdMin=24.7, cdMax=24.7, castTime=2, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1263636] = { npcID=254850, spellID=1263636, first=15.8, cdMedian=27, cdMin=27, cdMax=27, castTime=1.5, channelTime=3, voiceKey="move", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1271385] = { npcID=254850, spellID=1271385, first=4.8, cdMedian=24.7, cdMin=24.7, cdMax=24.7, castTime=2, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+    },
+    [585] = {
+        [1234855] = { npcID=244260, spellID=1234855, first=17.1, cdMedian=10.6, cdMin=10.6, cdMax=10.6, castTime=nil, channelTime=10, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1234890] = { npcID=244309, spellID=1234890, first=26.8, cdMedian=19.6, cdMin=19.6, cdMax=19.6, castTime=3.5, channelTime=nil, voiceKey="charge", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1245186] = { npcID=244309, spellID=1245186, first=47.4, cdMedian=20.5, cdMin=20.5, cdMax=20.5, castTime=2.5, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1239856] = { npcID=245950, spellID=1239856, first=5.4, cdMedian=20.5, cdMin=20.5, cdMax=20.5, castTime=5, channelTime=nil, voiceKey="stack", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1300138] = { npcID=245950, spellID=1300138, first=13.9, cdMedian=21.5, cdMin=21.5, cdMax=21.5, castTime=2, channelTime=4, voiceKey="targeted", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1298900] = { npcID=252053, spellID=1298900, first=7.2, cdMedian=20, cdMin=20, cdMax=20, castTime=2, channelTime=30, voiceKey="breakshield", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1310309] = { npcID=252053, spellID=1310309, first=24, cdMedian=26.8, cdMin=26.8, cdMax=26.8, castTime=nil, channelTime=6, voiceKey="spread", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1299913] = { npcID=252072, spellID=1299913, first=14.3, cdMedian=19, cdMin=19, cdMax=19, castTime=4, channelTime=nil, voiceKey="targeted", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1299938] = { npcID=252072, spellID=1299938, first=5.8, cdMedian=5.3, cdMin=5.3, cdMax=5.3, castTime=4, channelTime=nil, voiceKey="interrupt", enabled=true, voiceEnabled=true, previewEligible=false },
+        [1233472] = { npcID=263228, spellID=1233472, first=nil, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=nil, channelTime=6, voiceKey="move", enabled=true, voiceEnabled=true, previewEligible=false },
+        [1289265] = { npcID=263228, spellID=1289265, first=7.5, cdMedian=18.1, cdMin=18.1, cdMax=18.1, castTime=2.5, channelTime=nil, voiceKey="poison", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1311778] = { npcID=263228, spellID=1311778, first=nil, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=nil, channelTime=nil, voiceKey="move", enabled=true, voiceEnabled=true, previewEligible=false },
+        [1298908] = { npcID=267545, spellID=1298908, first=24.6, cdMedian=33.2, cdMin=33.2, cdMax=33.2, castTime=2, channelTime=nil, voiceKey=nil, enabled=true, voiceEnabled=true, previewEligible=false },
+        [1298924] = { npcID=267545, spellID=1298924, first=27.9, cdMedian=27.5, cdMin=27.5, cdMax=27.5, castTime=8, channelTime=nil, voiceKey=nil, enabled=true, voiceEnabled=true, previewEligible=false },
+        [1299125] = { npcID=267545, spellID=1299125, first=7.6, cdMedian=33.2, cdMin=33.2, cdMax=33.2, castTime=2, channelTime=nil, voiceKey=nil, enabled=true, voiceEnabled=true, previewEligible=false },
+        [1299145] = { npcID=267545, spellID=1299145, first=11.2, cdMedian=32.2, cdMin=32.2, cdMax=32.2, castTime=3, channelTime=nil, voiceKey=nil, enabled=true, voiceEnabled=true, previewEligible=false },
+        [1299270] = { npcID=267546, spellID=1299270, first=20.6, cdMedian=20.8, cdMin=20.8, cdMax=20.8, castTime=3, channelTime=9, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1311747] = { npcID=267546, spellID=1311747, first=10.8, cdMedian=30.8, cdMin=30.8, cdMax=30.8, castTime=2, channelTime=nil, voiceKey="orb", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1252406] = { npcID=268184, spellID=1252406, first=6.3, cdMedian=23.5, cdMin=23.5, cdMax=23.5, castTime=4.5, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1300243] = { npcID=268184, spellID=1300243, first=13.5, cdMedian=19.5, cdMin=19.5, cdMax=19.5, castTime=2, channelTime=6, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1300249] = { npcID=268184, spellID=1300249, first=29.7, cdMedian=15, cdMin=15, cdMax=15, castTime=9, channelTime=nil, voiceKey="switch", enabled=true, voiceEnabled=true, previewEligible=true },
+    },
+    [586] = {
+        [1240280] = { npcID=241869, spellID=1240280, first=10.4, cdMedian=26.4, cdMin=25.2, cdMax=27.6, castTime=4, channelTime=nil, voiceKey="dodge", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1241463] = { npcID=241869, spellID=1241463, first=8.8, cdMedian=15.1, cdMin=15.1, cdMax=15.1, castTime=2, channelTime=nil, voiceKey="root", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1290205] = { npcID=244889, spellID=1290205, first=0, cdMedian=4.9, cdMin=4.9, cdMax=4.9, castTime=2.5, channelTime=nil, voiceKey=nil, enabled=false, voiceEnabled=false, previewEligible=false },
+        [1296722] = { npcID=244889, spellID=1296722, first=6, cdMedian=11.4, cdMin=11.4, cdMax=11.4, castTime=4, channelTime=nil, voiceKey="drop", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1309925] = { npcID=244889, spellID=1309925, first=13.3, cdMedian=27.3, cdMin=27.3, cdMax=27.3, castTime=3, channelTime=nil, voiceKey="totem", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1246957] = { npcID=245146, spellID=1246957, first=5, cdMedian=20.1, cdMin=20.1, cdMax=20.1, castTime=3, channelTime=nil, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1246986] = { npcID=245146, spellID=1246986, first=11.9, cdMedian=18.6, cdMin=16.2, cdMax=21, castTime=2, channelTime=nil, voiceKey="move", enabled=true, voiceEnabled=true, previewEligible=false },
+        [1238687] = { npcID=245855, spellID=1238687, first=10.2, cdMedian=19.8, cdMin=19, cdMax=20.6, castTime=1.5, channelTime=5, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1238760] = { npcID=245855, spellID=1238760, first=6.6, cdMedian=24, cdMin=22.8, cdMax=25.2, castTime=1.5, channelTime=nil, voiceKey="totem", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1309947] = { npcID=250478, spellID=1309947, first=nil, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=0, channelTime=604800, voiceKey=nil, enabled=false, voiceEnabled=false, previewEligible=false },
+    },
+    [587] = {
+        [1217973] = { npcID=235265, spellID=1217973, first=16.2, cdMedian=21.6, cdMin=21.6, cdMax=21.6, castTime=1.5, channelTime=nil, voiceKey="curse", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1297682] = { npcID=235265, spellID=1297682, first=6.5, cdMedian=11.6, cdMin=11.6, cdMax=11.6, castTime=2, channelTime=7, voiceKey="targeted", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1297684] = { npcID=235265, spellID=1297684, first=23.5, cdMedian=31.3, cdMin=31.3, cdMax=31.3, castTime=1.5, channelTime=nil, voiceKey="breakshield", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1215961] = { npcID=235322, spellID=1215961, first=21.7, cdMedian=24.3, cdMin=24.3, cdMax=24.3, castTime=2, channelTime=4, voiceKey="keepmoving", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1294824] = { npcID=235322, spellID=1294824, first=5.3, cdMedian=19.2, cdMin=19.2, cdMax=19.2, castTime=2, channelTime=8, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1294770] = { npcID=235465, spellID=1294770, first=22.6, cdMedian=nil, cdMin=nil, cdMax=nil, castTime=1, channelTime=nil, voiceKey=nil, enabled=nil, voiceEnabled=nil, previewEligible=false },
+        [1297691] = { npcID=235465, spellID=1297691, first=4.4, cdMedian=18.8, cdMin=18.8, cdMax=18.8, castTime=4, channelTime=nil, voiceKey="dodge", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1216529] = { npcID=236071, spellID=1216529, first=13.2, cdMedian=21.2, cdMin=21.2, cdMax=21.2, castTime=3, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1295035] = { npcID=236071, spellID=1295035, first=8, cdMedian=21, cdMin=21, cdMax=21, castTime=2, channelTime=nil, voiceKey="targeted", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1217633] = { npcID=236902, spellID=1217633, first=6.2, cdMedian=21, cdMin=21, cdMax=21, castTime=2, channelTime=nil, voiceKey="magic", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1258537] = { npcID=236902, spellID=1258537, first=8.6, cdMedian=22.1, cdMin=22.1, cdMax=22.1, castTime=nil, channelTime=1, voiceKey="adds", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1216954] = { npcID=236905, spellID=1216954, first=nil, cdMedian=15.6, cdMin=15.6, cdMax=15.6, castTime=2.5, channelTime=2.5, voiceKey="frontal", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1302007] = { npcID=236905, spellID=1302007, first=nil, cdMedian=19.4, cdMin=19.4, cdMax=19.4, castTime=nil, channelTime=1.2, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+    },
+    [588] = {
+        [1294567] = { npcID=261554, spellID=1294567, first=5.5, cdMedian=20, cdMin=20, cdMax=20, castTime=3, channelTime=nil, voiceKey="trap", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1306668] = { npcID=261554, spellID=1306668, first=15, cdMedian=15, cdMin=15, cdMax=15, castTime=3, channelTime=5, voiceKey="frontal", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1306385] = { npcID=261557, spellID=1306385, first=11.5, cdMedian=14.6, cdMin=14.6, cdMax=14.6, castTime=nil, channelTime=6, voiceKey="cc", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1294934] = { npcID=261573, spellID=1294934, first=30, cdMedian=28.5, cdMin=28.5, cdMax=28.5, castTime=3, channelTime=5, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1295055] = { npcID=261573, spellID=1295055, first=20, cdMedian=34.5, cdMin=34.5, cdMax=34.5, castTime=2, channelTime=nil, voiceKey="stack", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1308864] = { npcID=261573, spellID=1308864, first=4.5, cdMedian=34.5, cdMin=34.5, cdMax=34.5, castTime=2, channelTime=nil, voiceKey="adds", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1294845] = { npcID=262011, spellID=1294845, first=5.3, cdMedian=25, cdMin=25, cdMax=25, castTime=3, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1294849] = { npcID=262011, spellID=1294849, first=11.5, cdMedian=19.5, cdMin=19.5, cdMax=19.5, castTime=3, channelTime=5, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1306852] = { npcID=263109, spellID=1306852, first=14.5, cdMedian=15.7, cdMin=15.7, cdMax=15.7, castTime=2, channelTime=9, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1306517] = { npcID=270306, spellID=1306517, first=11, cdMedian=18, cdMin=18, cdMax=18, castTime=3, channelTime=2, voiceKey="aoe", enabled=true, voiceEnabled=true, previewEligible=true },
+        [1306911] = { npcID=270306, spellID=1306911, first=5, cdMedian=20, cdMin=20, cdMax=20, castTime=3, channelTime=nil, voiceKey="tank", enabled=true, voiceEnabled=true, previewEligible=true },
+    },
+}
+R.meta = { maps=8, spells=138, previewEligible=101, source="EXBossData user files" }
+
+function R:Get(mapID, spellID)
+    mapID = tonumber(mapID)
+    spellID = tonumber(spellID)
+    if not mapID or not spellID then return nil end
+    local m = self.maps[mapID]
+    return m and m[spellID] or nil
+end
+
+function R:GetStatus()
+    return self.meta
+end

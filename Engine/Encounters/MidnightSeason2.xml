@@ -1,0 +1,10 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="murder_row.lua"/>
+    <Include file="den_of_nalorakk.lua"/>
+    <Include file="the_blinding_vale.lua"/>
+    <Include file="voidscar_arena.lua"/>
+    <Include file="altar_of_fangs.lua"/>
+    <Include file="temple_of_sethraliss.lua"/>
+    <Include file="kings_rest.lua"/>
+    <Include file="ruby_life_pools.lua"/>
+</Ui>

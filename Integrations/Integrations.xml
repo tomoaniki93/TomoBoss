@@ -1,0 +1,8 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="BossModBridge.lua"/>
+    <Include file="Blizzard.lua"/>
+    <Include file="BetterTimeline.lua"/>
+    <Include file="BigWigs.lua"/>
+    <Include file="DBM.lua"/>
+    <Include file="Bootstrap.lua"/>
+</Ui>

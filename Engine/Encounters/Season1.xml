@@ -1,0 +1,10 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="pit_of_saron.lua"/>
+    <Include file="skyreach.lua"/>
+    <Include file="seat_of_the_triumvirate.lua"/>
+    <Include file="algethar_academy.lua"/>
+    <Include file="windrunner_spire.lua"/>
+    <Include file="magisters_terrace.lua"/>
+    <Include file="maisara_caverns.lua"/>
+    <Include file="nexus_point_xenas.lua"/>
+</Ui>

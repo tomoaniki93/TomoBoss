@@ -1,0 +1,6 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="sporefall.lua"/>
+    <Include file="the_voidspire.lua"/>
+    <Include file="march_on_quel_danas.lua"/>
+    <Include file="the_dreamrift.lua"/>
+</Ui>

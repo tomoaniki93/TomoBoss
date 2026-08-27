@@ -11,6 +11,21 @@ NS.defaults = {
         debug     = false,
         positions = {},
 
+        -- Fondation visuelle V2. Les options sont volontairement simples au Lot 1 ;
+        -- elles seront exposées dans le GUI lors du Lot 3.
+        appearance = {
+            theme      = "obsidian", -- "obsidian" | "legacy"
+            panelAlpha = 0.97,       -- opacité des surfaces du GUI
+        },
+
+        -- Couche de rendu des minuteurs de boss. Le Lot 2A garde les barres
+        -- comme mode actif par défaut ; les renderers Timeline/Hybride seront
+        -- branchés sur ce contrôleur sans modifier les producteurs de timers.
+        display = {
+            timerMode      = "bars", -- "bars" | "timeline" | "hybrid"
+            fallbackToBars = true,   -- sécurité si un renderer demandé n'est pas chargé
+        },
+
         voice = {
             enabled   = true,
             channel   = "Master",   -- Master | SFX | Dialog | Music | Ambience

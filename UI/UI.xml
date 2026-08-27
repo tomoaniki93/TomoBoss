@@ -1,0 +1,11 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="Mover.lua"/>
+    <Include file="BarGroup.lua"/>
+    <Include file="RingGroup.lua"/>
+    <Include file="RingProgress.lua"/>
+    <Include file="TimerModel.lua"/>
+    <Include file="DisplayController.lua"/>
+    <Include file="TimerBars.lua"/>
+    <Include file="Countdown.lua"/>
+    <Include file="FlashText.lua"/>
+</Ui>

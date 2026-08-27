@@ -1,5 +1,102 @@
 # Changelog
 
+## 2.8.0-beta5d1 — Trash Cast Target Observatory
+
+- **New** — Audits Blizzard's `UnitSpellTargetName()` on enemy cast bars without using the combat log.
+- **New** — Classifies readable cast targets as SELF, TANK, HEALER, DPS, GROUP or OTHER.
+- **Privacy/Safety** — Raw player names are never persisted; secret target names are counted and discarded.
+- **Diagnostics** — `/tmb trashdoctor` now reports target visibility and target-class counts.
+- **Diagnostics** — `/tmb trashdump` includes the coarse target class for each observable cast.
+- **Unchanged** — StateResolver gameplay decisions, boss timers and P0-01 sentinel protection are unchanged.
+
+## 2.8.0-beta5d — TrashCD Observatory & Persistent State Evidence
+
+### TrashCD Observatory
+- **New** — Added an observation-only Midnight-safe TrashCD probe for dungeon testing.
+- **New** — Records NeverSecret `castBarID` values and non-secret enemy spell IDs exposed by Blizzard without using combat-log events.
+- **New** — Secret enemy spell IDs are counted for diagnostics and discarded without being interpreted or stored.
+- **New** — Added `/tmb trashdoctor` and `/tmb trashdump` for copyable dungeon test results.
+- **New** — Added an optional `/tmb trashpreview on` diagnostic preview. It starts only after a real known non-secret cast and can issue a generic TTS warning near the next stable reference cooldown.
+- **Changed** — Trash preview is OFF after every reload and does not replace TomoBoss's existing player-facing trash module.
+
+### TrashCD Reference Validation
+- **New** — Added a diagnostic reference catalog covering 8 Season 2 dungeon maps, 138 trash spell rows and 101 conservative preview candidates.
+- **Changed** — Reference data can only be matched after Blizzard exposes the spell ID as non-secret; it never reveals or reconstructs restricted identities.
+- **Changed** — Interrupted or failed observed casts cancel their pending diagnostic prediction rather than risking a stale warning.
+
+### StateResolver Validation
+- **New** — Runtime evidence for Adderis & Aspix (2124), Council of Tribes (2140), Mchimba (2142) and Lightwarden Ruia (3201) is now retained across later bosses.
+- **New** — `/tmb statedump` exports the exact stored StateResolver decisions, guarded fallbacks and encounter-state markers from recent runs.
+- **Changed** — Boss resolution rules themselves are unchanged from beta5c1.
+
+### Midnight Safety
+- **Changed** — No combat-log event or combat-log API is registered or used by the new observatory.
+- **Changed** — No enemy GUID, enemy name or cast GUID is stored by TrashCD Observatory.
+- **Changed** — `castBarID` is used only as an opaque cast identity/deduplication key and is never mapped back to a restricted spell.
+- **Changed** — No Learn purge is required.
+
+## 2.8.0-beta5c — Season 2 Timeline Reliability, Learn Profiles & Safer Boss-Mod Integration
+
+### Season 2 — Timeline Reliability
+
+- **Fixed** — TomoBoss now ignores invalid Blizzard timeline sentinel values instead of treating them as real boss timers. This prevents extremely long or impossible timers such as `9999` / `10001` seconds from appearing as player-facing alerts.
+- **Fixed** — Repeated timeline entries are handled more safely, including encounters where multiple mechanics legitimately share the same duration.
+- **Changed** — Ambiguous timers now prefer a safe generic fallback over guessing the wrong mechanic.
+- **Changed** — Season 2 duration rules were audited and normalized against real in-game captures, with all configured rules resolving to a known mechanic.
+
+### Season 2 — State-Aware Boss Resolution
+
+- **New** — TomoBoss can now use encounter state to distinguish mechanics that share the same timer duration instead of relying only on static occurrence order.
+- **New** — Added guarded state-aware handling for Adderis & Aspix, Council of Tribes, Mchimba the Embalmer and Lightwarden Ruia.
+- **Changed** — Multi-phase encounters remain conservative: TomoBoss only uses a specific state-based result when the required encounter evidence has actually been observed.
+- **Changed** — One intentionally ambiguous collision remains generic-safe rather than risking an incorrect warning.
+
+### The Blinding Vale
+
+- **New** — Learn now recognizes multiple valid timeline profiles for The Blinding Vale instead of treating different difficulty/profile patterns as conflicts.
+- **New** — Added validated Mythic timeline profiles for Lightblossom Trinity, Ikuzz the Light Hunter, Lightwarden Ruia and Ziekket based on real in-game captures.
+- **New** — Lightwarden Ruia now has Learn evidence for all three phases, including the Phase 3 `2.5s` transition marker and the repeating `32s` sequence.
+- **Changed** — Ruia's Phase 3 resolution remains guarded by the native in-combat phase marker even when Learn/reference confidence is high.
+- **New** — Ziekket's Mythic `50s` sequence and alternate `45s` profile are both tracked as valid profiles.
+
+### Learn System
+
+- **New** — Added profile evidence tracking so Learn can distinguish alternative and Mythic timeline signatures for the same encounter.
+- **New** — Learn now records evidence for phase anchors, phase transitions and profile stability without requiring a database reset.
+- **Changed** — Existing Learn history is preserved and reused; no Learn purge is required for this update.
+- **New** — Invalid/sentinel timeline samples are counted for diagnostics while remaining excluded from player-facing timer resolution.
+
+### Reference Validation
+
+- **New** — Added an observation-only Reference Catalog covering all 28 Season 2 encounters.
+- **New** — TomoBoss can cross-check its decisions against independent reference data from EXBossData and WeakAura mappings, while keeping Blizzard/TomoBoss as the runtime authority.
+- **New** — Reference validation understands canonical mechanic IDs and physical cast aliases, preventing harmless ID differences from being reported as false conflicts.
+- **Changed** — External references can confirm or flag a TomoBoss decision, but they can never create, replace or control a player-facing timer.
+
+### BigWigs / DBM Compatibility
+
+- **Fixed** — BigWigs timeline callbacks are now safe when Midnight exposes protected/secret spell text or icon values.
+- **Fixed** — TomoBoss no longer attempts string operations on inaccessible BigWigs values, preventing the `invalid value (secret) ... table.concat` Lua error seen in raids.
+- **Changed** — Safe native event identifiers are used when available; inaccessible external identities are simply ignored.
+- **Changed** — DBM integration received the same secret-safe boundary handling in preparation for future interoperability.
+- **Changed** — BigWigs and DBM remain audit/compatibility sources only and never control TomoBoss output.
+
+### Doctor / Diagnostics
+
+- **New** — `/tmb doctor` now reports Reference Catalog status, reference matches/conflicts, Learn profile evidence, alias resolutions and external audit results.
+- **New** — Ruia diagnostics now separate Learn-gate readiness, Phase 3 Learn evidence and the live in-combat Phase 3 guard.
+- **New** — Doctor reports observed sentinel timeline samples so Blizzard's invalid long-duration events can be verified without exposing them as timers.
+- **Changed** — Season 2 collision coverage now distinguishes static, state-aware and deliberately generic-safe cases.
+
+### Validation
+
+- **Tested** — Season 2 timeline captures were validated across the current dungeon pool, including real Mythic captures from The Blinding Vale.
+- **Tested** — BigWigs loads with the secret-safe bridge enabled and no new BigWigs integration Lua error observed in the validated sessions.
+- **Tested** — The Reference Catalog remains observation-only and does not change existing player-facing timer decisions.
+- **Tested** — Blizzard timeline sentinel protection remains active and validated in game.
+
+## #########################################################################
+
 ## [2.7.3]
 
 BlizzTimeline hardening pass, from 12.1 capture review: three failure modes

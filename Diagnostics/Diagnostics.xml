@@ -1,0 +1,5 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="Validator.lua"/>
+    <Include file="TrashObservatory.lua"/>
+    <Include file="Doctor.lua"/>
+</Ui>

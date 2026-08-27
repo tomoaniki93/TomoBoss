@@ -1,0 +1,4 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="PhaseDetector.lua"/>
+    <Include file="StateResolver.lua"/>
+</Ui>
