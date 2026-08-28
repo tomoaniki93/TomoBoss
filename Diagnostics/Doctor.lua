@@ -168,8 +168,9 @@ function Doctor:Run()
         chat("  BigWigs confirmations ...... " .. tostring(ss.externalConfirmed or 0))
         chat("  BigWigs mismatches ......... " .. tostring(ss.externalMismatch or 0))
         local g = ss.gate3201 or {}
-        chat(string.format("  Ruia Learn gate ............ %s  pulls=%d stable=%d",
-            g.armed and "ARMED" or "LOCKED", g.pulls or 0, g.stableAnchors or 0))
+        chat(string.format("  Ruia Learn gate ............ %s  pulls=%d stable=%d%s",
+            g.armed and "ARMED" or "LOCKED", g.pulls or 0, g.stableAnchors or 0,
+            ss.gateRefreshPending and "  refresh=pending" or ""))
         chat(string.format("  Ruia P3 Learn evidence ..... %s  pulls=%d  32s=%d",
             (g.p3Confirmed and g.cycle32Confirmed) and "CONFIRMED" or "WAITING", g.p3Pulls or 0, g.cycle32Pulls or 0))
         local rr = ss.ruiaRuntime or {}
@@ -218,9 +219,18 @@ function Doctor:Run()
             ts.primaryCasts or 0, ts.castEvents or 0))
         chat(string.format("  SpellID visibility ........ %d non-secret / %d secret  unique=%d",
             ts.nonSecretSpellIDs or 0, ts.secretSpellIDs or 0, ts.uniqueNonSecretSpells or 0))
-        chat("  NeverSecret castBarIDs ..... " .. tostring(ts.castBarIDs or 0))
-        chat(string.format("  Cast target visibility ..... %d samples / %d secret / %d none / %d errors",
-            ts.targetSamples or 0, ts.targetSecret or 0, ts.targetNone or 0, ts.targetApiErrors or 0))
+        chat(string.format("  castBarID-bearing events ... %d  unique=%d",
+            ts.castBarEvents or 0, ts.uniqueCastBarIDs or 0))
+        chat(string.format("  CastBar API correlation .... match %d / missing %d / mismatch %d",
+            ts.castBarInfoMatches or 0, ts.castBarInfoMissing or 0, ts.castBarInfoMismatch or 0))
+        chat(string.format("  Target casts probed ........ %d casts / %d probe attempts / stale %d",
+            ts.targetSamples or 0, ts.targetProbeAttempts or 0, ts.targetProbeStale or 0))
+        chat(string.format("  Target immediate ........... usable %d / secret %d / none %d",
+            ts.targetImmediateUsable or 0, ts.targetImmediateSecret or 0, ts.targetImmediateNone or 0))
+        chat(string.format("  Target deferred recovery ... usable %d / secret %d",
+            ts.targetDeferredRecovered or 0, ts.targetDeferredSecret or 0))
+        chat(string.format("  Target final visibility .... %d secret / %d none / %d errors",
+            ts.targetSecret or 0, ts.targetNone or 0, ts.targetApiErrors or 0))
         chat(string.format("  Cast target classes ........ SELF %d  TANK %d  HEAL %d  DPS %d  GROUP %d  OTHER %d",
             ts.targetSelf or 0, ts.targetTank or 0, ts.targetHealer or 0, ts.targetDps or 0,
             ts.targetGroup or 0, ts.targetOther or 0))
@@ -286,7 +296,7 @@ function Doctor:Run()
     end
 
     chat("  P0-01 sentinel guard ....... |cff33e6a6validated in game|r")
-    chat("|cffaaaaaaBeta5d1: TrashCD Observatory also audits UnitSpellTargetName safely; secret enemy identities are dropped and CLEU is never registered.|r")
+    chat("|cffaaaaaaBeta5d2: TrashCD Observatory distinguishes castBarID events from unique casts and probes UnitSpellTargetName at 0/50/150/300ms only while the same castBarID remains active.|r")
     chat("|cffaaaaaaBeta5c: Learn profile evidence keeps ALT/MYTHIC native duration profiles separate; profile evidence never controls player-facing output.|r")
     chat("|cffaaaaaaBeta5a secret-safe bridge remains active; inaccessible external identities are dropped, never interpreted.|r")
     chat("|cffaaaaaaP0-04 guarded state rules are unchanged; Ruia Learn gate, P3 Learn evidence, and native 2.5s runtime guard are reported separately.|r")

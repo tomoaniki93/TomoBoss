@@ -3,7 +3,7 @@
 ## Notes: Boss timers, voice callouts & Season 2 learning for Midnight. /tmb
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## Author: TomoAniki
-## Version: 2.8.0-beta5d1
+## Version: 2.8.0-beta5d2a
 ## SavedVariables: TomoBossDB, TomoBossRecorderDB
 ## IconTexture: Interface\Icons\Achievement_Boss_Lichking
 

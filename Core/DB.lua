@@ -10,14 +10,12 @@ NS.defaults = {
         locked    = true,
         debug     = false,
         positions = {},
-
         -- Fondation visuelle V2. Les options sont volontairement simples au Lot 1 ;
         -- elles seront exposées dans le GUI lors du Lot 3.
         appearance = {
             theme      = "obsidian", -- "obsidian" | "legacy"
             panelAlpha = 0.97,       -- opacité des surfaces du GUI
         },
-
         -- Couche de rendu des minuteurs de boss. Le Lot 2A garde les barres
         -- comme mode actif par défaut ; les renderers Timeline/Hybride seront
         -- branchés sur ce contrôleur sans modifier les producteurs de timers.
@@ -25,7 +23,24 @@ NS.defaults = {
             timerMode      = "bars", -- "bars" | "timeline" | "hybrid"
             fallbackToBars = true,   -- sécurité si un renderer demandé n'est pas chargé
         },
-
+        -- TomoTimeline V1 : second renderer natif des minuteurs de boss.
+        -- Le Lot 3 exposera ces valeurs dans le GUI ; le mode reste "bars" par
+        -- défaut pour ne pas modifier l'interface des profils existants.
+        timeline = {
+            orientation       = "vertical", -- V1 : vertical ; horizontal prévu ensuite
+            direction         = "down",     -- futur en haut -> NOW en bas
+            width             = 340,
+            height            = 420,
+            window            = 40,         -- fenêtre temporelle visible (secondes)
+            iconSize          = 32,
+            maxEvents         = 10,
+            tickEvery         = 5,
+            showTicks         = true,
+            showName          = true,
+            showTime          = true,
+            priorityThreshold = 5,          -- accent danger sous ce seuil
+            updateRate        = 0.05,       -- 20 Hz seulement quand le renderer est visible
+        },
         voice = {
             enabled   = true,
             channel   = "Master",   -- Master | SFX | Dialog | Music | Ambience
@@ -35,16 +50,19 @@ NS.defaults = {
             boost     = 100,        -- volume des annonces en % (100-300 ; empile le son)
             pack      = "auto",     -- pack de langue vocale ("auto" | "frFR" | "enUS" | "deDE"...)
         },
-
         bars = {
-            width      = 220,
-            height     = 26,
-            maxBars    = 8,
-            spacing    = 4,
-            grow       = "down",    -- "down" | "up"
-            showIcon   = true,
-            fontSize   = 13,
-            showWindow = 0,         -- n'afficher que les barres à < X s (0 = toutes)
+            width           = 220,
+            height          = 26,
+            maxBars         = 8,
+            spacing         = 4,
+            grow            = "down",    -- "down" | "up"
+            showIcon        = true,
+            fontSize        = 13,
+            showWindow      = 0,         -- n'afficher que les barres à < X s (0 = toutes)
+            style           = "modern",  -- "modern" | "legacy" (Boss Bars V2)
+            fillAlpha       = 0.72,       -- opacité du remplissage Modern
+            trackAlpha      = 0.92,       -- opacité de la piste sombre Modern
+            dangerThreshold = 5,          -- état urgence / temps rouge sous ce seuil (s)
         },
 
         countdown = {
@@ -55,7 +73,6 @@ NS.defaults = {
         flash = {
             enabled = true,
         },
-
         interrupts = {
             enabled    = true,
             showSelfCD = true,
@@ -67,7 +84,6 @@ NS.defaults = {
             showIcon   = true,
             fontSize   = 13,
         },
-
         trash = {
             enabled     = true,
             voiceOnKick = false,
@@ -81,14 +97,12 @@ NS.defaults = {
             showIcon    = true,
             fontSize    = 13,
         },
-
         nameplateGlow = {
             enabled         = true,     -- halo sur la castbar des nameplates
             onImportant     = true,     -- casts classés « importants » par le jeu
             onUninterruptible = false,  -- + casts non interruptibles (à esquiver)
             color           = { 1.00, 0.30, 0.25 },
         },
-
         rings = {
             size     = 44,
             spacing  = 8,
@@ -103,14 +117,12 @@ NS.defaults = {
             angle = 210,            -- position autour de la minicarte (degrés)
             hide  = false,
         },
-
         ringProgress = {
             enabled = true,         -- grand anneau central qui se referme
             size    = 180,
             alpha   = 0.85,
             edge    = true,         -- étincelle sur le bord qui avance
         },
-
         blizzTimeline = {
             enabled = true,         -- moteur timeline (C_EncounterTimeline) — principal sous Midnight
             bar     = true,
@@ -122,7 +134,6 @@ NS.defaults = {
             genericOther  = "",                 -- sévérité 1 : "" = pas de voix (bip si activé)
             genericDanger = "special-mechanic", -- sévérité 2 : danger
         },
-
         eventBridge = {
             enabled  = true,        -- confier la voix au jeu (C_EncounterEvents)
             sounds   = true,        -- poser les fichiers son
@@ -131,7 +142,6 @@ NS.defaults = {
             genericFallback = true, -- events sans voix propre : voix générique par sévérité
             forceCVar = true,       -- forcer encounterWarningsEnabled à 1
         },
-
         recorder = {
             enabled = false,        -- enregistreur de timeline (/tmb rec on)
         },
@@ -147,7 +157,6 @@ NS.defaults = {
         },
     },
 }
-
 -- Fusion récursive : complète les clés manquantes sans écraser l'existant.
 local function fill(dst, src)
     for k, v in pairs(src) do
@@ -159,19 +168,18 @@ local function fill(dst, src)
         end
     end
 end
-
 function NS:InitDB()
     TomoBossDB = TomoBossDB or {}
     self.db = TomoBossDB
     self.db.profile = self.db.profile or {}
     fill(self.db.profile, self.defaults.profile)
 end
-
 -- Applique l'échelle globale aux ancres des widgets.
 function NS:ApplyScale()
     local s = self.db.profile.scale or 1
     local anchors = {
         self.UI.TimerBars and self.UI.TimerBars.anchor,
+        self.UI.TomoTimeline and self.UI.TomoTimeline.anchor,
         self.UI.Countdown and self.UI.Countdown.anchor,
         self.UI.FlashText and self.UI.FlashText.anchor,
         self.InterruptTracker and self.InterruptTracker.group and self.InterruptTracker.group.anchor,

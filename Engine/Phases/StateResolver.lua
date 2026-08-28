@@ -203,6 +203,16 @@ function SR:GetCoverage(encID, duration)
 end
 
 function SR:RefreshGates()
+    -- Preserve the last valid out-of-combat Learn snapshot while combat
+    -- lockdown is active. ENCOUNTER_END can be followed by a short period
+    -- where InCombatLockdown() is still true; zeroing the gate here would
+    -- incorrectly relock a previously validated Ruia profile.
+    if InCombatLockdown and InCombatLockdown() then
+        self.gateRefreshPending = true
+        return false
+    end
+    self.gateRefreshPending = false
+
     -- Lightwarden Ruia stays generic until we have both repeated Learn data and
     -- at least one stable anchor. No inference is run in combat.
     local pulls = countPulls(3201)
@@ -228,6 +238,7 @@ function SR:RefreshGates()
         p3Pulls=p3Pulls, cycle32Pulls=cycle32Pulls,
         p3Confirmed=p3Pulls > 0, cycle32Confirmed=cycle32Pulls > 0,
     }
+    return true
 end
 
 local function newState(encID, name)
@@ -497,6 +508,7 @@ function SR:GetStatus()
         totalResolved = self.metrics.resolved or 0,
         totalFallback = self.metrics.fallback or 0,
         gate3201 = gated,
+        gateRefreshPending = self.gateRefreshPending and true or false,
         ruiaRuntime = {
             available = rr ~= nil,
             active = self.current == ruiaState and ruiaState ~= nil,
@@ -638,12 +650,15 @@ function SR:Init()
     local f = CreateFrame("Frame")
     self.frame = f
     f:RegisterEvent("PLAYER_LOGIN")
+    f:RegisterEvent("PLAYER_REGEN_ENABLED")
     f:RegisterEvent("ENCOUNTER_START")
     f:RegisterEvent("ENCOUNTER_END")
     f:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
     f:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
     f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4, a5)
         if event == "PLAYER_LOGIN" then
+            SR:RefreshGates()
+        elseif event == "PLAYER_REGEN_ENABLED" then
             SR:RefreshGates()
         elseif event == "ENCOUNTER_START" then
             SR:Begin(a1, a2)

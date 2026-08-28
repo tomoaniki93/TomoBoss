@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.8.0-beta5d2 — Deferred Cast Target Observatory
+
+### Changed
+- TrashCD diagnostics now distinguish castBarID-bearing events from unique castBarIDs.
+- Added direct correlation checks between spellcast-event castBarID and UnitCastingInfo/UnitChannelInfo castBarID.
+- Cast targets are sampled immediately and at 50/150/300 ms while the same NeverSecret castBarID remains active.
+- Trash dumps now report immediate/final target class, recovery delay, probe count and completion reason.
+
+### Safety
+- No Combat Log events or CombatLogGetCurrentEventInfo.
+- Secret spell IDs and secret target identities are still dropped.
+- No enemy GUID/NPC reconstruction and no raw target-player names are persisted.
+- StateResolver boss decisions are unchanged.
+
+### Developer
+- Includes Tools/Build_Release.py; the release builder excludes Tools/ from player ZIPs.
+
 ## 2.8.0-beta5d1 — Trash Cast Target Observatory
 
 - **New** — Audits Blizzard's `UnitSpellTargetName()` on enemy cast bars without using the combat log.

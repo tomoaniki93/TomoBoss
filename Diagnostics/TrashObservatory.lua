@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global
--- TomoBoss 2.8.0-beta5d1 — Midnight-safe TrashCD observatory + cast-target audit.
+-- TomoBoss 2.8.0-beta5d2 — Midnight-safe TrashCD observatory + deferred cast-target audit.
 --
 -- Goals:
 --   * absolutely no combat-log event registration;
@@ -18,20 +18,28 @@ local O = NS.TrashObservatory or {}
 NS.TrashObservatory = O
 
 O.mode = "observation-only"
-O.schema = 2
+O.schema = 3
 O.previewEnabled = O.previewEnabled or false
 O.prewarn = 3.0
 O.maxEventsPerPull = 120
 O.maxStoredPulls = 30
 O.metrics = O.metrics or {
     castEvents=0, primaryCasts=0, nonSecretSpellIDs=0, secretSpellIDs=0,
-    castBarIDs=0, referenceMatches=0, previewEligible=0, previewFired=0,
+    castBarEvents=0, castBarInfoMatches=0, castBarInfoMissing=0, castBarInfoMismatch=0,
+    referenceMatches=0, previewEligible=0, previewFired=0,
     nameplatesAdded=0, nameplatesRemoved=0, secretUnitTokens=0,
-    targetSamples=0, targetSecret=0, targetNone=0, targetSelf=0, targetTank=0,
+    targetSamples=0, targetProbeAttempts=0, targetProbeStale=0,
+    targetImmediateUsable=0, targetImmediateSecret=0, targetImmediateNone=0,
+    targetDeferredRecovered=0, targetDeferredSecret=0,
+    targetSecret=0, targetNone=0, targetSelf=0, targetTank=0,
     targetHealer=0, targetDps=0, targetGroup=0, targetOther=0, targetApiErrors=0,
 }
 O.uniqueSpells = O.uniqueSpells or {}
+O.uniqueCastBars = O.uniqueCastBars or {}
 O.activePredictions = O.activePredictions or {}
+O.activeTargetProbes = O.activeTargetProbes or {}
+O.targetProbeSerial = O.targetProbeSerial or 0
+O.targetProbeDelays = { 0.00, 0.05, 0.15, 0.30 }
 O.encounterActive = false
 O.current = nil
 O.last = nil
@@ -49,6 +57,12 @@ end
 local function safeString(v)
     if isSecret(v) then return nil end
     return type(v) == "string" and v or nil
+end
+
+local function countSet(t)
+    local n = 0
+    for _ in pairs(t or {}) do n = n + 1 end
+    return n
 end
 
 local function chat(text)
@@ -106,9 +120,11 @@ end
 
 
 -- UnitSpellTargetName() exists specifically to expose the current spell target,
--- but its return may be secret in Midnight. We never stringify/store that name.
--- If Blizzard exposes a non-secret player name, classify it against the local
--- party roster and retain only the coarse class (SELF/TANK/HEALER/DPS/GROUP).
+-- but its return may be secret in Midnight. beta5d2 samples it at cast start and
+-- again shortly afterwards, because the default UI can receive the target after
+-- UNIT_SPELLCAST_START. Deferred probes are accepted only while the same
+-- NeverSecret castBarID is still active, so a target can never be attributed to
+-- a later cast by accident.
 local function safeUnitName(unit)
     if type(UnitName) ~= "function" then return nil end
     local ok, name, realm = pcall(UnitName, unit)
@@ -129,8 +145,6 @@ local function classifyTargetName(targetName)
         return "SELF"
     end
 
-    -- Dungeon prototype: party1-4 only. Player identities are checked only
-    -- after every value has passed the secret guard; raw names are never saved.
     for i=1,4 do
         local unit = "party" .. i
         local name, full = safeUnitName(unit)
@@ -149,25 +163,179 @@ local function classifyTargetName(targetName)
     return "OTHER"
 end
 
-function O:ObserveCastTarget(unit)
+local function readTargetClass(unit)
     if type(UnitSpellTargetName) ~= "function" then return "UNAVAILABLE" end
     local ok, targetName = pcall(UnitSpellTargetName, unit)
-    if not ok then
-        self.metrics.targetApiErrors = (self.metrics.targetApiErrors or 0) + 1
-        return "ERROR"
+    if not ok then return "ERROR" end
+    return classifyTargetName(targetName)
+end
+
+-- Read only the NeverSecret castBarID return. All other UnitCastingInfo /
+-- UnitChannelInfo values may be secret and are intentionally ignored.
+local function currentCastBarID(unit)
+    if type(UnitCastingInfo) == "function" then
+        local ok, v1,v2,v3,v4,v5,v6,v7,v8,v9,barID = pcall(UnitCastingInfo, unit)
+        if ok then
+            local id = safeNumber(barID)
+            if id then return id, "CAST" end
+        end
+    end
+    if type(UnitChannelInfo) == "function" then
+        local ok, v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,barID = pcall(UnitChannelInfo, unit)
+        if ok then
+            local id = safeNumber(barID)
+            if id then return id, "CHANNEL" end
+        end
+    end
+    return nil, nil
+end
+
+local function targetClassIsUsable(class)
+    return class == "SELF" or class == "TANK" or class == "HEALER"
+        or class == "DPS" or class == "GROUP" or class == "OTHER"
+end
+
+local function bumpFinalTargetClass(metrics, class)
+    if class == "SECRET" then metrics.targetSecret = (metrics.targetSecret or 0) + 1
+    elseif class == "NONE" or class == "UNAVAILABLE" then metrics.targetNone = (metrics.targetNone or 0) + 1
+    elseif class == "SELF" then metrics.targetSelf = (metrics.targetSelf or 0) + 1
+    elseif class == "TANK" then metrics.targetTank = (metrics.targetTank or 0) + 1
+    elseif class == "HEALER" then metrics.targetHealer = (metrics.targetHealer or 0) + 1
+    elseif class == "DPS" then metrics.targetDps = (metrics.targetDps or 0) + 1
+    elseif class == "GROUP" then metrics.targetGroup = (metrics.targetGroup or 0) + 1
+    elseif class == "OTHER" then metrics.targetOther = (metrics.targetOther or 0) + 1
+    end
+end
+
+function O:FinalizeTargetProbe(key, probe, class, reason, delay)
+    if type(probe) ~= "table" or probe.done then return end
+    probe.done = true
+    if probe.timer and type(probe.timer.Cancel) == "function" then
+        pcall(probe.timer.Cancel, probe.timer)
+    end
+    self.activeTargetProbes[key] = nil
+
+    class = class or probe.bestClass or "NONE"
+    delay = tonumber(delay) or probe.lastDelay or 0
+    self.metrics.targetSamples = (self.metrics.targetSamples or 0) + 1
+    bumpFinalTargetClass(self.metrics, class)
+
+    if (probe.immediateClass == "NONE" or probe.immediateClass == nil) and delay > 0 then
+        if targetClassIsUsable(class) then
+            self.metrics.targetDeferredRecovered = (self.metrics.targetDeferredRecovered or 0) + 1
+        elseif class == "SECRET" then
+            self.metrics.targetDeferredSecret = (self.metrics.targetDeferredSecret or 0) + 1
+        end
+    end
+    if reason == "STALE" then
+        self.metrics.targetProbeStale = (self.metrics.targetProbeStale or 0) + 1
     end
 
-    self.metrics.targetSamples = (self.metrics.targetSamples or 0) + 1
-    local class = classifyTargetName(targetName)
-    if class == "SECRET" then self.metrics.targetSecret = (self.metrics.targetSecret or 0) + 1
-    elseif class == "NONE" then self.metrics.targetNone = (self.metrics.targetNone or 0) + 1
-    elseif class == "SELF" then self.metrics.targetSelf = (self.metrics.targetSelf or 0) + 1
-    elseif class == "TANK" then self.metrics.targetTank = (self.metrics.targetTank or 0) + 1
-    elseif class == "HEALER" then self.metrics.targetHealer = (self.metrics.targetHealer or 0) + 1
-    elseif class == "DPS" then self.metrics.targetDps = (self.metrics.targetDps or 0) + 1
-    elseif class == "GROUP" then self.metrics.targetGroup = (self.metrics.targetGroup or 0) + 1
-    elseif class == "OTHER" then self.metrics.targetOther = (self.metrics.targetOther or 0) + 1 end
-    return class
+    if probe.eventRow then
+        probe.eventRow.targetClass = class
+        probe.eventRow.targetImmediate = probe.immediateClass or "NONE"
+        probe.eventRow.targetDelayMs = math.floor(delay * 1000 + 0.5)
+        probe.eventRow.targetProbes = probe.attempts or 0
+        probe.eventRow.targetReason = reason or "FINAL"
+    end
+end
+
+function O:_RunTargetProbe(key, index)
+    local probe = self.activeTargetProbes[key]
+    if not probe or probe.done then return end
+
+    local delay = self.targetProbeDelays[index] or 0
+    probe.lastDelay = delay
+    probe.attempts = (probe.attempts or 0) + 1
+    self.metrics.targetProbeAttempts = (self.metrics.targetProbeAttempts or 0) + 1
+
+    -- After the immediate sample, only continue if the same opaque cast is
+    -- still active. castBarID is NeverSecret and safe to compare.
+    if index > 1 and probe.castBarID then
+        local activeBarID = currentCastBarID(probe.unit)
+        if activeBarID ~= probe.castBarID then
+            self:FinalizeTargetProbe(key, probe, probe.bestClass or "NONE", "STALE", delay)
+            return
+        end
+    end
+
+    local class = readTargetClass(probe.unit)
+    if index == 1 then
+        probe.immediateClass = class
+        if targetClassIsUsable(class) then
+            self.metrics.targetImmediateUsable = (self.metrics.targetImmediateUsable or 0) + 1
+        elseif class == "SECRET" then
+            self.metrics.targetImmediateSecret = (self.metrics.targetImmediateSecret or 0) + 1
+        elseif class == "NONE" or class == "UNAVAILABLE" then
+            self.metrics.targetImmediateNone = (self.metrics.targetImmediateNone or 0) + 1
+        end
+    end
+
+    if class == "ERROR" then
+        self.metrics.targetApiErrors = (self.metrics.targetApiErrors or 0) + 1
+        self:FinalizeTargetProbe(key, probe, probe.bestClass or "NONE", "ERROR", delay)
+        return
+    elseif class ~= "NONE" and class ~= "UNAVAILABLE" then
+        probe.bestClass = class
+        self:FinalizeTargetProbe(key, probe, class, index == 1 and "IMMEDIATE" or "DEFERRED", delay)
+        return
+    end
+
+    probe.bestClass = probe.bestClass or class
+
+    -- Without castBarID we cannot safely prove a later sample still belongs to
+    -- this cast, so never defer in that case.
+    if not probe.castBarID or index >= #self.targetProbeDelays then
+        self:FinalizeTargetProbe(key, probe, probe.bestClass or "NONE", "EXHAUSTED", delay)
+        return
+    end
+
+    local nextIndex = index + 1
+    local nextDelay = self.targetProbeDelays[nextIndex] or delay
+    local wait = math.max(0.01, nextDelay - delay)
+    probe.timer = C_Timer.NewTimer(wait, function()
+        if O then O:_RunTargetProbe(key, nextIndex) end
+    end)
+end
+
+function O:StartTargetProbe(unit, castBarID, eventRow)
+    self.targetProbeSerial = (self.targetProbeSerial or 0) + 1
+    local key
+    if castBarID then
+        key = unit .. "|" .. tostring(castBarID)
+    else
+        key = unit .. "|noid|" .. tostring(self.targetProbeSerial)
+    end
+
+    local previous = self.activeTargetProbes[key]
+    if previous then
+        self:FinalizeTargetProbe(key, previous, previous.bestClass or "NONE", "REPLACED", previous.lastDelay or 0)
+    end
+
+    local probe = {
+        unit=unit, castBarID=castBarID, eventRow=eventRow,
+        attempts=0, bestClass=nil, immediateClass=nil, lastDelay=0,
+    }
+    self.activeTargetProbes[key] = probe
+    self:_RunTargetProbe(key, 1)
+end
+
+function O:CancelAllTargetProbes(reason, discard)
+    local keys = {}
+    for key in pairs(self.activeTargetProbes or {}) do keys[#keys+1] = key end
+    for _, key in ipairs(keys) do
+        local probe = self.activeTargetProbes[key]
+        if probe then
+            if probe.timer and type(probe.timer.Cancel) == "function" then
+                pcall(probe.timer.Cancel, probe.timer)
+            end
+            if discard then
+                self.activeTargetProbes[key] = nil
+            else
+                self:FinalizeTargetProbe(key, probe, probe.bestClass or "NONE", reason or "CANCELLED", probe.lastDelay or 0)
+            end
+        end
+    end
 end
 
 local function recorderRoot(create)
@@ -276,7 +444,7 @@ function O:BeginPull(reason)
         t0=GetTime(), date=nowDate(), reason=reason or "combat",
         instanceID=ctx.instanceID, difficultyID=ctx.difficultyID, mapID=ctx.mapID,
         events={}, primary=0, secret=0, nonSecret=0, refs=0, eligible=0,
-        seenCastBars={},
+        castBarEvents=0, seenCastBars={}, uniqueCastBars={},
     }
 end
 
@@ -284,7 +452,10 @@ local function compactEvent(ev)
     return {
         t=ev.t, kind=ev.kind, unit=ev.unit, castBarID=ev.castBarID,
         spellID=ev.spellID, secretSpell=ev.secretSpell or nil,
-        ref=ev.ref or nil, eligible=ev.eligible or nil, targetClass=ev.targetClass or nil,
+        ref=ev.ref or nil, eligible=ev.eligible or nil,
+        targetClass=ev.targetClass or nil, targetImmediate=ev.targetImmediate or nil,
+        targetDelayMs=ev.targetDelayMs or nil, targetProbes=ev.targetProbes or nil,
+        targetReason=ev.targetReason or nil,
     }
 end
 
@@ -295,7 +466,8 @@ function O:PersistPull(p)
         date=p.date, duration=math.max(0, (p.endedAt or GetTime()) - (p.t0 or GetTime())),
         instanceID=p.instanceID, difficultyID=p.difficultyID, mapID=p.mapID,
         primary=p.primary or 0, secret=p.secret or 0, nonSecret=p.nonSecret or 0,
-        refs=p.refs or 0, eligible=p.eligible or 0, events={},
+        refs=p.refs or 0, eligible=p.eligible or 0,
+        castBarEvents=p.castBarEvents or 0, uniqueCastBars=countSet(p.uniqueCastBars), events={},
     }
     for i=1, math.min(#(p.events or {}), self.maxEventsPerPull) do
         row.events[#row.events+1] = compactEvent(p.events[i])
@@ -311,6 +483,7 @@ function O:EndPull(reason)
     if not p then return end
     p.endedAt = GetTime()
     p.endReason = reason or "combat-end"
+    self:CancelAllTargetProbes("PULL-END", false)
     self.current = nil
     self:CancelAllPredictions()
     if (p.primary or 0) > 0 then self:PersistPull(p) end
@@ -329,7 +502,12 @@ function O:Record(kind, unit, spellID, castBarID)
     local secretSpell = sid == nil and isSecret(spellID)
 
     self.metrics.castEvents = (self.metrics.castEvents or 0) + 1
-    if barID then self.metrics.castBarIDs = (self.metrics.castBarIDs or 0) + 1 end
+    if barID then
+        self.metrics.castBarEvents = (self.metrics.castBarEvents or 0) + 1
+        self.uniqueCastBars[barID] = true
+        p.castBarEvents = (p.castBarEvents or 0) + 1
+        p.uniqueCastBars[barID] = true
+    end
 
     -- A cast can emit START/CHANNEL and then SUCCEEDED. castBarID is the
     -- NeverSecret identity Blizzard explicitly provides for castbar-visible
@@ -385,17 +563,28 @@ function O:Record(kind, unit, spellID, castBarID)
         end
     end
 
-    local targetClass
-    if primary and (kind == "START" or kind == "CHANNEL") then
-        targetClass = self:ObserveCastTarget(token)
-    end
-
+    local eventRow
     if primary and #p.events < self.maxEventsPerPull then
-        p.events[#p.events+1] = {
+        eventRow = {
             t=GetTime() - p.t0, kind=kind, unit=token, castBarID=barID,
             spellID=sid, secretSpell=secretSpell, ref=ref and true or false,
-            eligible=ref and ref.previewEligible or false, targetClass=targetClass,
+            eligible=ref and ref.previewEligible or false,
         }
+        p.events[#p.events+1] = eventRow
+    end
+
+    if primary and (kind == "START" or kind == "CHANNEL") then
+        if barID then
+            local infoBarID = currentCastBarID(token)
+            if infoBarID == barID then
+                self.metrics.castBarInfoMatches = (self.metrics.castBarInfoMatches or 0) + 1
+            elseif infoBarID == nil then
+                self.metrics.castBarInfoMissing = (self.metrics.castBarInfoMissing or 0) + 1
+            else
+                self.metrics.castBarInfoMismatch = (self.metrics.castBarInfoMismatch or 0) + 1
+            end
+        end
+        self:StartTargetProbe(token, barID, eventRow)
     end
 
     if (kind == "INTERRUPTED" or kind == "FAILED") and self.previewEnabled then
@@ -445,24 +634,25 @@ function O:Reset()
     self:CancelAllPredictions()
     self.current = nil
     self.last = nil
+    self:CancelAllTargetProbes("RESET", true)
     self.metrics = {
         castEvents=0, primaryCasts=0, nonSecretSpellIDs=0, secretSpellIDs=0,
-        castBarIDs=0, referenceMatches=0, previewEligible=0, previewFired=0,
+        castBarEvents=0, castBarInfoMatches=0, castBarInfoMissing=0, castBarInfoMismatch=0,
+        referenceMatches=0, previewEligible=0, previewFired=0,
         nameplatesAdded=0, nameplatesRemoved=0, secretUnitTokens=0,
-        targetSamples=0, targetSecret=0, targetNone=0, targetSelf=0, targetTank=0,
+        targetSamples=0, targetProbeAttempts=0, targetProbeStale=0,
+        targetImmediateUsable=0, targetImmediateSecret=0, targetImmediateNone=0,
+        targetDeferredRecovered=0, targetDeferredSecret=0,
+        targetSecret=0, targetNone=0, targetSelf=0, targetTank=0,
         targetHealer=0, targetDps=0, targetGroup=0, targetOther=0, targetApiErrors=0,
     }
     self.uniqueSpells = {}
+    self.uniqueCastBars = {}
     local root = recorderRoot(false)
     if root then root.pulls = {}; root.last = nil end
     chat("|cff33e6a6TomoBoss Trash Observatory|r : capture reset.")
 end
 
-local function countKeys(t)
-    local n=0
-    for _ in pairs(t or {}) do n=n+1 end
-    return n
-end
 
 function O:GetStatus()
     local root = recorderRoot(false)
@@ -477,14 +667,26 @@ function O:GetStatus()
         primaryCasts=self.metrics.primaryCasts or 0,
         nonSecretSpellIDs=self.metrics.nonSecretSpellIDs or 0,
         secretSpellIDs=self.metrics.secretSpellIDs or 0,
-        uniqueNonSecretSpells=countKeys(self.uniqueSpells),
-        castBarIDs=self.metrics.castBarIDs or 0,
+        uniqueNonSecretSpells=countSet(self.uniqueSpells),
+        castBarEvents=self.metrics.castBarEvents or 0,
+        uniqueCastBarIDs=countSet(self.uniqueCastBars),
+        castBarInfoMatches=self.metrics.castBarInfoMatches or 0,
+        castBarInfoMissing=self.metrics.castBarInfoMissing or 0,
+        castBarInfoMismatch=self.metrics.castBarInfoMismatch or 0,
         referenceMatches=self.metrics.referenceMatches or 0,
         previewEligible=self.metrics.previewEligible or 0,
         previewFired=self.metrics.previewFired or 0,
         nameplatesAdded=self.metrics.nameplatesAdded or 0,
         nameplatesRemoved=self.metrics.nameplatesRemoved or 0,
-        targetSamples=self.metrics.targetSamples or 0, targetSecret=self.metrics.targetSecret or 0,
+        targetSamples=self.metrics.targetSamples or 0,
+        targetProbeAttempts=self.metrics.targetProbeAttempts or 0,
+        targetProbeStale=self.metrics.targetProbeStale or 0,
+        targetImmediateUsable=self.metrics.targetImmediateUsable or 0,
+        targetImmediateSecret=self.metrics.targetImmediateSecret or 0,
+        targetImmediateNone=self.metrics.targetImmediateNone or 0,
+        targetDeferredRecovered=self.metrics.targetDeferredRecovered or 0,
+        targetDeferredSecret=self.metrics.targetDeferredSecret or 0,
+        targetSecret=self.metrics.targetSecret or 0,
         targetNone=self.metrics.targetNone or 0, targetSelf=self.metrics.targetSelf or 0,
         targetTank=self.metrics.targetTank or 0, targetHealer=self.metrics.targetHealer or 0,
         targetDps=self.metrics.targetDps or 0, targetGroup=self.metrics.targetGroup or 0,
@@ -503,9 +705,18 @@ function O:RunDoctor()
     chat("  Primary cast observations . " .. tostring(s.primaryCasts))
     chat("  Non-secret spellID samples  " .. tostring(s.nonSecretSpellIDs) .. "  unique=" .. tostring(s.uniqueNonSecretSpells))
     chat("  Secret spellID samples .... " .. tostring(s.secretSpellIDs) .. "  dropped")
-    chat("  NeverSecret castBarIDs ..... " .. tostring(s.castBarIDs))
-    chat(string.format("  Cast target visibility ..... %d samples / %d secret / %d none / %d errors",
-        s.targetSamples or 0, s.targetSecret or 0, s.targetNone or 0, s.targetApiErrors or 0))
+    chat(string.format("  castBarID-bearing events ... %d  unique=%d",
+        s.castBarEvents or 0, s.uniqueCastBarIDs or 0))
+    chat(string.format("  CastBar API correlation .... match %d / missing %d / mismatch %d",
+        s.castBarInfoMatches or 0, s.castBarInfoMissing or 0, s.castBarInfoMismatch or 0))
+    chat(string.format("  Target casts probed ........ %d casts / %d probe attempts / stale %d",
+        s.targetSamples or 0, s.targetProbeAttempts or 0, s.targetProbeStale or 0))
+    chat(string.format("  Target immediate ........... usable %d / secret %d / none %d",
+        s.targetImmediateUsable or 0, s.targetImmediateSecret or 0, s.targetImmediateNone or 0))
+    chat(string.format("  Target deferred recovery ... usable %d / secret %d",
+        s.targetDeferredRecovered or 0, s.targetDeferredSecret or 0))
+    chat(string.format("  Target final visibility .... %d secret / %d none / %d errors",
+        s.targetSecret or 0, s.targetNone or 0, s.targetApiErrors or 0))
     chat(string.format("  Cast target classes ........ SELF %d  TANK %d  HEAL %d  DPS %d  GROUP %d  OTHER %d",
         s.targetSelf or 0, s.targetTank or 0, s.targetHealer or 0, s.targetDps or 0,
         s.targetGroup or 0, s.targetOther or 0))
@@ -521,10 +732,11 @@ function O:BuildExport()
     local root = recorderRoot(false)
     local pulls = root and root.pulls or {}
     local out = {
-        "TomoBoss TrashCD Observatory — beta5d1",
+        "TomoBoss TrashCD Observatory — beta5d2",
         "Mode=Midnight-safe; combat-log events=NEVER REGISTERED",
         "Secret enemy spellIDs and secret cast targets are counted then discarded; castGUID/name/GUID are never stored.",
-        "Cast targets, when non-secret, are stored only as SELF/TANK/HEALER/DPS/GROUP/OTHER; no player names are persisted.",
+        "Cast targets are sampled at 0/50/150/300ms only while the same NeverSecret castBarID is active.",
+        "Non-secret targets are stored only as SELF/TANK/HEALER/DPS/GROUP/OTHER; no player names are persisted.",
         "",
     }
     local start = math.max(1, #pulls - 9)
@@ -533,13 +745,16 @@ function O:BuildExport()
         out[#out+1] = string.format("--- pull %d/%d  date=%s  map=%s instance=%s diff=%s duration=%.1fs",
             i, #pulls, tostring(p.date or "?"), tostring(p.mapID or "?"), tostring(p.instanceID or "?"),
             tostring(p.difficultyID or "?"), tonumber(p.duration) or 0)
-        out[#out+1] = string.format("primary=%d nonSecret=%d secret=%d refs=%d eligible=%d",
-            p.primary or 0, p.nonSecret or 0, p.secret or 0, p.refs or 0, p.eligible or 0)
+        out[#out+1] = string.format("primary=%d nonSecret=%d secret=%d refs=%d eligible=%d castBarEvents=%d uniqueCastBars=%d",
+            p.primary or 0, p.nonSecret or 0, p.secret or 0, p.refs or 0, p.eligible or 0,
+            p.castBarEvents or 0, p.uniqueCastBars or 0)
         for _, e in ipairs(p.events or {}) do
             local spell = e.spellID and tostring(e.spellID) or (e.secretSpell and "<secret>" or "-")
-            out[#out+1] = string.format("[%7.2f] %-9s unit=%-12s castBar=%-8s spell=%-10s target=%-7s ref=%s eligible=%s",
+            out[#out+1] = string.format("[%7.2f] %-9s unit=%-12s castBar=%-8s spell=%-10s target=%-7s initial=%-7s delay=%-4sms probes=%s reason=%-9s ref=%s eligible=%s",
                 tonumber(e.t) or 0, tostring(e.kind or "?"), tostring(e.unit or "?"),
                 tostring(e.castBarID or "-"), spell, tostring(e.targetClass or "-"),
+                tostring(e.targetImmediate or "-"), tostring(e.targetDelayMs or "-"),
+                tostring(e.targetProbes or "-"), tostring(e.targetReason or "-"),
                 e.ref and "yes" or "no", e.eligible and "yes" or "no")
         end
         out[#out+1] = ""
@@ -600,6 +815,7 @@ end
 function O:OnEvent(event, a1, a2, a3, a4, a5)
     if event == "PLAYER_ENTERING_WORLD" then
         self:CancelAllPredictions()
+        self:CancelAllTargetProbes("WORLD", true)
         return
     elseif event == "ENCOUNTER_START" then
         -- Persist the trash pull that led into the boss instead of dropping it.
