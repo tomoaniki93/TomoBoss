@@ -36,7 +36,7 @@ local function PrintHelp()
     for _, line in ipairs({
         L.HELP_OPTIONS, L.HELP_PULL, L.HELP_PULLSTOP, L.HELP_TEST, L.HELP_TESTSTOP,
         L.HELP_LOCK, L.HELP_RESET, L.HELP_VOICE, L.HELP_KICKS,
-        L.HELP_VERSION,
+        L.HELP_BRIDGE, L.HELP_LEARN, L.HELP_VERSION,
     }) do
         print("  |cff8a968f•|r " .. line)
     end
