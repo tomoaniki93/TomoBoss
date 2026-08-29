@@ -12,7 +12,7 @@
 --
 --   1. IMPORTANTE — C_Spell.IsSpellImportant : le jeu lui-même classe le sort
 --      comme notable. C'est le critère le plus fiable et il ne demande aucune
---      donnée de notre part. Déjà utilisé par le module de halo de plaque.
+--      donnée de notre part.
 --   2. ME VISE — l'incantation prend le joueur pour cible. En clé, un sort qui
 --      vous vise personnellement compte davantage que tout le reste.
 --   3. BASE — l'ancien filtre par npcID, conservé pour les rares cas où le GUID
@@ -115,7 +115,7 @@ end
 
 -- Le jeu classe-t-il ce sort comme important ?
 --
--- Même critère que le halo de plaque : c'est Blizzard qui décide, donc aucune
+-- C'est Blizzard qui décide, donc aucune
 -- base à maintenir et une couverture automatique sur tout le contenu, y compris
 -- les donjons que nous n'avons pas encore renseignés.
 local function IsImportant(spellID)

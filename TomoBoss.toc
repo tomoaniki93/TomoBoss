@@ -33,7 +33,6 @@ Modules\Utility.xml
 Data\Timeline.xml
 Modules\Timeline.xml
 Debug\Debug.xml
-Modules\Visual.xml
 
 # Optional external timer sources (diagnostic/audit only)
 Integrations\Integrations.xml

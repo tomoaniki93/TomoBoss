@@ -74,9 +74,6 @@ local function HandleSlash(input)
         if NS.InterruptTracker then NS.InterruptTracker:PrintTally() end
     elseif cmd == "version" or cmd == "v" then
         if NS.Version then NS.Version:Query() end
-    elseif cmd == "glow" or cmd == "halo" then
-        NS.NameplateGlow:Report()
-
     elseif cmd == "rec" or cmd == "enregistreur" then
         NS.Recorder:Handle(rest)
 
@@ -198,7 +195,6 @@ boot:SetScript("OnEvent", function(_, event, arg1)
         SafeInit("BlizzTimeline", NS.BlizzTimeline)
         SafeInit("EventBridge", NS.EventBridge)
         NS.Recorder:Init()
-        SafeInit("NameplateGlow", NS.NameplateGlow)
         SafeInit("Learn.Recorder", NS.Learn and NS.Learn.Recorder)
 
         NS.UI.Mover:Register("bars", NS.UI.TimerBars.anchor, L.MOVER_BARS,

@@ -97,12 +97,6 @@ NS.defaults = {
             showIcon    = true,
             fontSize    = 13,
         },
-        nameplateGlow = {
-            enabled         = true,     -- halo sur la castbar des nameplates
-            onImportant     = true,     -- casts classés « importants » par le jeu
-            onUninterruptible = false,  -- + casts non interruptibles (à esquiver)
-            color           = { 1.00, 0.30, 0.25 },
-        },
         rings = {
             size     = 44,
             spacing  = 8,

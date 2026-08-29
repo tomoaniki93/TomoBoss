@@ -1,0 +1,14 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Include file="Locales\BaseExtensions.lua"/>
+    <Include file="Locales\enGB.lua"/>
+    <Include file="Locales\deDE.lua"/>
+    <Include file="Locales\esES.lua"/>
+    <Include file="Locales\esMX.lua"/>
+    <Include file="Locales\itIT.lua"/>
+    <Include file="Locales\ptBR.lua"/>
+    <Include file="Locales\ruRU.lua"/>
+    <Include file="Locales\koKR.lua"/>
+    <Include file="Locales\zhCN.lua"/>
+    <Include file="Locales\zhTW.lua"/>
+    <Include file="Locales\Finalize.lua"/>
+</Ui>

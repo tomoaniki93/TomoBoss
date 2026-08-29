@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.8.0-beta5d2a — Display Modes, TomoTimeline & Full Localization
+
+### Added
+- **TomoTimeline V1** — Added a native TomoBoss vertical timeline renderer driven by the same timer model as the classic boss bars.
+- **Three timer display modes** — Players can choose **Bars**, **Timeline**, or **Hybrid** from the new Display page.
+- **Display Engine** — Added the shared TimerModel / DisplayController layer so bars and TomoTimeline consume the same timer state instead of running separate timer engines.
+- **Full interface localization** — Added complete UI translations for all current WoW client locales: `enUS`, `enGB`, `frFR`, `deDE`, `esES`, `esMX`, `itIT`, `ptBR`, `ruRU`, `koKR`, `zhCN`, and `zhTW`.
+
+### Changed
+- **UI Foundation** — Refreshed the visual system around the Obsidian + Jade theme, with stronger surface hierarchy and reusable modern UI components.
+- **Boss Bars V2** — Boss timers now use the modern layered bar style with clearer icon framing, progress track, severity accents, and a dedicated urgency state.
+- **Display options** — The former Bars page is now the Display page and explains each rendering mode before exposing its relevant settings.
+- **Hybrid configuration** — Hybrid mode lets players switch between bar settings and TomoTimeline settings without crowding the options panel.
+
+### Fixed
+- **Dungeon TomoTimeline feed** — Blizzard Encounter Timeline events are now forwarded to the shared display layer even when the historical “show as bars” option is disabled, allowing TomoTimeline to receive dungeon boss timers correctly.
+- Changing display mode during an active encounter republishes currently known Blizzard timeline events to the newly selected renderer.
+
+### Localization
+- Supported locales now use their **own complete string tables**; they no longer rely on French or English for missing UI text.
+- Added a locale completeness audit that detects missing or unexpected keys without silently filling supported locales from another language.
+- Technical identifiers and slash commands remain unchanged while their descriptions are translated for each client language.
+
 ## 2.8.0-beta5d2 — Deferred Cast Target Observatory
 
 ### Changed

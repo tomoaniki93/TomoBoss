@@ -1,0 +1,68 @@
+---@diagnostic disable: undefined-global
+-- TomoBoss — completes the historical frFR/enUS tables with the display-mode strings.
+
+local NS = select(2, ...)
+local fr = NS.Locales and NS.Locales.frFR
+local en = NS.Locales and NS.Locales.enUS
+
+if fr then
+    fr.TAB_BARS = "Affichage"
+    fr.BARS_TITLE = "Affichage des minuteurs"
+    fr.DISPLAY_MODE = "Mode d'affichage"
+    fr.DISPLAY_MODE_BARS = "Barres"
+    fr.DISPLAY_MODE_TIMELINE = "Timeline"
+    fr.DISPLAY_MODE_HYBRID = "Hybride"
+    fr.DISPLAY_BARS_TITLE = "Barres classiques"
+    fr.DISPLAY_BARS_DESC = "Affichage compact et familier. Chaque capacité possède sa barre avec icône, nom et compte à rebours."
+    fr.DISPLAY_TL_TITLE = "TomoTimeline"
+    fr.DISPLAY_TL_DESC = "Les capacités avancent vers NOW sur une ligne du temps. Idéal pour anticiper l'ordre des mécaniques à venir."
+    fr.DISPLAY_HYBRID_TITLE = "Mode hybride"
+    fr.DISPLAY_HYBRID_DESC = "Affiche les Boss Bars V2 et TomoTimeline en même temps : lecture immédiate + vision d'ensemble."
+    fr.DISPLAY_SETTINGS = "Réglages affichés"
+    fr.DISPLAY_SETTINGS_BARS = "Régler les barres"
+    fr.DISPLAY_SETTINGS_TL = "Régler la timeline"
+    fr.DISPLAY_BARS_OPTIONS = "Réglages des barres"
+    fr.DISPLAY_TL_OPTIONS = "Réglages de TomoTimeline"
+    fr.DISPLAY_UNAVAILABLE = "TomoTimeline n'est pas chargée : TomoBoss reviendra automatiquement aux barres."
+    fr.TL_WIDTH = "Largeur de la timeline"
+    fr.TL_HEIGHT = "Hauteur de la timeline"
+    fr.TL_WINDOW = "Fenêtre temporelle"
+    fr.TL_ICONSIZE = "Taille des icônes"
+    fr.TL_PRIORITY = "Seuil d'urgence"
+    fr.TL_SHOW_TICKS = "Afficher les graduations"
+    fr.TL_SHOW_NAME = "Afficher le nom des capacités"
+    fr.TL_SHOW_TIME = "Afficher le temps restant"
+    fr.VALUE_ALWAYS = "Toujours"
+    fr.BLIZZ_BAR = "Afficher la source Blizzard en mode Barres"
+end
+
+if en then
+    en.TAB_BARS = "Display"
+    en.BARS_TITLE = "Timer display"
+    en.DISPLAY_MODE = "Display mode"
+    en.DISPLAY_MODE_BARS = "Bars"
+    en.DISPLAY_MODE_TIMELINE = "Timeline"
+    en.DISPLAY_MODE_HYBRID = "Hybrid"
+    en.DISPLAY_BARS_TITLE = "Classic bars"
+    en.DISPLAY_BARS_DESC = "Compact and familiar display. Each ability gets a bar with icon, name and countdown."
+    en.DISPLAY_TL_TITLE = "TomoTimeline"
+    en.DISPLAY_TL_DESC = "Abilities move toward NOW on a timeline. Best for anticipating the order of upcoming mechanics."
+    en.DISPLAY_HYBRID_TITLE = "Hybrid mode"
+    en.DISPLAY_HYBRID_DESC = "Shows Boss Bars V2 and TomoTimeline together: immediate readability plus the bigger picture."
+    en.DISPLAY_SETTINGS = "Settings shown"
+    en.DISPLAY_SETTINGS_BARS = "Configure bars"
+    en.DISPLAY_SETTINGS_TL = "Configure timeline"
+    en.DISPLAY_BARS_OPTIONS = "Bar settings"
+    en.DISPLAY_TL_OPTIONS = "TomoTimeline settings"
+    en.DISPLAY_UNAVAILABLE = "TomoTimeline is not loaded: TomoBoss will automatically fall back to bars."
+    en.TL_WIDTH = "Timeline width"
+    en.TL_HEIGHT = "Timeline height"
+    en.TL_WINDOW = "Time window"
+    en.TL_ICONSIZE = "Icon size"
+    en.TL_PRIORITY = "Urgency threshold"
+    en.TL_SHOW_TICKS = "Show tick marks"
+    en.TL_SHOW_NAME = "Show ability names"
+    en.TL_SHOW_TIME = "Show remaining time"
+    en.VALUE_ALWAYS = "Always"
+    en.BLIZZ_BAR = "Show Blizzard source in Bars mode"
+end

@@ -3,6 +3,7 @@
     <Include file="BarGroup.lua"/>
     <Include file="RingGroup.lua"/>
     <Include file="RingProgress.lua"/>
+    <Include file="TargetedCastRing.lua"/>
     <Include file="TimerModel.lua"/>
     <Include file="DisplayController.lua"/>
     <Include file="TomoTimeline.lua"/>
