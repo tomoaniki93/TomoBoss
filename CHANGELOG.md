@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.8.0-rc1 — Release Candidate
+
+### Release Candidate
+- **Boss timer authority is now frozen for RC1** — Player-facing boss timers and voice decisions are produced by TomoBoss. Blizzard `C_EncounterTimeline` remains the native input feed; BigWigs/DBM remain audit-only and EXBossData/WeakAura remain reference-only.
+- **No new boss-resolution rules** — RC1 intentionally freezes the validated Season 2 boss logic from beta5d2b for stabilization and player testing.
+- **StateResolver runtime validation complete** — Guarded state-aware rules have now been validated in live dungeon runs for Adderis & Aspix (2124), Council of Tribes (2140), Mchimba the Embalmer (2142), and Lightwarden Ruia (3201), with specific resolutions observed and no guarded fallbacks in the validated runs.
+- **Ruia Phase 3 runtime validation complete** — The native `2.5s` Phase 3 marker was observed and the `32s` cycle resolved `5/5` in the validated run, with the Learn gate armed and persistent evidence retained.
+- **Adderis & Aspix runtime validation complete** — The observed death-state branch resolved `8` state-aware decisions with `0` guarded fallbacks.
+- **Council runtime validation complete** — The validated run resolved `4` state-aware decisions with `0` guarded fallbacks and observed the expected state transition.
+- **Mchimba runtime validation complete** — The validated run resolved `8` state-aware decisions with `0` guarded fallbacks and observed the expected Entomb state changes.
+
+### Trash Warnings
+- **Secret-safe targeted cast ring** — Dungeon trash casts that target the player can now drive the central TomoBoss warning ring without inspecting the restricted target boolean in Lua.
+- **Native secret-safe progress** — Enemy cast progress uses Blizzard `UnitCastingDuration()` / `UnitChannelDuration()` duration objects directly through `Cooldown:SetCooldownFromDurationObject()`. No enemy cast timestamps are converted to Lua numbers.
+- **Validated cast correlation** — `castBarID` remains an opaque NeverSecret identity used only to correlate the current cast; it is never mapped back to a restricted spell identity.
+- **No combat log dependency** — Trash warnings do not register `COMBAT_LOG_EVENT_UNFILTERED` and do not use `CombatLogGetCurrentEventInfo`.
+
+### Timeline & Display
+- Includes the beta5d2b TomoTimeline duplicate suppression and the native timeline overlap fix.
+- Blizzard's native Encounter Timeline remains the source feed when available, while TomoBoss owns the player-facing Bars / Timeline / Hybrid rendering.
+- Sentinel timeline values remain blocked from player-facing timers.
+- One intentionally ambiguous Season 2 collision remains generic-safe rather than risking an incorrect mechanic callout.
+
+### Diagnostics
+- `/tmb doctor` now states the RC1 player-facing authority model explicitly.
+- Doctor reports the secret-safe targeted Trash Warning Ring separately from the observation-only TrashCD research diagnostics.
+- Legacy beta footer text is replaced by a concise RC1 stabilization summary.
+
+### Release Policy
+- **Player-facing boss output:** TomoBoss authority.
+- **Blizzard `C_EncounterTimeline`:** native runtime input.
+- **BigWigs / DBM:** audit only; never player-facing authority.
+- **EXBossData / WeakAura:** reference only; never player-facing authority.
+- **Learn / PhaseDetector / StateResolver:** TomoBoss-owned validation and guarded resolution layers.
+- No Learn purge is required.
+
 ## 2.8.0-beta5d2b — TomoTimeline duplicate & native timeline overlap
 
 ### Fixed

@@ -69,14 +69,6 @@ function Doctor:Run()
     chat("  ReferenceCatalog ........... " .. yesno(type(NS.ReferenceCatalog) == "table") .. (NS.ReferenceCatalog and "  observation-only" or ""))
     chat("  LearnProfileEvidence ....... " .. yesno(NS.Learn and type(NS.Learn.ProfileEvidence) == "table") .. ((NS.Learn and NS.Learn.ProfileEvidence) and "  observation-only" or ""))
     chat("  TrashCD Observatory ........ " .. yesno(type(NS.TrashObservatory) == "table") .. (NS.TrashObservatory and "  observation-only" or ""))
-    chat("  Trash Warning Ring ......... " .. yesno(type(NS.TargetedCastRing) == "table") .. (NS.TargetedCastRing and "  secret-safe visual" or ""))
-
-    chat("|cff33e6a6  Player-facing authority|r")
-    chat("  Boss timer decisions ....... TomoBoss")
-    chat("  Native timeline input ...... Blizzard C_EncounterTimeline")
-    chat("  BigWigs / DBM .............. AUDIT ONLY")
-    chat("  EXBoss / WeakAura .......... REFERENCE ONLY")
-    chat("  Trash targeted warning ..... secret-safe visual only")
 
     local _, _, difficultyID, difficultyName, _, _, _, instanceID = GetInstanceInfo()
     local label = (not isSecret(instanceID)) and S2_INSTANCES[instanceID] or nil
@@ -334,6 +326,8 @@ function Doctor:Run()
     end
 
     chat("  P0-01 sentinel guard ....... |cff33e6a6validated in game|r")
-    chat("|cffaaaaaaRC1: TomoBoss owns all player-facing boss timer/voice decisions; Blizzard is the native timeline input, external bossmods are audit-only, and external datasets are reference-only.|r")
-    chat("|cffaaaaaaRC1: StateResolver live validation is complete for 2124 / 2140 / 2142 / 3201; the targeted Trash Warning Ring uses only Midnight secret-safe visual/duration sinks.|r")
+    chat("|cffaaaaaaBeta5d2: TrashCD Observatory distinguishes castBarID events from unique casts and probes UnitSpellTargetName at 0/50/150/300ms only while the same castBarID remains active.|r")
+    chat("|cffaaaaaaBeta5c: Learn profile evidence keeps ALT/MYTHIC native duration profiles separate; profile evidence never controls player-facing output.|r")
+    chat("|cffaaaaaaBeta5a secret-safe bridge remains active; inaccessible external identities are dropped, never interpreted.|r")
+    chat("|cffaaaaaaP0-04 guarded state rules are unchanged; Ruia Learn gate, P3 Learn evidence, and native 2.5s runtime guard are reported separately.|r")
 end
