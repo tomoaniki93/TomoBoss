@@ -5,7 +5,10 @@
 ## Author: TomoAniki
 ## Version: 2.8.0-rc1
 ## SavedVariables: TomoBossDB, TomoBossRecorderDB
-## IconTexture: Interface\Icons\Achievement_Boss_Lichking
+## IconTexture: Interface\AddOns\TomoBoss\Media\Textures\TomoBoss_TMB_Icon_64.tga
+## AddonCompartmentFunc: TomoBoss_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: TomoBoss_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: TomoBoss_OnAddonCompartmentLeave
 
 # Libraries and core
 Libs\Libs.xml

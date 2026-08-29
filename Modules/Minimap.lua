@@ -5,7 +5,21 @@ local NS = select(2, ...)
 local M = {}
 NS.Minimap = M
 
+local ICON = "Interface\\AddOns\\TomoBoss\\Media\\Textures\\TomoBoss_TMB_Icon_64.tga"
+
 local function cfg() return NS.db.profile.minimap end
+
+local function showTooltip(owner, includeDragHint)
+    if not owner then return end
+    GameTooltip:SetOwner(owner, "ANCHOR_LEFT")
+    GameTooltip:AddLine("|cff33e6a6Tomo|r|cffe6edeaBoss|r")
+    GameTooltip:AddLine("Clic gauche : ouvrir les options", 0.9, 0.9, 0.9)
+    GameTooltip:AddLine("Clic droit : versions du groupe", 0.9, 0.9, 0.9)
+    if includeDragHint then
+        GameTooltip:AddLine("Glisser : déplacer l'icône", 0.6, 0.6, 0.6)
+    end
+    GameTooltip:Show()
+end
 
 local function updatePos(btn)
     local angle = math.rad(cfg().angle or 210)
@@ -36,17 +50,18 @@ function M:Init()
     btn:SetFrameLevel(8)
     self.btn = btn
 
-    local icon = btn:CreateTexture(nil, "BACKGROUND")
-    icon:SetTexture("Interface\\Icons\\INV_Misc_PocketWatch_01")
-    icon:SetSize(19, 19); icon:SetPoint("CENTER", 0, 1)
-    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    local icon = btn:CreateTexture(nil, "ARTWORK")
+    icon:SetTexture(ICON)
+    icon:SetAllPoints(btn)
+    icon:SetTexCoord(0, 1, 0, 1)
+    btn.icon = icon
 
-    -- anneau menthe (identité TomoBoss)
-    local ring = btn:CreateTexture(nil, "ARTWORK")
-    ring:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-    ring:SetSize(50, 50); ring:SetPoint("TOPLEFT", -1, 1)
-
-    btn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+    -- Le logo TMB possède déjà son propre anneau doré/violet.
+    local highlight = btn:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+    highlight:SetBlendMode("ADD")
+    highlight:SetAllPoints(btn)
+    highlight:SetAlpha(0.55)
 
     btn:RegisterForDrag("LeftButton")
     btn:SetMovable(true)
@@ -72,12 +87,7 @@ function M:Init()
     end)
 
     btn:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-        GameTooltip:AddLine("|cff33e6a6Tomo|r|cffe6edeaBoss|r")
-        GameTooltip:AddLine("Clic gauche : ouvrir les options", 0.9, 0.9, 0.9)
-        GameTooltip:AddLine("Clic droit : versions du groupe", 0.9, 0.9, 0.9)
-        GameTooltip:AddLine("Glisser : déplacer l'icône", 0.6, 0.6, 0.6)
-        GameTooltip:Show()
+        showTooltip(self, true)
     end)
     btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
@@ -92,4 +102,30 @@ function M:SetShown(show)
     elseif show then
         self:Init()
     end
+end
+
+
+----------------------------------------------------------------------
+-- Blizzard Addon Compartment
+--
+-- L'icône du compartiment vient de ## IconTexture dans le TOC.
+-- Les callbacks sont globaux car Blizzard les résout par leur nom.
+----------------------------------------------------------------------
+
+_G.TomoBoss_OnAddonCompartmentClick = function(_, mouseButton)
+    if mouseButton == "RightButton" then
+        if NS.Version then NS.Version:Query() end
+    else
+        if NS.GUI and NS.GUI.Config then
+            NS.GUI.Config:Toggle()
+        end
+    end
+end
+
+_G.TomoBoss_OnAddonCompartmentEnter = function(owner)
+    showTooltip(owner, false)
+end
+
+_G.TomoBoss_OnAddonCompartmentLeave = function()
+    GameTooltip:Hide()
 end
