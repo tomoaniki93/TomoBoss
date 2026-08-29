@@ -799,6 +799,18 @@ function Config:BuildBlizz(page)
     bar:SetChecked(c.bar); bar:SetCallback(function(v) c.bar = v end)
     lay:Add(bar, 22)
 
+    local hideUI = NS.Theme:CreateCheck(page, L.BLIZZ_HIDE_UI)
+    hideUI:SetChecked(c.hideBlizzardUI ~= false)
+    hideUI:SetCallback(function(v)
+        c.hideBlizzardUI = v
+        if NS.BlizzardTimelineUI then NS.BlizzardTimelineUI:Enforce() end
+    end)
+    lay:Add(hideUI, 20)
+    local hideDesc = page:CreateFontString(nil, "OVERLAY")
+    NS.Theme:Font(hideDesc, 11, "muted"); hideDesc:SetWidth(500); hideDesc:SetJustifyH("LEFT")
+    hideDesc:SetText(L.BLIZZ_HIDE_UI_DESC)
+    lay:Add(hideDesc, 30)
+
     local ring = NS.Theme:CreateCheck(page, L.BLIZZ_RING)
     ring:SetChecked(c.ring); ring:SetCallback(function(v) c.ring = v end)
     lay:Add(ring, 22)

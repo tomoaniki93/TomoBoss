@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.8.0-beta5d2b — TomoTimeline duplicate & native timeline overlap
+
+### Fixed
+- **Duplicated abilities on TomoTimeline** — When Blizzard re-posts the same encounter event under a new identifier and hides its `duration`, both existing anti-duplicate guards were inert, so a second timer was created. The classic bars stacked those two on top of each other and hid the problem; TomoTimeline spreads simultaneous entries to either side of the rail, so every ability showed up twice. `NS.BlizzTimeline` now falls back to the resolved name + icon at the same fire time as an identity, keeps the original entry, and aliases the new identifier so its REMOVED still cleans up.
+- **Timeline render safety net** — TomoTimeline collapses two visible entries that share name, icon and fire time (within 0.35 s), so no producer can ever paint the same ability twice on the rail.
+
+### Added
+- **Timer feed kept armed while hiding** — `encounterWarningsEnabled` gates the whole encounter-warning system, so it also gates the `ENCOUNTER_TIMELINE_EVENT_*` source that feeds TomoTimeline and the bars: switching it off to get rid of the native frame would leave TomoTimeline empty. TomoBoss now restores it to 1 whenever "Enable Blizzard timeline" is checked — independently of EventBridge, which only did so while the bridge was enabled and the player was inside a party or raid — reacting to `CVAR_UPDATE`, world entry and encounter start, with a slow periodic check as a backstop. Unchecking "Enable Blizzard timeline" hands the CVar back to the player.
+- **`/tmb doctor` timer-feed section** — Reports the CVar state, whether the timeline feature is available, how many Blizzard events are tracked, how many entries reached the shared model, the resolved display mode, and whether the native frame was located and hidden.
+- **Hide Blizzard's native timeline** — New option on the Blizzard Timeline page (on by default). EventBridge has to keep `encounterWarningsEnabled` at 1 for the game to fire its own sound triggers, which also makes the native timeline appear next to TomoBoss's. The native frame is now made invisible and click-through instead of being hidden, so the client keeps running it and the ~5 s highlight trigger the sound bridge depends on still fires.
+- Localized strings for the new option in all twelve supported client locales.
+
 ## 2.8.0-beta5d2a — Display Modes, TomoTimeline & Full Localization
 
 ### Added

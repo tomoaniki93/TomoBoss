@@ -120,6 +120,7 @@ NS.defaults = {
         blizzTimeline = {
             enabled = true,         -- moteur timeline (C_EncounterTimeline) — principal sous Midnight
             bar     = true,
+            hideBlizzardUI = true,  -- rendre la timeline NATIVE invisible (doublon de TomoBoss)
             ring    = false,
             voice   = true,
             cue     = false,        -- bip générique quand l'identité est masquée

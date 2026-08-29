@@ -34,6 +34,36 @@ function Doctor:Run()
     chat("  C_EncounterTimeline ........ " .. yesno(type(C_EncounterTimeline) == "table"))
     chat("  BlizzTimeline module ....... " .. yesno(type(NS.BlizzTimeline) == "table" or type(NS.BT) == "table"))
     chat("  BossModBridge .............. " .. yesno(type(NS.BossModBridge) == "table"))
+
+    -- Chaine complete de la source des minuteurs. C'est la section a lire quand
+    -- TomoTimeline reste vide : le cadre natif masque n'y change rien, mais le
+    -- CVar coupe, lui, tarit la source.
+    do
+        local cvar = "?"
+        if C_CVar and C_CVar.GetCVar then
+            local ok, v = pcall(C_CVar.GetCVar, "encounterWarningsEnabled")
+            if ok and v ~= nil then cvar = tostring(v) end
+        end
+        chat("|cff33e6a6  Timer feed|r")
+        chat("  encounterWarningsEnabled ... " .. cvar .. (cvar == "0" and "  |cffff6666source coupee|r" or ""))
+        chat("  Timeline feature available . " .. yesno(NS.BlizzTimeline and NS.BlizzTimeline:Available()))
+
+        local active = 0
+        if NS.BlizzTimeline and type(NS.BlizzTimeline.active) == "table" then
+            for _ in pairs(NS.BlizzTimeline.active) do active = active + 1 end
+        end
+        chat("  Blizzard events tracked .... " .. tostring(active))
+        chat("  Shared model entries ....... " ..
+            tostring(NS.UI and NS.UI.TimerModel and NS.UI.TimerModel:Count() or 0))
+        chat("  Display mode ............... " ..
+            tostring(NS.UI and NS.UI.DisplayController and NS.UI.DisplayController:GetResolvedMode() or "?"))
+
+        local H = NS.BlizzardTimelineUI
+        local frame = H and (H.frameName or (H.Find and H:Find() and H.frameName))
+        chat("  Native frame ............... " .. (frame and ("|cff33e6a6" .. frame .. "|r") or "|cffffb86cnot found|r"))
+        local hiding = NS.db and NS.db.profile and NS.db.profile.blizzTimeline
+        chat("  Native frame hidden ........ " .. ((hiding and hiding.hideBlizzardUI ~= false) and "yes" or "no"))
+    end
     chat("  PhaseDetector .............. " .. yesno(type(NS.PhaseDetector) == "table") .. (NS.PhaseDetector and "  observation-only" or ""))
     chat("  StateResolver .............. " .. yesno(type(NS.StateResolver) == "table") .. (NS.StateResolver and "  guarded-active" or ""))
     chat("  ReferenceCatalog ........... " .. yesno(type(NS.ReferenceCatalog) == "table") .. (NS.ReferenceCatalog and "  observation-only" or ""))

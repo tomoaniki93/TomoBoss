@@ -1,6 +1,7 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
     <Include file="BlizzTimeline.lua"/>
     <Include file="TimelineDisplayBridge.lua"/>
+    <Include file="BlizzardTimelineUI.lua"/>
     <Include file="EventBridge.lua"/>
     <Include file="TimelineRuleResolver.lua"/>
 </Ui>

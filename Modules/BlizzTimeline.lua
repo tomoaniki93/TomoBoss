@@ -23,6 +23,7 @@ BT._seqCounters = {} -- sequenceGroup -> compteur round-robin (repli seulement)
 BT._phases    = {}   -- "encID|groupe" -> { [eventID] = offset dans le cycle }
 BT._drift     = {}   -- groupe -> correction de phase accumulée (s)
 BT._pullTime = nil   -- 1er ADDED depuis le dernier reset = pull
+BT._aliases  = {}    -- idDupliqué -> idCanonique conservé (voir doublon d'identité)
 
 local TOL   = 0.75 -- tolérance de correspondance de durée (s)
 local SYNC_WINDOW = 10 -- fenêtre après le pull où les règles « sync » sont éligibles (s)
@@ -433,6 +434,9 @@ function BT:OnAdded(x)
                 -- refaire l'identification (mutation hors de la boucle pairs)
                 self.active[hitID] = nil
                 self.active[id] = hitE
+                for alias, target in pairs(self._aliases) do
+                    if target == hitID then self._aliases[alias] = id end
+                end
                 NS.UI.TimerBars:Remove("bt:" .. hitID)
                 if NS.UI.Rings then NS.UI.Rings:Remove("bt:" .. hitID) end
             end
@@ -492,6 +496,37 @@ function BT:OnAdded(x)
             "-> non identifié (générique, sév ", tostring(sev), ")")
     end
 
+    -- Doublon d'IDENTITÉ : le serveur re-poste la MÊME capacité sous un autre
+    -- identifiant. Les deux gardes précédentes reposent toutes les deux sur
+    -- `duration` (matchDur) ; quand le jeu la masque elles sont inertes et chaque
+    -- re-post créait un second minuteur. Les barres les empilaient l'un sur
+    -- l'autre — invisible —, mais TomoTimeline écarte les entrées simultanées à
+    -- gauche ET à droite du rail : le doublon devenait franchement visible.
+    -- Repli d'identité : le nom + l'icône réellement résolus, à un même instant
+    -- de déclenchement. On ne l'applique pas quand les deux sont les valeurs de
+    -- repli anonymes, sans quoi deux mécaniques distinctes mais masquées
+    -- fusionneraient à tort.
+    if name ~= "Capacité" or icon ~= 134400 then
+        for aid, e in pairs(self.active) do
+            if aid ~= id
+                and e.name == name
+                and (e.icon or 134400) == (icon or 134400)
+                and math.abs(e.endTime - endTime) <= DEDUP
+            then
+                -- L'entrée d'origine garde son identité (et sa voix déjà
+                -- programmée) ; seul le minutage est rafraîchi. L'alias permet au
+                -- REMOVED du nouvel identifiant de nettoyer la bonne entrée.
+                e.endTime = endTime
+                self._aliases[id] = aid
+                self:Render(aid, e.name, e.icon or 134400,
+                    math.max(0.1, endTime - now), endTime, e.severity, e.role)
+                NS:Debug("Timeline : doublon d'identité ignoré (", tostring(name),
+                    ", id ", tostring(id), " -> ", tostring(aid), ").")
+                return
+            end
+        end
+    end
+
     if NS.Recorder and NS.Recorder:IsRecording() then
         NS.Recorder:OnAdded(id, matchDur, fireDur, ev, self._lastMatchHow, info)
     end
@@ -524,9 +559,14 @@ function BT:OnRemoved(x)
     local id = (type(x) == "table" and NS:SafeNumber(x.id)) or NS:SafeNumber(x)
     if not id then return end
     if NS.Recorder and NS.Recorder:IsRecording() then NS.Recorder:OnRemoved(id) end
-    self.active[id] = nil
-    NS.UI.TimerBars:Remove("bt:" .. id)
-    if NS.UI.Rings then NS.UI.Rings:Remove("bt:" .. id) end
+    -- Un identifiant dupliqué n'a jamais eu d'entrée à lui : il pointe sur celle
+    -- qu'on a conservée. Sans cette résolution, le retrait ne nettoyait rien et
+    -- le minuteur restait affiché jusqu'à sa propre expiration.
+    local target = (self.active[id] ~= nil) and id or (self._aliases[id] or id)
+    self._aliases[id] = nil
+    self.active[target] = nil
+    NS.UI.TimerBars:Remove("bt:" .. target)
+    if NS.UI.Rings then NS.UI.Rings:Remove("bt:" .. target) end
 end
 
 function BT:ClearAll()
@@ -536,6 +576,7 @@ function BT:ClearAll()
         if NS.UI.Rings then NS.UI.Rings:Remove("bt:" .. id) end
     end
     wipe(self.active)
+    wipe(self._aliases)
     self._activeEnc = nil
     self._candidates = nil
     wipe(self._syncUsed)

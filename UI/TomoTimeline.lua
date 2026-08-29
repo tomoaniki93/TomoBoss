@@ -13,6 +13,12 @@ local NS = select(2, ...)
 NS.UI = NS.UI or {}
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
+
+-- Deux entrées de même identité qui échoient à moins de cet écart sont le même
+-- événement republié par une source. Les barres les superposaient sans qu'on le
+-- voie ; la timeline, elle, écarte les simultanées de part et d'autre du rail.
+local DUP_EPS = 0.35
+
 local Timeline = {
     active = {},
     pool = {},
@@ -352,6 +358,26 @@ function Timeline:Tick(force)
         if a._remaining == b._remaining then return tostring(a.key) < tostring(b.key) end
         return a._remaining < b._remaining
     end)
+
+    -- Filet de sécurité d'affichage. La déduplication de fond appartient au
+    -- producteur (NS.BlizzTimeline) ; ici on garantit seulement qu'aucune
+    -- capacité ne puisse apparaître deux fois sur le rail si une source venait à
+    -- republier la même chose sous une autre clé. La liste est triée par temps
+    -- restant : les doublons éventuels sont donc adjacents.
+    local kept = 0
+    for i = 1, #self.order do
+        local e = self.order[i]
+        local prev = (kept > 0) and self.order[kept] or nil
+        if prev and prev.__name == e.__name and prev.__icon == e.__icon
+            and math.abs(prev._remaining - e._remaining) <= DUP_EPS
+        then
+            e:Hide()
+        else
+            kept = kept + 1
+            self.order[kept] = e
+        end
+    end
+    for i = #self.order, kept + 1, -1 do self.order[i] = nil end
 
     local lastY = { left = -1000, right = -1000 }
     local shown = 0
