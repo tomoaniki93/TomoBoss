@@ -2,13 +2,12 @@
 -- TomoBoss — GUI stable / RC1.
 --
 -- Objectifs :
---   * réduire le nombre d'onglets "techniques" visibles au premier niveau ;
+--   * limiter le rail principal à 7 catégories stables ;
 --   * fusionner Voix + Compte à rebours dans "Audio" ;
---   * conserver la page Affichage contextuelle Barres / Timeline / Hybride ;
---   * remplacer l'ancien onglet TrashCD par les alertes de packs réellement
---     compatibles Midnight (anneau ciblé secret-safe) ;
---   * déplacer Timeline Blizzard et anneaux de rôle dans "Avancé" ;
---   * ajouter une page Données pour piloter la sortie des minutages tierces.
+--   * conserver la page Boss contextuelle Barres / Timeline / Hybride ;
+--   * regrouper Interruptions + ciblage des packs dans "Packs" ;
+--   * ranger Timeline Blizzard, anneaux de rôle et migration Learn dans "Avancé" ;
+--   * garder les outils de provenance disponibles sans encombrer le parcours joueur.
 --
 -- Ce fichier est chargé APRES Config.lua et DisplayMode.lua et remplace
 -- uniquement la composition des pages. Les moteurs runtime restent inchangés.
@@ -34,6 +33,7 @@ local Original = {
 --------------------------------------------------------------------------
 local EN = {
     STABLE_TAB_AUDIO       = "Audio",
+    STABLE_TAB_PACKS       = "Packs",
     STABLE_TAB_DATA        = "Data",
     STABLE_TAB_ADVANCED    = "Advanced",
     STABLE_TAB_TRASH       = "Trash warnings",
@@ -42,7 +42,10 @@ local EN = {
     STABLE_AUDIO_TITLE     = "Audio & countdown",
     STABLE_AUDIO_VOICE     = "Voice",
     STABLE_AUDIO_PULL      = "Pull countdown",
-    STABLE_TRASH_TITLE     = "Trash warnings",
+    STABLE_PACKS_TITLE     = "Pack alerts",
+    STABLE_PACKS_TARGET    = "Targeted casts",
+    STABLE_PACKS_INTERRUPTS= "Interrupts",
+    STABLE_TRASH_TITLE     = "Targeted casts",
     STABLE_TRASH_DESC      = "Midnight-safe warning for enemy casts targeting you. TomoBoss never reads the restricted target boolean in Lua.",
     STABLE_TRASH_ENABLE    = "Targeted cast ring",
     STABLE_TRASH_SIZE      = "Targeted ring size",
@@ -58,6 +61,7 @@ local EN = {
     STABLE_ADV_TITLE       = "Advanced",
     STABLE_ADV_BLIZZ       = "Blizzard timeline",
     STABLE_ADV_RINGS       = "Role rings",
+    STABLE_ADV_DATA        = "Data & learning",
     STABLE_ROLE_TITLE      = "Role / danger rings",
     STABLE_ABOUT_BODY      = "TomoBoss owns player-facing boss timer and voice decisions. Blizzard C_EncounterTimeline is the native runtime input. BigWigs/DBM are audit-only; EXBoss/WeakAura are reference-only.",
     STABLE_ABOUT_DATA      = "Timing provenance is tracked separately in the Data tab until every third-party encounter has been regenerated from Learn pulls.",
@@ -72,6 +76,7 @@ local EN = {
 
 local FR = {
     STABLE_TAB_AUDIO       = "Audio",
+    STABLE_TAB_PACKS       = "Packs",
     STABLE_TAB_DATA        = "Données",
     STABLE_TAB_ADVANCED    = "Avancé",
     STABLE_TAB_TRASH       = "Alertes de packs",
@@ -80,7 +85,10 @@ local FR = {
     STABLE_AUDIO_TITLE     = "Audio & décompte",
     STABLE_AUDIO_VOICE     = "Voix",
     STABLE_AUDIO_PULL      = "Compte à rebours",
-    STABLE_TRASH_TITLE     = "Alertes de packs",
+    STABLE_PACKS_TITLE     = "Packs",
+    STABLE_PACKS_TARGET    = "Ciblage",
+    STABLE_PACKS_INTERRUPTS= "Interruptions",
+    STABLE_TRASH_TITLE     = "Ciblage des packs",
     STABLE_TRASH_DESC      = "Alerte Midnight-safe pour les incantations ennemies qui vous ciblent. TomoBoss ne lit jamais le booléen de cible restreint en Lua.",
     STABLE_TRASH_ENABLE    = "Anneau quand un sort me cible",
     STABLE_TRASH_SIZE      = "Taille de l'anneau ciblé",
@@ -96,6 +104,7 @@ local FR = {
     STABLE_ADV_TITLE       = "Avancé",
     STABLE_ADV_BLIZZ       = "Timeline Blizzard",
     STABLE_ADV_RINGS       = "Anneaux de rôle",
+    STABLE_ADV_DATA        = "Données & Learn",
     STABLE_ROLE_TITLE      = "Anneaux de rôle / danger",
     STABLE_ABOUT_BODY      = "TomoBoss décide de tous les timers et voix visibles par le joueur. Blizzard C_EncounterTimeline reste l'entrée native runtime. BigWigs/DBM = audit uniquement ; EXBoss/WeakAura = référence uniquement.",
     STABLE_ABOUT_DATA      = "La provenance des minutages est suivie séparément dans l'onglet Données jusqu'à régénération de toutes les rencontres tierces depuis Learn.",
@@ -119,12 +128,12 @@ if NS.Locales then
     if NS.Locales.frFR then
         for k, v in pairs(FR) do NS.Locales.frFR[k] = v end
         -- Noms des onglets existants réorganisés.
-        NS.Locales.frFR.TAB_BARS = "Alertes boss"
+        NS.Locales.frFR.TAB_BARS = "Boss"
         NS.Locales.frFR.BARS_TITLE = "Alertes de boss"
         NS.Locales.frFR.TAB_TRASH = FR.STABLE_TAB_TRASH
     end
     if NS.Locales.enUS then
-        NS.Locales.enUS.TAB_BARS = "Boss alerts"
+        NS.Locales.enUS.TAB_BARS = "Boss"
         NS.Locales.enUS.BARS_TITLE = "Boss alerts"
         NS.Locales.enUS.TAB_TRASH = EN.STABLE_TAB_TRASH
     end
@@ -185,15 +194,13 @@ ensureTrashWarningCfg()
 --------------------------------------------------------------------------
 function Config:BuildTabs(rail)
     local defs = {
-        { key = "general",    label = L.TAB_GENERAL,          build = "BuildStableGeneral" },
-        { key = "bars",       label = L.TAB_BARS,             build = "BuildBars" },
-        { key = "audio",      label = L.STABLE_TAB_AUDIO,     build = "BuildStableAudio" },
-        { key = "interrupts", label = L.TAB_INTERRUPTS,       build = "BuildInterrupts" },
-        { key = "trash",      label = L.STABLE_TAB_TRASH,     build = "BuildStableTrash" },
-        { key = "custom",     label = L.TAB_CUSTOM,           build = "BuildCustom" },
-        { key = "data",       label = L.STABLE_TAB_DATA,      build = "BuildStableData" },
-        { key = "advanced",   label = L.STABLE_TAB_ADVANCED,  build = "BuildStableAdvanced" },
-        { key = "about",      label = L.TAB_ABOUT,            build = "BuildStableAbout" },
+        { key = "general",  label = L.TAB_GENERAL,          build = "BuildStableGeneral" },
+        { key = "bars",     label = L.TAB_BARS,             build = "BuildBars" },
+        { key = "audio",    label = L.STABLE_TAB_AUDIO,     build = "BuildStableAudio" },
+        { key = "packs",    label = L.STABLE_TAB_PACKS,     build = "BuildStablePacks" },
+        { key = "custom",   label = L.TAB_CUSTOM,           build = "BuildCustom" },
+        { key = "advanced", label = L.STABLE_TAB_ADVANCED,  build = "BuildStableAdvanced" },
+        { key = "about",    label = L.TAB_ABOUT,            build = "BuildStableAbout" },
     }
 
     local C = NS.Theme.colors
@@ -362,7 +369,45 @@ function Config:BuildStableAudio(page)
 end
 
 --------------------------------------------------------------------------
--- Trash stable : uniquement la fonctionnalité prouvée sous Midnight.
+-- Packs : une seule catégorie joueur pour ciblage + interruptions.
+--------------------------------------------------------------------------
+function Config:BuildStablePacks(page)
+    local title = section(page, L.STABLE_PACKS_TITLE)
+    title:SetPoint("TOPLEFT", 22, -18)
+
+    local targetBtn = NS.Theme:CreateButton(page, L.STABLE_PACKS_TARGET, 150, 26)
+    targetBtn:SetPoint("TOPLEFT", 22, -52)
+    local intBtn = NS.Theme:CreateButton(page, L.STABLE_PACKS_INTERRUPTS, 160, 26)
+    intBtn:SetPoint("LEFT", targetBtn, "RIGHT", 8, 0)
+
+    local targetView = CreateFrame("Frame", nil, page)
+    targetView:SetPoint("TOPLEFT", 0, -88)
+    targetView:SetPoint("BOTTOMRIGHT", 0, 0)
+
+    local interruptView = CreateFrame("Frame", nil, page)
+    interruptView:SetAllPoints(targetView)
+
+    self:BuildStableTrash(targetView)
+    Original.Interrupts(self, interruptView)
+
+    local function show(which)
+        targetView:SetShown(which == "target")
+        interruptView:SetShown(which == "interrupts")
+        if targetBtn.text then
+            targetBtn.text:SetTextColor(NS.Theme:Color(which == "target" and "mint" or "text"))
+        end
+        if intBtn.text then
+            intBtn.text:SetTextColor(NS.Theme:Color(which == "interrupts" and "mint" or "text"))
+        end
+    end
+
+    targetBtn:SetScript("OnClick", function() show("target") end)
+    intBtn:SetScript("OnClick", function() show("interrupts") end)
+    show("target")
+end
+
+--------------------------------------------------------------------------
+-- Ciblage des packs : fonctionnalité prouvée sous Midnight.
 --------------------------------------------------------------------------
 function Config:BuildStableTrash(page)
     local cfg = ensureTrashWarningCfg()
@@ -505,23 +550,28 @@ function Config:BuildStableData(page)
 end
 
 --------------------------------------------------------------------------
--- Avancé : Blizzard + anneaux de rôle.
+-- Avancé : Blizzard + anneaux de rôle + outils Learn/provenance.
 --------------------------------------------------------------------------
 function Config:BuildStableAdvanced(page)
     local title = section(page, L.STABLE_ADV_TITLE)
     title:SetPoint("TOPLEFT", 22, -18)
 
-    local blizzBtn = NS.Theme:CreateButton(page, L.STABLE_ADV_BLIZZ, 170, 26)
+    local blizzBtn = NS.Theme:CreateButton(page, L.STABLE_ADV_BLIZZ, 150, 26)
     blizzBtn:SetPoint("TOPLEFT", 22, -52)
-    local ringsBtn = NS.Theme:CreateButton(page, L.STABLE_ADV_RINGS, 160, 26)
+    local ringsBtn = NS.Theme:CreateButton(page, L.STABLE_ADV_RINGS, 140, 26)
     ringsBtn:SetPoint("LEFT", blizzBtn, "RIGHT", 8, 0)
+    local dataBtn = NS.Theme:CreateButton(page, L.STABLE_ADV_DATA, 150, 26)
+    dataBtn:SetPoint("LEFT", ringsBtn, "RIGHT", 8, 0)
 
     local blizzView = CreateFrame("Frame", nil, page)
     blizzView:SetPoint("TOPLEFT", 0, -88); blizzView:SetPoint("BOTTOMRIGHT", 0, 0)
     local ringsView = CreateFrame("Frame", nil, page)
     ringsView:SetAllPoints(blizzView)
+    local dataView = CreateFrame("Frame", nil, page)
+    dataView:SetAllPoints(blizzView)
 
     Original.Blizz(self, blizzView)
+    self:BuildStableData(dataView)
 
     do
         local prof = NS.db.profile
@@ -554,11 +604,23 @@ function Config:BuildStableAdvanced(page)
     local function show(which)
         blizzView:SetShown(which == "blizz")
         ringsView:SetShown(which == "rings")
-        if blizzBtn.text then blizzBtn.text:SetTextColor(NS.Theme:Color(which == "blizz" and "mint" or "text")) end
-        if ringsBtn.text then ringsBtn.text:SetTextColor(NS.Theme:Color(which == "rings" and "mint" or "text")) end
+        dataView:SetShown(which == "data")
+        if blizzBtn.text then
+            blizzBtn.text:SetTextColor(NS.Theme:Color(which == "blizz" and "mint" or "text"))
+        end
+        if ringsBtn.text then
+            ringsBtn.text:SetTextColor(NS.Theme:Color(which == "rings" and "mint" or "text"))
+        end
+        if dataBtn.text then
+            dataBtn.text:SetTextColor(NS.Theme:Color(which == "data" and "mint" or "text"))
+        end
+        if which == "data" and Config._stableDataRefresh then
+            Config._stableDataRefresh()
+        end
     end
     blizzBtn:SetScript("OnClick", function() show("blizz") end)
     ringsBtn:SetScript("OnClick", function() show("rings") end)
+    dataBtn:SetScript("OnClick", function() show("data") end)
     show("blizz")
 end
 
@@ -604,11 +666,11 @@ function Config:BuildStableAbout(page)
     end
 end
 
--- Rafraîchit automatiquement la page Données quand elle est sélectionnée.
+-- Conserve le hook de sélection pour les outils avancés.
 local originalSelect = Config.Select
 function Config:Select(key)
     originalSelect(self, key)
-    if key == "data" and self._stableDataRefresh then
+    if key == "advanced" and self._stableDataRefresh then
         self._stableDataRefresh()
     end
 end
