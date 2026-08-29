@@ -1,4 +1,5 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
     <Include file="Config.lua"/>
     <Include file="DisplayMode.lua"/>
+    <Include file="StableLayout.lua"/>
 </Ui>

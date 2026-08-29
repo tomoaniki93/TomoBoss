@@ -9,4 +9,5 @@
     <Include file="Dump.lua"/>
     <Include file="Provenance.lua"/>
     <Include file="Slash.lua"/>
+    <Include file="Migration.lua"/>
 </Ui>
