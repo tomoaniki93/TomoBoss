@@ -24,9 +24,6 @@ TomoBoss 2.8.0-beta5c keeps the validated P0-01/P0-02/P0-03 base and adds **guar
 - `/tmb pull [n]` — pull countdown.
 - `/tmb unlock` — move UI elements.
 - `/tmb kicks` — Mythic+ interrupt count.
-- `/tmb debug` — debug mode (existing command when available in the base build).
-- `/tmb doctor` — structural, bridge, rules and state diagnostics.
-- `/tmbdoctor` — fallback alias for Doctor.
 - `/tmbv` — group version check.
 
 ## 2.8.0-beta5c safety model
