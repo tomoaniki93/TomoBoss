@@ -11,6 +11,11 @@
 - **Council runtime validation complete** — The validated run resolved `4` state-aware decisions with `0` guarded fallbacks and observed the expected state transition.
 - **Mchimba runtime validation complete** — The validated run resolved `8` state-aware decisions with `0` guarded fallbacks and observed the expected Entomb state changes.
 
+### Localization
+- **RC1 GUI strings translated into every supported locale** — The stable-layout rework shipped its 38 new strings as a hardcoded English fallback injected into all twelve locale tables, so deDE, esES, esMX, itIT, ptBR, ruRU, koKR, zhCN and zhTW displayed the whole reorganized options panel in English. Each of those nine locales now has its own translation block; enGB keeps the English source.
+- **Reorganized tab labels realigned across locales** — `TAB_BARS`, `BARS_TITLE` and `TAB_TRASH` were rewritten for frFR and enUS only, leaving other clients with labels describing the previous layout (a German player saw "Anzeige" over the boss alerts and "TrashCD" over the targeted-cast page). All twelve locales are now rewritten from a single table.
+- Locale injection is now data-driven (`TRANSLATIONS` / `TABS`) instead of per-language `if` blocks, so adding a locale is one table entry.
+
 ### Trash Warnings
 - **Secret-safe targeted cast ring** — Dungeon trash casts that target the player can now drive the central TomoBoss warning ring without inspecting the restricted target boolean in Lua.
 - **Native secret-safe progress** — Enemy cast progress uses Blizzard `UnitCastingDuration()` / `UnitChannelDuration()` duration objects directly through `Cooldown:SetCooldownFromDurationObject()`. No enemy cast timestamps are converted to Lua numbers.

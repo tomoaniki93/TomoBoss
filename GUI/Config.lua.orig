@@ -646,13 +646,11 @@ function Config:BuildCustomEditor(view)
 
     local panel = NS.Theme:CreatePanel(view, { bg = NS.Theme.colors.bg1, border = NS.Theme.colors.line })
     panel:SetPoint("TOPLEFT", LX, -394); panel:SetPoint("BOTTOMRIGHT", -16, 8)
-    local scroll, child = NS.GUI.CreateModernScroll(panel, {
-        childWidth = 400,
-        childHeight = 10,
-        wheelStep = 44,
-        minThumbHeight = 30,
-    })
-    scroll:SetPoint("TOPLEFT", 4, -4); scroll:SetPoint("BOTTOMRIGHT", -18, 4)
+    local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 4, -4); scroll:SetPoint("BOTTOMRIGHT", -24, 4)
+    local child = CreateFrame("Frame", nil, scroll)
+    child:SetSize(400, 10)
+    scroll:SetScrollChild(child)
     self._customListChild = child
     self:RefreshCustomList()
 end

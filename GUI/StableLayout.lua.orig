@@ -743,15 +743,15 @@ function Config:BuildStableAudio(page)
     local pullBtn = NS.Theme:CreateButton(page, L.STABLE_AUDIO_PULL, 170, 26)
     pullBtn:SetPoint("LEFT", voiceBtn, "RIGHT", 8, 0)
 
-    local voiceView, voiceScroll = ScrollBody(page, 150, 760)
-    local pullView, pullScroll = ScrollBody(page, 150, 430)
+    local voiceView = ScrollBody(page, 150, 760)
+    local pullView = ScrollBody(page, 150, 430)
 
     Original.Voice(self, voiceView)
     Original.Countdown(self, pullView)
 
     local function show(which)
-        voiceScroll:SetShown(which == "voice")
-        pullScroll:SetShown(which == "pull")
+        voiceView:SetShown(which == "voice")
+        pullView:SetShown(which == "pull")
         if voiceBtn.text then voiceBtn.text:SetTextColor(NS.Theme:Color(which == "voice" and "mint" or "text")) end
         if pullBtn.text then pullBtn.text:SetTextColor(NS.Theme:Color(which == "pull" and "mint" or "text")) end
     end
@@ -777,14 +777,14 @@ function Config:BuildStablePacks(page)
     targetView:SetPoint("TOPLEFT", 0, -88)
     targetView:SetPoint("BOTTOMRIGHT", 0, 0)
 
-    local interruptView, interruptScroll = ScrollBody(page, 88, 720)
+    local interruptView = ScrollBody(page, 88, 720)
 
     self:BuildStableTrash(targetView)
     Original.Interrupts(self, interruptView)
 
     local function show(which)
         targetView:SetShown(which == "target")
-        interruptScroll:SetShown(which == "interrupts")
+        interruptView:SetShown(which == "interrupts")
         if targetBtn.text then
             targetBtn.text:SetTextColor(NS.Theme:Color(which == "target" and "mint" or "text"))
         end
@@ -953,7 +953,7 @@ function Config:BuildStableAdvanced(page)
     local ringsBtn = NS.Theme:CreateButton(page, L.STABLE_ADV_RINGS, 160, 26)
     ringsBtn:SetPoint("LEFT", blizzBtn, "RIGHT", 8, 0)
 
-    local blizzView, blizzScroll = ScrollBody(page, 88, 900)
+    local blizzView = ScrollBody(page, 88, 900)
     local ringsView = CreateFrame("Frame", nil, page)
     ringsView:SetPoint("TOPLEFT", 0, -88); ringsView:SetPoint("BOTTOMRIGHT", 0, 0)
 
@@ -988,7 +988,7 @@ function Config:BuildStableAdvanced(page)
     end
 
     local function show(which)
-        blizzScroll:SetShown(which == "blizz")
+        blizzView:SetShown(which == "blizz")
         ringsView:SetShown(which == "rings")
         if blizzBtn.text then
             blizzBtn.text:SetTextColor(NS.Theme:Color(which == "blizz" and "mint" or "text"))
