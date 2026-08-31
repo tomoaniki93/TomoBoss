@@ -1,63 +1,68 @@
 ---@diagnostic disable: undefined-global
--- TomoBoss — Donjon : Temple of Sethraliss (saison 12.0 S2, mapID 1877)
--- Données de MATCHING uniquement, générées depuis les branches de durée de
--- LittleWigs (ENCOUNTER_TIMELINE_EVENT_ADDED, modes Mythique et Normal/Héroïque
--- fusionnés). Aucune série de prédiction — `matchOnly = true`.
--- Rôles, voix et sévérités sont des valeurs par défaut, à affiner en jeu.
+-- TomoBoss — Donjon : Temple of Sethraliss / Temple de Sephraliss
+--
+-- Données de MATCHING générées depuis les captures TomoBoss (module Learn).
+-- Chaque durée ci-dessous a été observée au moins 3 fois sur
+-- ENCOUNTER_TIMELINE_EVENT_ADDED en jeu. Aucune source tierce.
+--
+-- `matchOnly = true` : le minutage vient de C_EncounterTimeline, ces valeurs
+-- ne servent qu'à identifier la capacité. Rôles, voix et sévérités sont des
+-- choix éditoriaux conservés depuis la version précédente.
 
 local NS = select(2, ...)
 local R = function(id, def) NS.Engine:RegisterEncounter(id, def) end
 
--- Adderis and Aspix  (encounterID 2124)
+-- Adderis and Aspix  (encounterID 2124) — 3 pull(s) capturé(s)
 R(2124, {
     name = "Adderis and Aspix",
-    provenance = "littlewigs",
+    provenance = "observed",
     dungeon = "Temple of Sethraliss",
     matchOnly = true,
     events = {
-        { role = "other", voice = "watch-dodge", spellID = 1289059, firstSeenSec = 1, cdSeriesSec = { 1, 5 }, severity = 1 },  -- Gale Force
-        { role = "other", voice = "watch-dodge", spellID = 1288049, firstSeenSec = 4, cdSeriesSec = { 4, 9 }, severity = 2 },  -- Thunder and Lightning
-        { role = "other", voice = "prepare-aoe", spellID = 1288864, firstSeenSec = 12, cdSeriesSec = { 12, 21, 26 }, severity = 1 },  -- Tempest Winds
-        { role = "other", voice = "watch-explosion", spellID = 1288428, firstSeenSec = 31, cdSeriesSec = { 31, 36 }, severity = 0 },  -- Overload
+        { role = "other", voice = "watch-dodge", spellID = 1289059, firstSeenSec = 1, cdSeriesSec = { 1, 5, 19, 45 }, severity = 1 },  -- Gale Force  [vu 1×4 5×11 19×5 45×16]
+        { role = "other", voice = "watch-dodge", spellID = 1288049, firstSeenSec = 9, cdSeriesSec = { 9 }, severity = 2 },  -- Thunder and Lightning  [vu 9×5]
+        { role = "other", voice = "prepare-aoe", spellID = 1311805, firstSeenSec = 12, cdSeriesSec = { 12, 25, 29 }, severity = 1 },  -- capacité  [vu 12×3 25×4 29×6]
+        { role = "other", voice = "watch-explosion", spellID = 1311804, firstSeenSec = 39, cdSeriesSec = { 39 }, severity = 0 },  -- capacité  [vu 39×5]
     },
 })
 
--- Merektha  (encounterID 2125)
+-- Merektha  (encounterID 2125) — 3 pull(s) capturé(s)
 R(2125, {
     name = "Merektha",
-    provenance = "littlewigs",
+    provenance = "observed",
     dungeon = "Temple of Sethraliss",
     matchOnly = true,
     events = {
-        { role = "other", voice = "watch-dodge", spellID = 1290797, firstSeenSec = 5, cdSeriesSec = { 5 }, severity = 0 },  -- Lightning Bite
-        { role = "other", voice = "summon-adds", spellID = 1290029, firstSeenSec = 13, cdSeriesSec = { 13 }, severity = 2 },  -- A Knot of Snakes
-        { role = "other", voice = "watch-dodge", spellID = 1289109, firstSeenSec = 25, cdSeriesSec = { 25 }, severity = 1 },  -- Thunder Spit
-        { role = "other", voice = "prepare-aoe", spellID = 1293048, firstSeenSec = 36, cdSeriesSec = { 36 }, severity = 1 },  -- Serpentstorm
-        { role = "other", voice = "summon-adds", spellID = 1289205, firstSeenSec = 44, cdSeriesSec = { 44 }, severity = 1 },  -- Hatch
-        { role = "other", voice = "dodge-charge", spellID = 264172, firstSeenSec = 49, cdSeriesSec = { 49 }, severity = 0 },  -- Burrow
+        { role = "other", voice = "watch-dodge", spellID = 1290797, firstSeenSec = 5, cdSeriesSec = { 5 }, severity = 0 },  -- Lightning Bite  [vu 5×8]
+        { role = "other", voice = "summon-adds", spellID = 1290029, firstSeenSec = 13, cdSeriesSec = { 13 }, severity = 2 },  -- A Knot of Snakes  [vu 13×8]
+        { role = "other", voice = "watch-dodge", spellID = 1289109, firstSeenSec = 25, cdSeriesSec = { 25 }, severity = 1 },  -- Thunder Spit  [vu 25×8]
+        { role = "other", voice = "prepare-aoe", spellID = 1293048, firstSeenSec = 36, cdSeriesSec = { 36 }, severity = 1 },  -- Serpentstorm  [vu 36×8]
+        { role = "other", voice = "summon-adds", spellID = 1289205, firstSeenSec = 44, cdSeriesSec = { 44 }, severity = 1 },  -- Hatch  [vu 44×8]
+        { role = "other", voice = "dodge-charge", spellID = 264172, firstSeenSec = 49, cdSeriesSec = { 49 }, severity = 0 },  -- Burrow  [vu 49×8]
     },
 })
 
--- Galvazzt  (encounterID 2126)
+-- Galvazzt  (encounterID 2126) — 3 pull(s) capturé(s)
 R(2126, {
     name = "Galvazzt",
-    provenance = "littlewigs",
+    provenance = "observed",
     dungeon = "Temple of Sethraliss",
     matchOnly = true,
     events = {
-        { role = "other", voice = "prepare-beam", spellID = 1291618, firstSeenSec = 6, cdSeriesSec = { 6, 26 }, severity = 1 },  -- Lightning Spire | AMBIGU : durée 26 partagée
-        { role = "other", voice = "prepare-interrupt", spellID = 1309525, firstSeenSec = 24, cdSeriesSec = { 24, 26 }, severity = 1 },  -- Induction | AMBIGU : durée 26 partagée
+        { role = "other", voice = "prepare-beam", spellID = 1291618, firstSeenSec = 5, cdSeriesSec = { 5, 22 }, severity = 1 },  -- Lightning Spire | AMBIGU : durée 26 partagée  [vu 5×3 22×26]
+        { role = "other", voice = "prepare-interrupt", spellID = 1309525, firstSeenSec = 20, cdSeriesSec = { 20 }, severity = 1 },  -- Induction | AMBIGU : durée 26 partagée  [vu 20×3]
     },
 })
 
--- Avatar of Sethraliss  (encounterID 2127)
+-- Avatar of Sethraliss  (encounterID 2127) — 3 pull(s) capturé(s)
 R(2127, {
     name = "Avatar of Sethraliss",
-    provenance = "littlewigs",
+    provenance = "observed",
     dungeon = "Temple of Sethraliss",
     matchOnly = true,
     events = {
-        { role = "other", voice = "prepare-dispel", spellID = 1301202, firstSeenSec = 11, cdSeriesSec = { 11 }, severity = 1 },  -- Defiling Taint
-        { role = "other", voice = "phase-change", spellID = 1273408, firstSeenSec = 32.5, cdSeriesSec = { 32.5 }, severity = 0 },  -- Stage One
+        { role = "other", voice = "prepare-dispel", spellID = 1301202, firstSeenSec = 15, cdSeriesSec = { 15 }, severity = 1 },  -- Defiling Taint  [vu 15×9]
+        { role = "other", voice = "phase-change", spellID = 1273408, firstSeenSec = 32.5, cdSeriesSec = { 32.5 }, severity = 0 },  -- Stage One  [vu 32.5×6]
     },
 })
+

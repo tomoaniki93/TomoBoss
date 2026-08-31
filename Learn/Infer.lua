@@ -387,6 +387,27 @@ end
 local TOL_ABS = 0.60   -- secondes
 local TOL_REL = 0.02   -- fraction de T, prend le relais sur les longs cycles
 
+-- Vérification par REJEU (voir replayFit).
+local REPLAY_TOL     = 0.90 -- tolérance d'appariement d'un écart observé (s)
+local FIT_GOOD       = 0.90 -- au-dessus : la série décrit bien les observations
+local FIT_WEAK       = 0.75 -- en dessous : les données contredisent la série
+local FIT_MIN_DELTAS = 6    -- sous ce nombre d'écarts, le rejeu ne conclut rien
+
+-- Preuve minimale exigée pour un label de qualité.
+--
+-- Le nombre de PULLS est un mauvais indicateur de preuve. Mesuré sur 255 pulls
+-- réels : longueur médiane 91 s. Une capacité à 60 s de cooldown n'y produit
+-- qu'UN intervalle par pull, donc « 4 pulls » peut ne représenter que 4
+-- intervalles. Résultat avant ce garde-fou : 81 des 129 capacités classées
+-- « bon » reposaient sur moins de 6 intervalles, et le rejeu s'abstenait
+-- justement là, faute de matière — l'absence de contradiction était prise pour
+-- une confirmation.
+--
+-- On compte donc les INTERVALLES OBSERVÉS, seule quantité qui mesure vraiment
+-- ce que les données peuvent démontrer.
+local MIN_INTERVALS_GOOD   = 8
+local MIN_INTERVALS_MEDIUM = 4
+
 local function tolFor(T) return math.max(TOL_ABS, TOL_REL * T) end
 
 -- Médiane des sommes de p intervalles consécutifs -> estimation du cycle.
@@ -474,10 +495,18 @@ local function foldPhases(times, T, p)
         local m = median(vals)
         local d = devQuantile(vals, m, TIGHT_Q) or 0
         if Infer._trace and Infer._traceDur == Infer._curDur then
+            -- `span` était un reliquat du calcul `c[#c] - c[1]` supprimé ci-dessus :
+            -- la variable n'existait plus et la trace plantait sur string.format.
+            -- L'étendue utile est désormais celle des valeurs DÉROULÉES.
+            local lo, hi = vals[1], vals[1]
+            for i = 2, #vals do
+                if vals[i] < lo then lo = vals[i] end
+                if vals[i] > hi then hi = vals[i] end
+            end
             local sh = {}
             for i = 1, math.min(#c, 8) do sh[i] = string.format("%.1f", c[i]) end
             print(string.format("      [fold] paquet n=%d span=%.2f (T/2=%.2f) median=%.2f mad=%.2f  ph=%s",
-                #c, span, T/2, m, d, table.concat(sh, " ")))
+                #c, (hi - lo), T/2, m, d, table.concat(sh, " ")))
         end
         if d > worst then worst = d end
         centers[#centers + 1] = m % T
@@ -615,6 +644,71 @@ end
 Infer._detect = detectSeries
 Infer._median = median
 
+-- Fidélité de la série aux observations, par REJEU.
+--
+-- Le repliement peut produire des paquets parfaitement SERRÉS sur un cycle
+-- FAUX : il suffit que les rares instants survivants tombent en coïncidence.
+-- Relevé sur le banc « échec sûr » (45 % de pertes) : {32.7, 44.4, 20.4}
+-- annoncé en qualité « bon » sans avertissement là où la vérité est
+-- {12, 20, 33}. Aucune mesure de dispersion ne peut voir ça — les paquets SONT
+-- serrés ; c'est le cycle qui est faux.
+--
+-- On teste donc la série contre les données plutôt que contre elle-même. Un
+-- écart observé doit être une somme d'entrées CONSÉCUTIVES de la série (une
+-- somme de plusieurs entrées = des occurrences manquées, ce qui est normal
+-- sous perte), et les positions doivent s'enchaîner. Un écart qu'aucune somme
+-- n'explique est orphelin : la série est contredite.
+--
+-- Le test est local à chaque écart, donc insensible à la dérive cumulée, et
+-- indépendant de la façon dont la série a été construite.
+local function replayFit(series, cycle, perPullTimes)
+    if type(series) ~= "table" or #series == 0 then return nil, 0 end
+    local p = #series
+    for _, v in ipairs(series) do
+        if type(v) ~= "number" or v <= 0 then return nil, 0 end
+    end
+    local maxRun = math.min(math.max(2 * p, 6), 12)
+    local total, explained = 0, 0
+
+    for _, times in ipairs(perPullTimes or {}) do
+        if #times >= 2 then
+            local best = -1
+            -- La première observation d'un pull peut occuper n'importe quelle
+            -- position du cycle : on essaie les p départs et on garde le meilleur.
+            for off = 0, p - 1 do
+                local pos, hit = off, 0
+                for a = 2, #times do
+                    local delta = times[a] - times[a - 1]
+                    local acc, found = 0, nil
+                    for k = 1, maxRun do
+                        acc = acc + series[((pos + k - 1) % p) + 1]
+                        local tol = math.max(REPLAY_TOL, TOL_REL * acc)
+                        if math.abs(acc - delta) <= tol then found = k; break end
+                        if acc - delta > tol then break end
+                    end
+                    if found then
+                        hit = hit + 1
+                        pos = (pos + found) % p
+                    end
+                    -- Écart orphelin : on ne propage pas l'erreur de phase, la
+                    -- position courante reste celle du dernier appariement.
+                end
+                if hit > best then best = hit end
+            end
+            total = total + (#times - 1)
+            explained = explained + math.max(best, 0)
+        end
+    end
+
+    if total < 1 then return nil, 0 end
+    return explained / total, total
+end
+
+-- Accès au rejeu pour le banc d'essai (Tools/test_fit.lua). Aucun appel en jeu.
+function Infer._testReplayFit(series, cycle, perPullTimes)
+    return (replayFit(series, cycle, perPullTimes))
+end
+
 --------------------------------------------------------------------------
 -- Analyse complète d'une rencontre.
 --------------------------------------------------------------------------
@@ -683,10 +777,26 @@ function Infer:Analyze(key)
         local cycle  = det and det.cycle or (series[1] or 0)
         local weak   = det and det.weak
 
+        -- `fitN` est le nombre d'intervalles réellement exploitables : c'est à
+        -- la fois la matière du rejeu et la mesure de la preuve disponible.
+        local fit, fitN = replayFit(series, cycle, perPullTimes)
+
         local quality
-        if det and det.ok and nPulls >= 3 then quality = "bon"
-        elseif det and det.ok and nPulls >= 2 then quality = "moyen"
-        else quality = "faible" end
+        if det and det.ok and nPulls >= 3 and fitN >= MIN_INTERVALS_GOOD then
+            quality = "bon"
+        elseif det and det.ok and nPulls >= 2 and fitN >= MIN_INTERVALS_MEDIUM then
+            quality = "moyen"
+        else
+            quality = "faible"
+        end
+
+        -- Le rejeu a ensuite le DERNIER MOT : une série que les écarts observés
+        -- contredisent ne peut pas sortir en « bon », quel que soit le nombre
+        -- de pulls qui l'ont produite.
+        if fit and fitN >= FIT_MIN_DELTAS then
+            if fit < FIT_WEAK then quality = "faible"
+            elseif fit < FIT_GOOD and quality == "bon" then quality = "moyen" end
+        end
 
         -- incantation enchaînée : le cycle n'excède guère la durée du sort
         local castMed = median(e.durs)
@@ -711,6 +821,15 @@ function Infer:Analyze(key)
             warn = string.format("pulls trop courts (%.0fs observées pour un cycle de %.0fs) — série non confirmée",
                 horizon, cycle)
             if quality == "bon" then quality = "moyen" end
+        end
+        if fitN < MIN_INTERVALS_MEDIUM then
+            warn = (warn and (warn .. " ; ") or "")
+                .. string.format("preuve insuffisante : %d intervalle(s) observé(s) — pulls trop courts pour ce cooldown", fitN)
+        end
+        if fit and fitN >= FIT_MIN_DELTAS and fit < FIT_GOOD then
+            warn = (warn and (warn .. " ; ") or "")
+                .. string.format("série contredite par %.0f %% des écarts observés (rejeu %d/%d)",
+                    (1 - fit) * 100, math.floor(fit * fitN + 0.5), fitN)
         end
         if e.tl and #e.durs == 0 then
             warn = (warn and (warn .. " ; ") or "")
@@ -781,6 +900,9 @@ function Infer:Analyze(key)
                     samples      = total,
                     pulls        = nPulls,
                     spread       = det.score,
+                    fit          = fit and NS.round(fit, 3) or nil,
+            intervals    = fitN,
+                    intervals    = fitN,
                     quality      = quality,
                     warn         = warn,
                     channel      = e.kind == Store.KIND_CHANNEL,
@@ -806,6 +928,8 @@ function Infer:Analyze(key)
             samples      = total,
             pulls        = nPulls,
             spread       = det and det.score or 1,
+            fit          = fit and NS.round(fit, 3) or nil,
+            intervals    = fitN,
             quality      = quality,
             warn         = warn,
             channel      = e.kind == Store.KIND_CHANNEL,

@@ -40,6 +40,7 @@ NS.defaults = {
             showTime          = true,
             priorityThreshold = 5,          -- accent danger sous ce seuil
             updateRate        = 0.05,       -- 20 Hz seulement quand le renderer est visible
+            holdAtNow         = 1.5,        -- sursis d'ancrage sur NOW (s) : anti-clignotement
         },
         voice = {
             enabled   = true,

@@ -38,6 +38,18 @@ local SENTINEL_MIN = 900 -- valeurs ~999/1003 observées en 12.1 : signaux d'ét
 -- AUTRE capacité, ou fait basculer en mode générique.
 -- Signature retenue : même instant de déclenchement ET durée réduite.
 local READD_TOL = 0.25  -- coïncidence de fin (s)
+-- Filtre de bruit du recalage. Le compte à rebours serveur est quantifié et se
+-- fige à 0 dès que la capacité part : réécrire endTime avec ces valeurs faisait
+-- osciller le temps restant autour de zéro, ce qui faisait CLIGNOTER la
+-- timeline et redémarrer le balayage des anneaux. On ne corrige donc que la
+-- dérive réelle, jamais le bruit — la précision des annonces vocales
+-- (tolérance 0,5 s) est intacte.
+local RESYNC_EPS   = 0.15 -- écart minimal pour appliquer un recalage (s)
+local RESYNC_FLOOR = 0.75 -- sous ce reste, l'extrapolation locale prime
+-- La capacité suivie par l'anneau central garde la main un court instant après
+-- son échéance : l'anneau se referme complètement au lieu de disparaître ou de
+-- sauter d'un coup à la capacité suivante.
+local RING_LINGER  = 0.8
 
 local function isSentinelDuration(d)
     return type(d) == "number" and d >= SENTINEL_MIN
@@ -583,6 +595,10 @@ function BT:ClearAll()
     wipe(self._seqCounters)
     wipe(self._drift)
     self._pullTime = nil
+    self._ringKey = nil
+    if NS.UI.RingProgress and NS.UI.RingProgress.StopNow then
+        NS.UI.RingProgress:StopNow()
+    end
 end
 
 --------------------------------------------------------------------------
@@ -601,7 +617,11 @@ function BT:Tick()
     for id, e in pairs(self.active) do
         if doResync then
             local tr = timeRemaining(id)
-            if tr then
+            local cur = (e.endTime or now) - now
+            -- Dernière fraction de seconde : le serveur se fige, l'extrapolation
+            -- locale est plus lisse. On laisse la capacité arriver seule.
+            local quiet = (cur <= RESYNC_FLOOR and tr and tr <= RESYNC_FLOOR)
+            if tr and not quiet and math.abs(tr - cur) > RESYNC_EPS then
                 e.endTime = now + tr
                 if cfg().bar then
                     NS.UI.TimerBars:AddOrUpdate("bt:" .. id, {
@@ -639,13 +659,19 @@ function BT:Tick()
         local bestId, bestRem, bestE
         for id, e in pairs(self.active) do
             local rem = e.endTime - now
-            if rem > 0 and rem <= 30 and (not bestRem or rem < bestRem) then
+            -- Seule la capacité DÉJÀ suivie a droit au sursis : les autres
+            -- n'entrent dans la course qu'avec un reste positif.
+            local floor = (self._ringKey == id) and -RING_LINGER or 0
+            if rem > floor and rem <= 30 and (not bestRem or rem < bestRem) then
                 bestId, bestRem, bestE = id, rem, e
             end
         end
         if bestE then
-            NS.UI.RingProgress:Track("bt:" .. bestId, bestRem, bestE.total, bestE.name, bestE.severity)
+            self._ringKey = bestId
+            NS.UI.RingProgress:Track("bt:" .. bestId, math.max(bestRem, 0.01),
+                bestE.total, bestE.name, bestE.severity)
         else
+            self._ringKey = nil
             NS.UI.RingProgress:Stop()
         end
     end

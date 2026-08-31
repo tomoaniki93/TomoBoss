@@ -19,6 +19,26 @@ local WHITE = "Interface\\Buttons\\WHITE8X8"
 -- voie ; la timeline, elle, écarte les simultanées de part et d'autre du rail.
 local DUP_EPS = 0.35
 
+-- Anti-clignotement sur la ligne NOW.
+--
+-- Le producteur (BlizzTimeline) recale endTime toutes les 0,3 s sur le compte à
+-- rebours serveur. Quand une capacité atteint son échéance, ce recalage renvoie
+-- 0 : entre deux recalages l'extrapolation locale passait en négatif, la carte
+-- était masquée par le seuil -0,05, puis le recalage suivant la faisait
+-- réapparaître. D'où un clignotement à ~3 Hz collé sur NOW, jusqu'à l'arrivée
+-- du REMOVED serveur.
+--
+-- On garde donc la carte VERROUILLÉE sur NOW pendant un court sursis : elle ne
+-- disparaît plus que sur retrait du producteur (cas normal) ou à l'expiration
+-- du sursis (filet anti-fantôme si le REMOVED ne vient jamais).
+local HOLD_AT_NOW = 1.5
+-- Au-delà de ce reste, un recalage n'est plus du bruit mais une vraie
+-- reprogrammation : la carte est libérée et remonte le rail.
+local UNPARK_ABOVE = 1.0
+-- Hystérésis de l'état d'urgence : sans elle, un reste qui oscille autour du
+-- seuil au rythme des recalages faisait faire des allers-retours de couleur.
+local URGENT_HYST = 0.5
+
 local Timeline = {
     active = {},
     pool = {},
@@ -294,6 +314,13 @@ function Timeline:AddOrUpdate(key, entry)
     if not e then
         e = table.remove(self.pool) or newEvent(self)
         self.active[key] = e
+        -- Une frame reprise du pool traîne les verrous de son occupant
+        -- précédent : côté figé, urgence latchée, ancrage NOW. On repart propre.
+        e._parked = nil
+        e.__sideLock = nil
+        e.__side = nil
+        e.__urgentState = nil
+        e.__cr, e.__cg, e.__cb = nil, nil, nil
     end
     e.key = key
     e.entry = entry
@@ -315,6 +342,8 @@ function Timeline:Remove(key)
     if not e then return end
     self.active[key] = nil
     e.entry = nil
+    e._parked = nil
+    e.__sideLock = nil
     e:Hide()
     table.insert(self.pool, e)
 
@@ -341,16 +370,39 @@ function Timeline:Tick(force)
     local usable = math.max(40, (d.height or 420) - 52)
     local bottom = 26
     local minGap = math.max(18, (d.iconSize or 32) + 5)
+    local hold = math.max(0, d.holdAtNow or HOLD_AT_NOW)
 
     wipe(self.order)
     for _, e in pairs(self.active) do
         local entry = e.entry
-        local remaining = entry and ((entry.endTime or now) - now) or -1
-        if remaining >= -0.05 and remaining <= window then
-            e._remaining = math.max(0, remaining)
-            self.order[#self.order + 1] = e
-        else
+        local remaining = entry and ((entry.endTime or now) - now) or nil
+        if remaining == nil then
+            e._parked = nil
             e:Hide()
+        else
+            -- Verrou NOW. Une fois l'échéance atteinte, la carte est ancrée à 0
+            -- et le bruit de recalage (quelques dixièmes dans un sens ou dans
+            -- l'autre) ne la fait plus clignoter ni remonter. Seule une vraie
+            -- reprogrammation la libère.
+            if remaining <= 0 then
+                if not e._parked then e._parked = now end
+            elseif e._parked and remaining > UNPARK_ABOVE then
+                e._parked = nil
+            end
+
+            if e._parked then
+                if (now - e._parked) <= hold then
+                    e._remaining = 0
+                    self.order[#self.order + 1] = e
+                else
+                    e:Hide()
+                end
+            elseif remaining <= window then
+                e._remaining = remaining
+                self.order[#self.order + 1] = e
+            else
+                e:Hide()
+            end
         end
     end
 
@@ -368,7 +420,11 @@ function Timeline:Tick(force)
     for i = 1, #self.order do
         local e = self.order[i]
         local prev = (kept > 0) and self.order[kept] or nil
-        if prev and prev.__name == e.__name and prev.__icon == e.__icon
+        -- Les entrées ancrées sur NOW lisent toutes 0 : sans cette garde, une
+        -- carte déjà posée sur la ligne aurait fait disparaître l'occurrence
+        -- suivante de la même capacité pendant tout son sursis.
+        if prev and not prev._parked and not e._parked
+            and prev.__name == e.__name and prev.__icon == e.__icon
             and math.abs(prev._remaining - e._remaining) <= DUP_EPS
         then
             e:Hide()
@@ -389,19 +445,37 @@ function Timeline:Tick(force)
             local entry = e.entry
             local rem = e._remaining
             local y = bottom + (rem / window) * usable
-            local preferred = stableSide(e.key)
-            local other = preferred == "left" and "right" or "left"
-            local side = preferred
 
-            if (y - lastY[preferred]) < minGap and (y - lastY[other]) >= minGap then
-                side = other
+            -- Le côté n'est arbitré qu'au PREMIER placement de la carte, puis
+            -- verrouillé. Sans ce verrou, l'entrée ou la sortie d'un voisin
+            -- rebattait l'arbitrage à chaque tick : la carte sautait de gauche
+            -- à droite 20 fois par seconde, ce qui se lit comme un
+            -- clignotement. Les collisions restantes sont résolues
+            -- verticalement, ce qui est stable.
+            local side = e.__sideLock
+            if not side then
+                local preferred = stableSide(e.key)
+                local other = preferred == "left" and "right" or "left"
+                side = preferred
+                if (y - lastY[preferred]) < minGap and (y - lastY[other]) >= minGap then
+                    side = other
+                end
+                e.__sideLock = side
             end
             if (y - lastY[side]) < minGap then
                 y = math.min(bottom + usable, lastY[side] + minGap)
             end
             lastY[side] = y
 
-            local urgent = rem <= threshold
+            -- Hystérésis : on entre en urgence au seuil, on n'en ressort qu'au
+            -- delà du seuil + marge. Un recalage de bruit ne repeint plus la
+            -- carte deux fois par seconde.
+            local urgent
+            if e.__urgentState then
+                urgent = not (rem > threshold + URGENT_HYST)
+            else
+                urgent = rem <= threshold
+            end
             local color = colorOf(entry)
             if e.__side ~= side or e.__urgentState ~= urgent
                 or e.__cr ~= color[1] or e.__cg ~= color[2] or e.__cb ~= color[3]

@@ -6,6 +6,18 @@ NS.UI = NS.UI or {}
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 
+-- Anti-clignotement.
+-- Un anneau arrivé à échéance était retiré dès -0,05 s, puis un STATE_CHANGED
+-- serveur le reposait aussitôt : l'anneau disparaissait et revenait dans la
+-- même seconde. On le maintient donc à zéro pendant un court sursis, et seul le
+-- retrait du producteur (ou l'expiration du sursis) le fait disparaître.
+local HOLD_AT_ZERO = 1.0
+-- Au-delà de ce reste, un recalage est une vraie reprogrammation.
+local UNPARK_ABOVE = 1.0
+-- Écart en deçà duquel réécrire le cooldown n'apporte rien : SetCooldown
+-- relance le balayage, donc l'appeler sur du bruit fait saccader l'anneau.
+local CD_EPS = 0.15
+
 -- cfg : size, spacing, maxRings, grow ("right"|"left"), showName, fontSize
 function NS.UI.CreateRingGroup(name, cfg)
     local C = NS.Theme.colors
@@ -57,6 +69,9 @@ function NS.UI.CreateRingGroup(name, cfg)
         f.cd:SetDrawEdge(true)
         f.cd:SetHideCountdownNumbers(true)
         f.cd:SetReverse(false)
+        -- CooldownFrameTemplate dessine un « bling » (éclat blanc) à la fin du
+        -- balayage. C'était le flash visible pile quand la capacité tombe.
+        f.cd:SetDrawBling(false)
 
         f.time = f.iconFrame:CreateFontString(nil, "OVERLAY")
         f.time:SetPoint("CENTER")
@@ -78,14 +93,21 @@ function NS.UI.CreateRingGroup(name, cfg)
         if not f then
             f = table.remove(self.pool) or newRing()
             self.active[key] = f
-            f:Show()
+            -- Une frame reprise du pool traîne l'ancrage à zéro de son occupant
+            -- précédent. Layout() se charge de l'affichage juste après.
+            f._parked = nil
             isNew = true
         end
         f.key = key
         f.duration = math.max(0.1, data.duration or 1)
         local newEnd = data.endTime or (GetTime() + f.duration)
-        local changed = isNew or (f.endTime ~= newEnd) or (f.__cdDur ~= f.duration)
+        -- On accepte toujours le nouveau minutage pour le texte, mais on ne
+        -- relance le balayage que si l'écart est réel : les recalages serveur
+        -- déplacent endTime de quelques centièmes en permanence.
+        local changed = isNew or (f.__cdDur ~= f.duration)
+            or (math.abs((f.endTime or 0) - newEnd) > CD_EPS)
         f.endTime = newEnd
+        if newEnd - GetTime() > UNPARK_ABOVE then f._parked = nil end
 
         local col = data.color or NS.Theme:Severity(data.severity or 1)
         if f.__cr ~= col[1] or f.__cg ~= col[2] or f.__cb ~= col[3] then
@@ -114,6 +136,7 @@ function NS.UI.CreateRingGroup(name, cfg)
         local f = self.active[key]
         if not f then return end
         self.active[key] = nil
+        f._parked = nil
         f:Hide()
         table.insert(self.pool, f)
         self:Layout()
@@ -154,8 +177,16 @@ function NS.UI.CreateRingGroup(name, cfg)
         local removed = false
         for key, f in pairs(self.active) do
             local remaining = (f.endTime or now) - now
-            if remaining <= -0.05 then
-                self.active[key] = nil; f:Hide(); table.insert(self.pool, f); removed = true
+            -- Verrou zéro : l'anneau reste plein le temps du sursis au lieu de
+            -- disparaître puis de revenir au prochain recalage.
+            if remaining <= 0 then
+                if not f._parked then f._parked = now end
+            elseif f._parked and remaining > UNPARK_ABOVE then
+                f._parked = nil
+            end
+            if f._parked and (now - f._parked) > HOLD_AT_ZERO then
+                self.active[key] = nil; f._parked = nil
+                f:Hide(); table.insert(self.pool, f); removed = true
             else
                 local r = remaining < 0 and 0 or remaining
                 local txt = NS.fmtTime(r)

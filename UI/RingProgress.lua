@@ -10,6 +10,14 @@ NS.UI.RingProgress = Ring
 
 local RING_TEX = "Interface\\AddOns\\TomoBoss\\Media\\Textures\\TomoRing"
 
+-- Anti-clignotement : masquage DIFFÉRÉ.
+-- Quand la capacité suivie atteignait son échéance, Stop() cachait l'anneau
+-- immédiatement ; la capacité suivante le rouvrait dans la foulée. Sur un enchaînement
+-- serré, cela donnait un clignotement au lieu d'une transition. On garde donc
+-- l'anneau visible pendant ce sursis : si un Track() arrive avant la fin, le
+-- masquage est simplement annulé et l'utilisateur ne voit aucune coupure.
+local HIDE_GRACE = 0.6
+
 local function db() return NS.db.profile.ringProgress end
 
 function Ring:Ensure()
@@ -32,6 +40,22 @@ function Ring:Ensure()
     cd:SetReverse(true) -- le cercle se complète (se referme) à l'approche
     cd:SetSwipeTexture(RING_TEX)
     self.cd = cd
+
+    -- Le ticker est enfant de l'ancre : il ne tourne donc que lorsque l'anneau
+    -- est affiché, ce qui est exactement la seule situation où il sert.
+    local hider = CreateFrame("Frame", nil, f)
+    hider._acc = 0
+    hider:SetScript("OnUpdate", function(_, elapsed)
+        hider._acc = hider._acc + elapsed
+        if hider._acc < 0.1 then return end
+        hider._acc = 0
+        if self._hideAt and GetTime() >= self._hideAt then
+            self._hideAt = nil
+            if self.cd then self.cd:Clear() end
+            if self.anchor then self.anchor:Hide() end
+        end
+    end)
+    self.hider = hider
 
     local nm = f:CreateFontString(nil, "OVERLAY")
     NS.Theme:Font(nm, 14, "text", "THICKOUTLINE")
@@ -56,6 +80,9 @@ function Ring:Track(key, remaining, total, name, sev)
     self:Ensure()
     total = total or remaining
     local now = GetTime()
+    -- Un suivi actif annule tout masquage en attente : c'est ce qui transforme
+    -- l'ancien clignotement en transition continue.
+    self._hideAt = nil
     if self._key ~= key then
         self._key = key
         self._total = total
@@ -78,6 +105,22 @@ function Ring:Stop(key)
     if self._edit then return end
     if key and self._key ~= key then return end
     self._key = nil
+    -- Masquage différé tant que l'anneau est visible : le ticker de l'ancre
+    -- termine le travail si aucun Track() ne vient l'annuler.
+    if self.anchor and self.anchor:IsShown() then
+        if not self._hideAt then self._hideAt = GetTime() + HIDE_GRACE end
+        return
+    end
+    self._hideAt = nil
+    if self.cd then self.cd:Clear() end
+    if self.anchor then self.anchor:Hide() end
+end
+
+-- Masquage immédiat, sans sursis (fin de rencontre, changement de zone).
+function Ring:StopNow()
+    if self._edit then return end
+    self._key = nil
+    self._hideAt = nil
     if self.cd then self.cd:Clear() end
     if self.anchor then self.anchor:Hide() end
 end
@@ -93,6 +136,7 @@ end
 function Ring:Demo(on)
     self:Ensure()
     self._edit = on and true or false
+    self._hideAt = nil
     if on then
         self._key = "__demo"
         self:ApplyColor(2)
