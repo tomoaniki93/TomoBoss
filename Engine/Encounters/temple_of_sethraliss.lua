@@ -20,9 +20,9 @@ R(2124, {
     matchOnly = true,
     events = {
         { role = "other", voice = "watch-dodge", spellID = 1289059, firstSeenSec = 1, cdSeriesSec = { 1, 5, 19, 45 }, severity = 1 },  -- Gale Force  [vu 1×4 5×11 19×5 45×16]
-        { role = "other", voice = "watch-dodge", spellID = 1288049, firstSeenSec = 9, cdSeriesSec = { 9 }, severity = 2 },  -- Thunder and Lightning  [vu 9×5]
-        { role = "other", voice = "prepare-aoe", spellID = 1311805, firstSeenSec = 12, cdSeriesSec = { 12, 25, 29 }, severity = 1 },  -- capacité  [vu 12×3 25×4 29×6]
-        { role = "other", voice = "watch-explosion", spellID = 1311804, firstSeenSec = 39, cdSeriesSec = { 39 }, severity = 0 },  -- capacité  [vu 39×5]
+        { role = "other", voice = "watch-dodge", spellID = 1288049, firstSeenSec = 5, cdSeriesSec = { 5, 9, 19, 45 }, severity = 2 },  -- Thunder and Lightning  [vu 5×11 9×5 19×5 45×16]
+        { role = "other", voice = "prepare-aoe", spellID = 1311805, firstSeenSec = 12, cdSeriesSec = { 12, 19, 25, 29, 45 }, severity = 1 },  -- capacité  [vu 12×3 19×5 25×4 29×6 45×16]
+        { role = "other", voice = "watch-explosion", spellID = 1311804, firstSeenSec = 19, cdSeriesSec = { 19, 39, 45 }, severity = 0 },  -- capacité  [vu 19×5 39×5 45×16]
     },
 })
 
@@ -50,7 +50,7 @@ R(2126, {
     matchOnly = true,
     events = {
         { role = "other", voice = "prepare-beam", spellID = 1291618, firstSeenSec = 5, cdSeriesSec = { 5, 22 }, severity = 1 },  -- Lightning Spire | AMBIGU : durée 26 partagée  [vu 5×3 22×26]
-        { role = "other", voice = "prepare-interrupt", spellID = 1309525, firstSeenSec = 20, cdSeriesSec = { 20 }, severity = 1 },  -- Induction | AMBIGU : durée 26 partagée  [vu 20×3]
+        { role = "other", voice = "prepare-interrupt", spellID = 1309525, firstSeenSec = 20, cdSeriesSec = { 20, 22 }, severity = 1 },  -- Induction | AMBIGU : durée 26 partagée  [vu 20×3 22×26]
     },
 })
 

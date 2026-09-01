@@ -51,7 +51,7 @@ R(3209, {
     matchOnly = true,
     events = {
         { role = "tank", voice = "tank-buster", spellID = 1242860, eventID = 820, firstSeenSec = 5, cdSeriesSec = { 5, 25 }, severity = 2 },  -- Echoing Maul | AMBIGU : durée 25 partagée  [vu 5×13 25×17]
-        { role = "tank", voice = "tank-knockback", spellID = 1243569, eventID = 821, firstSeenSec = 13, cdSeriesSec = { 13 }, severity = 2 },  -- Overwhelming Onslaught | AMBIGU : durée 25 partagée  [vu 13×11]
+        { role = "tank", voice = "tank-knockback", spellID = 1243569, eventID = 821, firstSeenSec = 13, cdSeriesSec = { 13, 25 }, severity = 2 },  -- Overwhelming Onslaught | AMBIGU : durée 25 partagée  [vu 13×11 25×17]
         { role = "mechanic", voice = "boss-enrage", spellID = 1243011, eventID = 823, firstSeenSec = 54, cdSeriesSec = { 54 }, severity = 2 },  -- Fury of the War God  [vu 54×11]
     },
 })

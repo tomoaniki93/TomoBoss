@@ -142,30 +142,36 @@ local function attach(def, obs)
     local orphans, ambiguous = {}, {}
 
     for _, o in ipairs(obs) do
-        local best, bestDelta, tied = nil, nil, 0
+        -- On retient TOUS les événements à égalité, pas seulement le premier.
+        --
+        -- N'en garder qu'un supprimerait la collision des données : le moteur
+        -- ne verrait plus d'ambiguïté et annoncerait cette capacité avec
+        -- assurance, alors qu'il repliait volontairement sur une alerte
+        -- générique. Une mauvaise voix est pire qu'une voix neutre.
+        local bestDelta, winners = nil, {}
         for _, ev in ipairs(events) do
+            local evDelta
             for _, d in ipairs(currentDurs(ev)) do
                 local delta = math.abs(o.dur - d)
-                if delta <= TOL then
-                    if not bestDelta or delta < bestDelta - 0.01 then
-                        best, bestDelta, tied = ev, delta, 1
-                    elseif math.abs(delta - bestDelta) <= 0.01 and ev ~= best then
-                        tied = tied + 1
-                    end
+                if delta <= TOL and (not evDelta or delta < evDelta) then evDelta = delta end
+            end
+            if evDelta then
+                if not bestDelta or evDelta < bestDelta - 0.01 then
+                    bestDelta, winners = evDelta, { ev }
+                elseif math.abs(evDelta - bestDelta) <= 0.01 then
+                    winners[#winners + 1] = ev
                 end
             end
         end
-        if not best then
+
+        if #winners == 0 then
             orphans[#orphans + 1] = o
-        elseif tied > 1 then
-            -- Le moteur renvoie une alerte générique en cas d'égalité : on ne
-            -- tranche pas non plus, on signale pour une règle DURATION_RULES.
-            ambiguous[#ambiguous + 1] = o
-            assigned[best] = assigned[best] or {}
-            assigned[best][#assigned[best] + 1] = o
         else
-            assigned[best] = assigned[best] or {}
-            assigned[best][#assigned[best] + 1] = o
+            if #winners > 1 then ambiguous[#ambiguous + 1] = { o = o, n = #winners } end
+            for _, ev in ipairs(winners) do
+                assigned[ev] = assigned[ev] or {}
+                assigned[ev][#assigned[ev] + 1] = o
+            end
         end
     end
     return assigned, orphans, ambiguous
@@ -275,10 +281,10 @@ for _, dg in ipairs(DUNGEONS) do
             w("    },")
             w("})")
             w("")
-            for _, o in ipairs(ambiguous) do
+            for _, a in ipairs(ambiguous) do
                 stats.ambig = stats.ambig + 1
-                note("[%d] durée %s ambiguë entre plusieurs capacités — DURATION_RULES nécessaire",
-                    encID, num(o.dur))
+                note("[%d] durée %s partagée par %d capacités — collision CONSERVÉE (repli générique), DURATION_RULES nécessaire pour trancher",
+                    encID, num(a.o.dur), a.n)
             end
         end
         ::continue::

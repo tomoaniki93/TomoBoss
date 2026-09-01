@@ -35,6 +35,7 @@ R(3457, {
     events = {
         { role = "other", voice = "prepare-dispel", spellID = 1299154, firstSeenSec = 1, cdSeriesSec = { 1, 10 }, severity = 1 },  -- Synchronized Venom | AMBIGU : durée 10 partagée  [vu 1×7 10×11]
         { role = "other", voice = "std-move", spellID = 1298949, firstSeenSec = 7, cdSeriesSec = { 7, 16 }, severity = 0 },  -- Tail Scythe  [vu 7×7 16×4]
+        { role = "other", voice = "special-mechanic", spellID = 1310547, firstSeenSec = 10, cdSeriesSec = { 10 }, severity = 2 },  -- Toxic Atrophy | AMBIGU : durée 10 partagée  [vu 10×11]
         { role = "other", voice = "watch-dodge", spellID = 1310357, firstSeenSec = 14, cdSeriesSec = { 14, 23 }, severity = 1 },  -- Preparing Toxin  [vu 14×7 23×4]
         { role = "other", voice = "std-move", spellID = 1300686, firstSeenSec = 25, cdSeriesSec = { 25 }, severity = 0 },  -- Assimilation  [vu 25×7]
         { role = "tank", voice = "tank-buster", spellID = 1299940, firstSeenSec = 30, cdSeriesSec = { 30, 39 }, severity = 1 },  -- Vindictive Onslaught  [vu 30×7 39×4]
@@ -50,7 +51,7 @@ R(3458, {
     matchOnly = true,
     events = {
         { role = "other", voice = "watch-dodge", spellID = 1301111, firstSeenSec = 14, cdSeriesSec = { 14 }, severity = 1 },  -- Axegrinder | AMBIGU : durée 14 partagée  [vu 14×19]
-        { role = "other", voice = "special-mechanic", spellID = 1301413, firstSeenSec = 32, cdSeriesSec = { 32 }, severity = 2 },  -- Boneslicer | AMBIGU : durée 14 partagée  [vu 32×11]
+        { role = "other", voice = "special-mechanic", spellID = 1301413, firstSeenSec = 14, cdSeriesSec = { 14, 32 }, severity = 2 },  -- Boneslicer | AMBIGU : durée 14 partagée  [vu 14×19 32×11]
         { role = "other", voice = "std-move", spellID = 1301350, firstSeenSec = 26, cdSeriesSec = { 26, 30 }, severity = 0 },  -- Chop Down  [vu 26×11 30×8]
         { role = "other", voice = "std-move", spellID = 1300876, firstSeenSec = 64, cdSeriesSec = { 64 }, severity = 0 },  -- Ritual of the Fang  [vu 64×11]
     },

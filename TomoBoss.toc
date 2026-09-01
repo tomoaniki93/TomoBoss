@@ -3,7 +3,7 @@
 ## Notes: Boss timers, voice callouts & Season 2 learning for Midnight. /tmb
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## Author: TomoAniki
-## Version: 2.8.0-rc1
+## Version: 2.8.0-rc3
 ## SavedVariables: TomoBossDB, TomoBossRecorderDB
 ## IconTexture: Interface\AddOns\TomoBoss\Media\Textures\TomoBoss_TMB_Icon_64.tga
 ## AddonCompartmentFunc: TomoBoss_OnAddonCompartmentClick

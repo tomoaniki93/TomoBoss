@@ -34,7 +34,7 @@ R(3286, {
     matchOnly = true,
     events = {
         { role = "other", voice = "prepare-dispel", spellID = 1226120, firstSeenSec = 5, cdSeriesSec = { 5, 20 }, severity = 1 },  -- Poison Splash | AMBIGU : durée 20 partagée  [vu 5×7 20×14]
-        { role = "tank", voice = "tank-buster", spellID = 1222642, eventID = 911, firstSeenSec = 10, cdSeriesSec = { 10 }, severity = 2 },  -- Hulking Claw | AMBIGU : durée 20 partagée  [vu 10×7]
+        { role = "tank", voice = "tank-buster", spellID = 1222642, eventID = 911, firstSeenSec = 10, cdSeriesSec = { 10, 20 }, severity = 2 },  -- Hulking Claw | AMBIGU : durée 20 partagée  [vu 10×7 20×14]
         { role = "other", voice = "watch-frontal", spellID = 1222721, firstSeenSec = 15, cdSeriesSec = { 15, 30 }, severity = 2 },  -- Noxious Breath  [vu 15×7 30×7]
         { role = "other", voice = "prepare-interrupt", spellID = 1262497, firstSeenSec = 35, cdSeriesSec = { 35 }, severity = 0 },  -- Monstrous Roar  [vu 35×7]
     },
