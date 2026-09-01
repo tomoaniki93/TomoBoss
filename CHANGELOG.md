@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.8.0-rc3 — Flicker-free display, evidence-gated Learn, observed Season 2 data
+
+### Data & Provenance
+
+- **All eight Season 2 dungeons regenerated from TomoBoss captures** — Murder Row, Den of Nalorakk, The Blinding Vale, Voidscar Arena, Altar of Fangs, Temple of Sethraliss, Kings' Rest and Ruby Life Pools now ship `provenance = "observed"`. 28 encounters, 121 events, every duration seen at least three times on `ENCOUNTER_TIMELINE_EVENT_ADDED` across 274 recorded pulls. No third-party timing data remains in the Season 2 dungeon pool.
+- **Why raw captures were sufficient here** — These eight dungeons are `matchOnly`, so the predictive engine never starts on them and `cdSeriesSec` is consumed solely by `BT:BuildMatchIndex` as a bag of durations compared against `C_EncounterTimeline`. A duration there is an *identification key*, not a schedule: Blizzard supplies the timing. The accuracy bar is therefore "was this duration actually observed", which the capture log answers directly, with no inference in the path.
+- **Spell identities and editorial metadata preserved** — `spellID`, `eventID`, `role`, `voice` and `severity` carry over unchanged. Those are Blizzard identifiers and TomoBoss authoring choices; only timings were replaced.
+- **Duration collisions preserved rather than resolved** — 18 durations are shared by more than one ability. Each remains attached to every tied ability so the engine still detects the ambiguity and falls back to a generic alert. Silently narrowing a collision would turn a deliberate generic warning into a confident and possibly wrong callout; a neutral voice is better than the wrong one. Each case is listed in the export report for a future `DURATION_RULES` entry.
+- **10 previously unknown mechanics recovered** — Durations observed repeatedly with no matching ability in the old dataset are emitted with a neutral voice and a `TODO identifier` marker instead of being discarded. The most frequent are a 99 s event on The Hoardmonger (3207) seen 24 times, a 45 s event on Lightwarden Ruia (3199) seen 27 times, and a 21 s event on 3201 seen 12 times — none present in the previous data.
+- **5 unconfirmed entries removed** — Durations carried by the previous dataset but never observed in any capture were dropped rather than trusted. All five are on The Council of Tribes (2140), which has only 118 s of recorded combat across 4 pulls; they are more likely undersampled than wrong, and a single longer pull should settle it.
+
+### Added
+
+- **`Tools/export_observed.lua`** — Regenerates the eight Season 2 dungeon files from a SavedVariables capture. Replays the real engine to obtain effective definitions (base plus `Season2Corrections`), then attaches observed durations using the same 0.75 s tolerance as `BlizzTimeline`. Writes to `Build/`, never to `Engine/Encounters/`, and emits a report of confirmed, removed, orphan and ambiguous entries. Re-runnable as coverage grows.
+- **Replay verification in the inference engine** — A series must now explain the intervals actually observed: each gap between two observations has to be a sum of *consecutive* series entries, with chaining positions. Multi-entry sums account for missed occurrences, which is normal under observation loss. A gap no sum can explain marks the series as contradicted. The test is local to each interval, so it is immune to accumulated drift, and independent of how the series was derived.
+- **Evidence-based quality gating** — `quality` now requires a minimum number of observed intervals (8 for `good`, 4 for `medium`) on top of pull count, with a dedicated warning reporting the exact interval count when evidence is short.
+- **New result fields** — `fit` (replay fidelity, 0–1) and `intervals` (usable interval count) are exposed on inference results and surfaced in `/tmb learn`.
+- **`Tools/test_fit.lua`** — Locks the replay guard in both directions: clean data must not be downgraded, an imposed wrong cycle must be. A guard that is too strict is as harmful as none at all, since it would condemn correct data at export time.
+- **`Tools/test_noblink.lua`** — Replays the timeline flicker scenario and asserts the card no longer toggles visibility at the NOW line.
+- **`timeline.holdAtNow` profile setting** — Controls how long a card stays anchored on the NOW line past its deadline (default 1.5 s).
+
+### Fixed
+
+- **TomoTimeline flickered when an ability reached NOW** — `BT:Tick` rewrites `endTime` from the server countdown every 0.3 s, and that countdown pins to 0 as soon as the ability fires. Between two resyncs the local extrapolation went negative, the `-0.05` visibility threshold hid the card, and the next resync brought it back. At the 20 Hz render rate this produced 17 visibility flips over the 2.4 s between the deadline and the server `REMOVED`. Cards are now latched on the NOW line for a grace period; only producer removal or grace expiry hides them.
+- **Cards jumped between rails** — The left/right side was re-arbitrated every tick, so a neighbour entering or leaving the window could flip a card from one side to the other 20 times a second. The side is now locked at first placement, with remaining collisions resolved vertically.
+- **Urgent state oscillated at the threshold** — A remaining time hovering around the urgency threshold repainted the card repeatedly. Entry and exit now use a 0.5 s hysteresis band.
+- **Ring flashed on completion** — `UI/RingGroup.lua` was the only `Cooldown` frame in the addon that never called `SetDrawBling(false)`, so `CooldownFrameTemplate` drew its white completion burst exactly when the ability landed.
+- **Rings vanished and reappeared within the same second** — A ring reaching its deadline was removed at `-0.05` and reposted by the next `STATE_CHANGED`. Rings are now held at zero for a grace period, and `SetCooldown` is only re-issued when the timing change exceeds 0.15 s, which also removes the sweep stutter caused by resyncing on noise.
+- **Central progress ring blinked between abilities** — `Stop()` hid the ring immediately and the next ability reopened it right after. Hiding is now deferred; an incoming `Track()` cancels it, turning the flicker into a continuous transition. The tracked ability also keeps focus briefly past its deadline so the ring closes fully instead of jumping.
+- **Resync applied server noise as if it were drift** — `endTime` is no longer rewritten for changes under 0.15 s, nor during the last 0.75 s where the server value freezes and local extrapolation is smoother. Voice callout accuracy is unaffected, as its matching tolerance is 0.5 s.
+- **Inference could assert a wrong cooldown series with full confidence** — Phase folding can produce perfectly tight clusters on a *wrong* cycle when observations are sparse: the clusters genuinely are tight, so no dispersion measure can detect it. The project's own "sure failure" regression assertion was red, with two of three abilities reporting a false series as `good` and no warning. Replay verification now catches this class and the assertion passes.
+- **Quality was awarded on pull count rather than evidence** — With a 91 s median pull length across 274 recorded pulls, an ability on a 60 s cooldown yields a single interval per pull, so "4 pulls" could mean four intervals. Replay verification then abstained for lack of material, and absence of contradiction was being read as confirmation. Abilities rated `good` drop from 183 to 31, which is the honest count for the evidence on hand.
+- **Inference trace crashed on an undefined variable** — `Learn/Infer.lua` referenced `span`, a leftover from the refactor that replaced the `c[#c] - c[1]` arc span with modulo unrolling. Trace-gated, so players never hit it, but it aborted the regression harness before it reached the assertions above.
+
 ## 2.8.0-rc2 — Flicker-free display, evidence-gated Learn, observed Season 2 data
 
 ### Data & Provenance
