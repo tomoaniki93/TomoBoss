@@ -15,12 +15,16 @@
 -- minutages, eux, deviennent intégralement des observations TomoBoss.
 --
 -- Usage :
---   lua5.4 Tools/export_observed.lua <chemin/vers/TomoBoss.lua> [dossier_sortie]
+--   lua5.4 Tools/export_observed.lua <chemin/vers/TomoBoss.lua> [sortie] [--depuis AAAA-MM-JJ]
 --
 -- Sans dossier de sortie, écrit dans Build/observed/ et n'écrase rien.
 
 local svPath  = arg[1] or "/mnt/user-data/uploads/TomoBoss.lua"
 local outDir  = arg[2] or "Build/observed"
+-- Ne retenir que les pulls à partir de cette date (AAAA-MM-JJ). Sert quand une
+-- rencontre a été retouchée par Blizzard : les captures antérieures décrivent
+-- alors un boss qui n'existe plus.
+local since   = arg[3]
 
 local TOL      = 0.75  -- identique à BlizzTimeline
 local MIN_SEEN = 3     -- une durée doit avoir été vue au moins 3 fois
@@ -106,14 +110,17 @@ assert(pulls, "learn.pulls introuvable dans " .. svPath)
 local function observedFor(encID)
     local list = pulls[tostring(encID)] or pulls[encID]
     if not list then return nil, 0 end
-    local seen, nPulls = {}, #list
+    local seen, nPulls = {}, 0
     for _, p in ipairs(list) do
+        if since and p.date and p.date < since then goto skip end
+        nPulls = nPulls + 1
         for _, o in ipairs(p.obs or {}) do
             if o[2] == K_TL and type(o[3]) == "number" and o[3] < SENTINEL then
                 local d = math.floor(o[3] * 100 + 0.5) / 100
                 seen[d] = (seen[d] or 0) + 1
             end
         end
+        ::skip::
     end
     local out = {}
     for d, n in pairs(seen) do
@@ -121,6 +128,39 @@ local function observedFor(encID)
     end
     table.sort(out, function(a, b) return a.dur < b.dur end)
     return out, nPulls
+end
+
+-- Détection de DÉRIVE. Si les captures récentes d'une rencontre ne partagent
+-- presque aucune durée avec les plus anciennes, le boss a été retouché : les
+-- deux jeux décrivent des versions différentes et les mélanger produirait un
+-- index de correspondance à moitié mort. On ne tranche pas, on signale.
+local function driftCheck(encID)
+    local list = pulls[tostring(encID)] or pulls[encID]
+    if not list or #list < 2 then return nil end
+    local dated = {}
+    for _, p in ipairs(list) do if p.date then dated[#dated + 1] = p end end
+    if #dated < 2 then return nil end
+    table.sort(dated, function(a, b) return a.date < b.date end)
+    local function setOf(p)
+        local s = {}
+        for _, o in ipairs(p.obs or {}) do
+            if o[2] == K_TL and o[3] < SENTINEL then s[o[3]] = true end
+        end
+        return s
+    end
+    local last, older = setOf(dated[#dated]), {}
+    for i = 1, #dated - 1 do
+        for d in pairs(setOf(dated[i])) do older[d] = true end
+    end
+    local total, common = 0, 0
+    for d in pairs(last) do
+        total = total + 1
+        if older[d] then common = common + 1 end
+    end
+    if total >= 3 and common <= total * 0.34 then
+        return dated[#dated].date, common, total
+    end
+    return nil
 end
 
 --------------------------------------------------------------------------
@@ -219,6 +259,11 @@ for _, dg in ipairs(DUNGEONS) do
             note("[%d] %s : aucune durée observée %d+ fois (%d pull(s)) — fichier d'origine conservé",
                 encID, def.name or "?", MIN_SEEN, nPulls)
         else
+            local dDate, dCommon, dTotal = driftCheck(encID)
+            if dDate then
+                note("[%d] %s : DÉRIVE — la capture du %s ne partage que %d durée(s) sur %d avec les précédentes. Rencontre probablement retouchée ; relancer avec --since pour n'exporter que les captures récentes.",
+                    encID, def.name or "?", dDate, dCommon, dTotal)
+            end
             local assigned, orphans, ambiguous = attach(def, obs)
             local nKept = 0
             for _, ev in ipairs(def.events or {}) do
@@ -300,7 +345,8 @@ end
 local rp = outDir .. "/RAPPORT.txt"
 local fh = assert(io.open(rp, "w"))
 fh:write("TomoBoss — export des durées observées (saison 2, 8 donjons)\n")
-fh:write(string.format("généré le %s depuis %s\n\n", os.date("%Y-%m-%d %H:%M"), svPath))
+fh:write(string.format("généré le %s depuis %s%s\n\n", os.date("%Y-%m-%d %H:%M"), svPath,
+    since and ("  (pulls à partir du " .. since .. ")") or ""))
 fh:write(string.format("rencontres traitées      : %d\n", stats.enc))
 fh:write(string.format("entrées confirmées       : %d\n", stats.kept))
 fh:write(string.format("entrées retirées         : %d  (durée jamais observée)\n", stats.dropped))
