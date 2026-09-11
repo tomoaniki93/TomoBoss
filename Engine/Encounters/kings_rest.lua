@@ -46,7 +46,7 @@ R(2142, {
     matchOnly = true,
     events = {
         { role = "other", voice = "watch-dodge", spellID = 267618, firstSeenSec = 5, cdSeriesSec = { 5, 32 }, severity = 2 },  -- Drain Fluids  [vu 5×16 32×13]
-        { role = "tank", voice = "tank-buster", spellID = 1312146, firstSeenSec = 30, cdSeriesSec = { 30, 102 }, severity = 0 },  -- Awakening Slam | AMBIGU : durée 30 partagée  [vu 30×29 102×7]
+        { role = "tank", voice = "tank-buster", spellID = 1312146, firstSeenSec = 30, cdSeriesSec = { 30 }, severity = 0 },  -- Awakening Slam | AMBIGU : durée 30 partagée  [vu 30×29]
         { role = "other", voice = "break-shield", spellID = 267702, firstSeenSec = 60, cdSeriesSec = { 60 }, severity = 1 },  -- Entomb  [vu 60×16]
         { role = "other", voice = "watch-dodge", spellID = 1311956, firstSeenSec = 20, cdSeriesSec = { 20, 30 }, severity = 1 },  -- capacité  [vu 20×16 30×29]
         { role = "other", voice = "watch-dodge", firstSeenSec = 63, cdSeriesSec = { 63 }, severity = 1 },  -- TODO identifier  [vu 63×5]

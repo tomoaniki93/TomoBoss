@@ -21,15 +21,62 @@
 
 local svPath  = arg[1] or "/mnt/user-data/uploads/TomoBoss.lua"
 local outDir  = arg[2] or "Build/observed"
--- Ne retenir que les pulls à partir de cette date (AAAA-MM-JJ). Sert quand une
--- rencontre a été retouchée par Blizzard : les captures antérieures décrivent
--- alors un boss qui n'existe plus.
+-- Seuil GLOBAL optionnel (AAAA-MM-JJ ou "AAAA-MM-JJ HH:MM").
 local since   = arg[3]
+
+-- Seuils PAR RENCONTRE. Une rupture n'est presque jamais globale : elle vient
+-- soit d'un changement de difficulté (tous les boss d'un donjon basculent dans
+-- la même soirée), soit d'une retouche Blizzard (un seul boss, à des semaines
+-- d'écart). Dans les deux cas les captures antérieures décrivent une version
+-- qu'on ne joue plus, et les mélanger produit un index de correspondance à
+-- moitié mort.
+--
+-- Le rapport signale les ruptures détectées : reporter la date ici, relancer.
+-- La comparaison est lexicographique, donc "AAAA-MM-JJ HH:MM" fonctionne et
+-- permet de couper au milieu d'une soirée.
+local CUTOFFS = {
+    -- Le Val Aveuglant : bascule de difficulté le 22/08 entre 21:11 et 21:41.
+    -- Les quatre boss changent au même instant.
+    [3199] = "2026-08-22 21:30",
+    [3200] = "2026-08-22 21:30",
+    [3201] = "2026-08-22 21:30",
+    [3202] = "2026-08-22 21:30",
+    -- Zul'jan : rupture isolée à trois semaines d'écart, cinq pulls avant et
+    -- trois après, une seule durée commune. Retouche de la rencontre.
+    [3458] = "2026-09-05",
+}
 
 local TOL      = 0.75  -- identique à BlizzTimeline
 local MIN_SEEN = 3     -- une durée doit avoir été vue au moins 3 fois
 local K_TL     = 3     -- Store.KIND_TIMELINE
 local SENTINEL = 900   -- au-delà : signal d'état, jamais un timer joueur
+-- Taux de RÉSOLUTION minimal : proportion des occurrences d'une durée qui se
+-- déclenchent effectivement avant la fin du combat.
+--
+-- Certaines rencontres publient des entrées à long horizon : la même capacité
+-- annoncée plusieurs cycles à l'avance. Sur The Hoardmonger, les durées 99 et
+-- 92.39 apparaissent 37 et 6 fois mais se résolvent dans 8 % et 0 % des cas —
+-- alors que le vrai cycle est de 40 s avec les durées 6, 16 et 30, soit
+-- exactement les trois capacités de la rencontre. Leur donner une voix
+-- produirait une double annonce.
+--
+-- Une capacité réelle se résout dans la plupart des cas ; les exceptions sont
+-- les annonces tombant juste avant la mort du boss. Mesuré sur les captures :
+-- 37 à 100 % pour toutes les vraies durées, 0 et 8 % pour ces deux-là.
+local MIN_RESOLVED = 0.20
+-- Proportion d'occurrences coïncidant avec un autre événement au-delà de
+-- laquelle une durée est jugée REDONDANTE.
+--
+-- Certaines rencontres annoncent le même cast deux fois : une entrée courte au
+-- moment voulu, une entrée longue plusieurs cycles à l'avance. Sur Sentinel of
+-- Winter, la durée 63 ajoutée à t=13 et la durée 13 ajoutée à t=63 se
+-- déclenchent toutes deux à 76 s : un seul cast, deux entrées. Leur donner une
+-- voix chacune produit une double annonce.
+--
+-- Le taux de résolution ne suffit pas à les repérer : sur un pull assez long
+-- elles se résolvent normalement. La signature fiable est la coïncidence de
+-- l'instant de déclenchement avec celui d'une durée PLUS COURTE.
+local MAX_COINCIDENT = 0.60
 
 -- Les 8 donjons S2 et leurs rencontres, avec le fichier cible.
 local DUNGEONS = {
@@ -49,6 +96,85 @@ local DUNGEONS = {
       enc = { 2139, 2140, 2142, 2143 } },
     { file = "ruby_life_pools",     label = "Ruby Life Pools / Bassin de l'essence rubis",
       enc = { 2606, 2609, 2623 } },
+}
+
+-- IDENTIFICATION MANUELLE.
+--
+-- Une durée observée ne dit pas quelle capacité elle annonce. Le rattachement
+-- automatique s'appuie sur la définition existante, ce qui échoue dès qu'une
+-- rencontre a été retouchée : les anciennes durées ne correspondent plus à
+-- rien et les nouvelles sortent en TODO.
+--
+-- Ce tableau permet de trancher à la main, une fois, à partir d'une
+-- observation en jeu. Quand une rencontre y figure, il remplace entièrement le
+-- rattachement automatique pour elle. `role`, `voice` et `severity` sont repris
+-- de la définition existante si le spellID y est connu, sinon ils doivent être
+-- fournis ici.
+--
+-- Une même durée peut être listée par plusieurs capacités : la collision est
+-- alors conservée et le moteur repliera sur une alerte générique, ce qui est
+-- le comportement voulu tant qu'aucune règle ne sait trancher.
+-- Durées ÉCARTÉES à la main, quand le journal du donjon clôt la liste des
+-- capacités et qu'une durée observée n'en désigne aucune. C'est le pendant
+-- d'IDENTIFY : une décision prise sur source, pas une heuristique.
+local EXCLUDE = {
+    -- Sentinel of Winter n'a que quatre capacités au journal : Frozen Tempest,
+    -- Shattering Frostspike, Raging Squall et Glacial Torment — toutes déjà
+    -- rattachées. Les durées 61 et 63 annoncent donc à long horizon des casts
+    -- du cycle suivant (63 ajoutée à t=13 et 13 ajoutée à t=63 se déclenchent
+    -- toutes deux à 76 s). Le filtre automatique ne les attrape pas : sur les
+    -- pulls courts la seconde annonce n'existe pas encore, ce qui dilue le taux.
+    [3208] = { 61, 63 },
+    -- Kyrakka & Erkheart : les cinq capacités du journal (Inferno Spit,
+    -- Roaring Firebreath, Winds of Change, Interrupting Cloudburst, Stormslam)
+    -- sont toutes déjà rattachées — Winds of Change porte les durées 10 et 21.5.
+    -- La 13, vue 3 fois seulement, ne désigne donc aucune capacité connue.
+    [2623] = { 13 },
+}
+
+-- Corrections éditoriales appliquées à des capacités déjà identifiées, quand la
+-- source décrit un rôle différent de celui hérité. Clé : spellID.
+local OVERRIDE = {
+    -- Glacial Torment se dissipe par effet anti-Magie : c'est une consigne de
+    -- soigneur, pas un dégât de zone.
+    [1235548] = { role = "heal", voice = "prepare-dispel", why = "dissipable Magie (journal)" },
+}
+
+local IDENTIFY = {
+    -- Kystia Manaheart. Attribution établie par CORRÉLATION entre les instants
+    -- de déclenchement timeline et les incantations enregistrées, avec l'unité
+    -- qui les lance :
+    --   timeline 8  -> cast boss1 3,0 s ×32/34   (Kystia)
+    --   timeline 12 -> canal boss2 5,0 s ×33     (Nibbles — 5 s = le cône tournant)
+    --   timeline 15 -> cast boss1 3,5 s ×29/34   (Kystia, pendant le cône)
+    --
+    -- La donnée héritée portait le spellID de Fel Spray (1253811) sur les durées
+    -- 8/27.5, qui sont en réalité Chaos Barrage : Nibbles canalise Fel Spray
+    -- pendant 5 s, or la 8 ne corrèle qu'avec des incantations de Kystia.
+    --
+    -- Corroding Spittle, le DoT de Nibbles sur le tank, n'a aucune entrée
+    -- timeline — ce qui résout l'écart entre quatre capacités fréquentes et
+    -- trois créneaux minutés. Felshield non plus : c'est un buff persistant sur
+    -- Kystia, levé par Destabilized quand Nibbles est presque mort.
+    [3101] = {
+        { dur = { 8, 27.5 }, spellID = 1230298, name = "Chaos Barrage",
+          role = "mechanic", voice = "prepare-interrupt", severity = 2 },
+        { dur = { 12, 25 }, spellID = 1253811, name = "Fel Spray",
+          role = "other", voice = "watch-frontal", severity = 1 },
+        { dur = { 15, 30 }, spellID = 1264095, name = "Mirror Images",
+          role = "mechanic", voice = "prepare-interrupt", severity = 1 },
+    },
+    [3458] = {
+        { dur = { 3, 65 }, spellID = 1300876, name = "Ritual of the Fang" },
+        -- Absente de l'ancienne définition : la rencontre a gagné cette capacité.
+        { dur = { 18 }, spellID = 1300901, name = "Ritual Venom",
+          role = "other", voice = "watch-dodge", severity = 1 },
+        { dur = { 16, 30, 36 }, spellID = 1301111, name = "Axegrinder" },
+        -- Partage la durée 30 avec le premier Axegrinder (phases 0 et 30 d'un
+        -- cycle de 65). Les règles sequenceGroup dérivent le cycle de la durée
+        -- elle-même et ne savent pas exprimer ce cas : collision conservée.
+        { dur = { 30 }, spellID = 1301413, name = "Boneslicer" },
+    },
 }
 
 --------------------------------------------------------------------------
@@ -107,12 +233,23 @@ local pulls = TomoBossDB and TomoBossDB.profile
     and TomoBossDB.profile.learn and TomoBossDB.profile.learn.pulls
 assert(pulls, "learn.pulls introuvable dans " .. svPath)
 
+local REJECTED, REJECTED_ENC, COINC_RATE = {}, {}, {}
+
 local function observedFor(encID)
     local list = pulls[tostring(encID)] or pulls[encID]
     if not list then return nil, 0 end
+    local cut = CUTOFFS[tonumber(encID)] or since
+    -- Une durée identifiée à la main échappe aux filtres : c'est une décision
+    -- prise sur observation en jeu, elle prime sur toute heuristique.
+    local banned = {}
+    for _, d in ipairs(EXCLUDE[tonumber(encID)] or {}) do banned[d] = true end
+    local pinned = {}
+    for _, rule in ipairs(IDENTIFY[tonumber(encID)] or {}) do
+        for _, d in ipairs(rule.dur) do pinned[d] = true end
+    end
     local seen, nPulls = {}, 0
     for _, p in ipairs(list) do
-        if since and p.date and p.date < since then goto skip end
+        if cut and p.date and p.date < cut then goto skip end
         nPulls = nPulls + 1
         for _, o in ipairs(p.obs or {}) do
             if o[2] == K_TL and type(o[3]) == "number" and o[3] < SENTINEL then
@@ -122,9 +259,73 @@ local function observedFor(encID)
         end
         ::skip::
     end
+    -- Taux de résolution, mesuré sur les mêmes pulls que les comptes.
+    local fired = {}
+    for _, p in ipairs(list) do
+        if not (cut and p.date and p.date < cut) then
+            for _, o in ipairs(p.obs or {}) do
+                if o[2] == K_TL and type(o[3]) == "number" and o[3] < SENTINEL then
+                    local d = math.floor(o[3] * 100 + 0.5) / 100
+                    if p.len and (o[1] + o[3]) <= p.len then fired[d] = (fired[d] or 0) + 1 end
+                end
+            end
+        end
+    end
+
+    -- Coïncidences : pour chaque durée, part de ses occurrences dont l'instant
+    -- de déclenchement tombe sur celui d'un événement de durée plus courte.
+    local coinc = {}
+    for _, p in ipairs(list) do
+        if not (cut and p.date and p.date < cut) then
+            local fires = {}
+            for _, o in ipairs(p.obs or {}) do
+                if o[2] == K_TL and type(o[3]) == "number" and o[3] < SENTINEL then
+                    fires[#fires + 1] = { at = o[1] + o[3], dur = o[3] }
+                end
+            end
+            for _, a in ipairs(fires) do
+                for _, b in ipairs(fires) do
+                    if b.dur < a.dur - TOL and math.abs(a.at - b.at) <= TOL then
+                        local d = math.floor(a.dur * 100 + 0.5) / 100
+                        coinc[d] = (coinc[d] or 0) + 1
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    COINC_RATE[encID] = {}
+    for d, c in pairs(coinc) do
+        if seen[d] and seen[d] > 0 then COINC_RATE[encID][d] = c / seen[d] end
+    end
+
     local out = {}
     for d, n in pairs(seen) do
-        if n >= MIN_SEEN then out[#out + 1] = { dur = d, n = n } end
+        if n >= MIN_SEEN then
+            local rate = (fired[d] or 0) / n
+            local dup = (coinc[d] or 0) / n
+            if banned[d] then
+                REJECTED[#REJECTED + 1] = string.format(
+                    "durée %s vue %d fois — écartée manuellement, le journal ne lui associe aucune capacité",
+                    tostring(d), n)
+                REJECTED_ENC[#REJECTED_ENC + 1] = encID
+            elseif pinned[d] then
+                out[#out + 1] = { dur = d, n = n }
+            elseif n >= 4 and rate < MIN_RESOLVED then
+                REJECTED[#REJECTED + 1] = string.format(
+                    "durée %s vue %d fois mais résolue dans %.0f %% des cas — annonce à long horizon, pas une capacité",
+                    tostring(d), n, rate * 100)
+                REJECTED_ENC[#REJECTED_ENC + 1] = encID
+            elseif n >= 4 and dup > MAX_COINCIDENT then
+                REJECTED[#REJECTED + 1] = string.format(
+                    "durée %s vue %d fois, déclenchant dans %.0f %% des cas au même instant qu'une durée plus courte — annonce redondante du même cast",
+                    tostring(d), n, dup * 100)
+                REJECTED_ENC[#REJECTED_ENC + 1] = encID
+            else
+                out[#out + 1] = { dur = d, n = n }
+            end
+        end
     end
     table.sort(out, function(a, b) return a.dur < b.dur end)
     return out, nPulls
@@ -136,30 +337,67 @@ end
 -- index de correspondance à moitié mort. On ne tranche pas, on signale.
 local function driftCheck(encID)
     local list = pulls[tostring(encID)] or pulls[encID]
-    if not list or #list < 2 then return nil end
+    if not list then return nil end
+    -- Une rupture déjà traitée par un seuil n'est plus un problème ouvert :
+    -- on n'analyse que les pulls effectivement retenus.
+    local cut = CUTOFFS[tonumber(encID)] or since
     local dated = {}
-    for _, p in ipairs(list) do if p.date then dated[#dated + 1] = p end end
-    if #dated < 2 then return nil end
+    for _, p in ipairs(list) do
+        if p.date and not (cut and p.date < cut) then dated[#dated + 1] = p end
+    end
+    if #dated < 4 then return nil end
     table.sort(dated, function(a, b) return a.date < b.date end)
+
+    -- On ne compare que les durées que l'export retiendrait vraiment. Certaines
+    -- rencontres émettent des valeurs flottantes quasi uniques (67.42, 67.44,
+    -- 78.08...) : les compter gonfle l'union et fait crier à la rupture sur un
+    -- boss parfaitement stable.
+    local keep = {}
+    do
+        local n = {}
+        for _, p in ipairs(dated) do
+            for _, o in ipairs(p.obs or {}) do
+                if o[2] == K_TL and o[3] < SENTINEL then n[o[3]] = (n[o[3]] or 0) + 1 end
+            end
+        end
+        for d, c in pairs(n) do if c >= MIN_SEEN then keep[d] = true end end
+    end
+
     local function setOf(p)
         local s = {}
         for _, o in ipairs(p.obs or {}) do
-            if o[2] == K_TL and o[3] < SENTINEL then s[o[3]] = true end
+            if o[2] == K_TL and keep[o[3]] then s[o[3]] = true end
         end
         return s
     end
-    local last, older = setOf(dated[#dated]), {}
-    for i = 1, #dated - 1 do
-        for d in pairs(setOf(dated[i])) do older[d] = true end
+
+    -- On cherche une RUPTURE dans la chronologie, pas un dernier pull isolé.
+    -- Comparer la dernière capture au reste devient muet dès que la dérive est
+    -- confirmée par plusieurs pulls — exactement quand l'alerte compte le plus.
+    -- On teste donc chaque coupure possible, chaque côté ayant au moins 2 pulls.
+    local best
+    for cut = 2, #dated - 2 do
+        local before, after = {}, {}
+        for i = 1, cut do for d in pairs(setOf(dated[i])) do before[d] = true end end
+        for i = cut + 1, #dated do for d in pairs(setOf(dated[i])) do after[d] = true end end
+        local union, common = 0, 0
+        local seen = {}
+        for d in pairs(before) do seen[d] = true end
+        for d in pairs(after) do seen[d] = true end
+        for d in pairs(seen) do
+            union = union + 1
+            if before[d] and after[d] then common = common + 1 end
+        end
+        if union >= 4 then
+            local overlap = common / union
+            if not best or overlap < best.overlap then
+                best = { overlap = overlap, date = dated[cut + 1].date,
+                         nBefore = cut, nAfter = #dated - cut,
+                         common = common, union = union }
+            end
+        end
     end
-    local total, common = 0, 0
-    for d in pairs(last) do
-        total = total + 1
-        if older[d] then common = common + 1 end
-    end
-    if total >= 3 and common <= total * 0.34 then
-        return dated[#dated].date, common, total
-    end
+    if best and best.overlap <= 0.34 then return best end
     return nil
 end
 
@@ -259,11 +497,20 @@ for _, dg in ipairs(DUNGEONS) do
             note("[%d] %s : aucune durée observée %d+ fois (%d pull(s)) — fichier d'origine conservé",
                 encID, def.name or "?", MIN_SEEN, nPulls)
         else
-            local dDate, dCommon, dTotal = driftCheck(encID)
-            if dDate then
-                note("[%d] %s : DÉRIVE — la capture du %s ne partage que %d durée(s) sur %d avec les précédentes. Rencontre probablement retouchée ; relancer avec --since pour n'exporter que les captures récentes.",
-                    encID, def.name or "?", dDate, dCommon, dTotal)
+            if CUTOFFS[tonumber(encID)] then
+                note("[%d] %s : seuil appliqué — seuls les pulls à partir du %s sont retenus",
+                    encID, def.name or "?", CUTOFFS[tonumber(encID)])
             end
+            local d = driftCheck(encID)
+            if d then
+                note("[%d] %s : RUPTURE le %s — %d pull(s) avant, %d après, seulement %d durée(s) commune(s) sur %d. Rencontre retouchée ; les captures antérieures décrivent une version qui n'existe plus. Relancer avec --depuis %s.",
+                    encID, def.name or "?", d.date, d.nBefore, d.nAfter,
+                    d.common, d.union, (d.date:match("^%d+-%d+-%d+")))
+            end
+            for i, msg in ipairs(REJECTED) do
+                if REJECTED_ENC[i] == encID then note("[%d] %s : %s", encID, def.name or "?", msg) end
+            end
+            local manual = IDENTIFY[tonumber(encID)]
             local assigned, orphans, ambiguous = attach(def, obs)
             local nKept = 0
             for _, ev in ipairs(def.events or {}) do
@@ -285,6 +532,90 @@ for _, dg in ipairs(DUNGEONS) do
             w("    matchOnly = true,")
             w("    events = {")
 
+            if manual then
+                -- Index des métadonnées éditoriales de la définition existante.
+                local meta = {}
+                for _, ev in ipairs(def.events or {}) do
+                    if ev.spellID then meta[ev.spellID] = ev end
+                end
+                local used = {}
+                -- keepOthers : la règle ajoute une capacité sans remplacer le
+                -- rattachement automatique du reste de la rencontre.
+                local additive = false
+                for _, rule in ipairs(manual) do if rule.keepOthers then additive = true end end
+                for _, rule in ipairs(manual) do
+                    local ds, cnt = {}, {}
+                    for _, want in ipairs(rule.dur) do
+                        for _, o in ipairs(obs) do
+                            if math.abs(o.dur - want) <= TOL then
+                                ds[#ds + 1] = num(o.dur)
+                                cnt[#cnt + 1] = num(o.dur) .. "×" .. o.n
+                                used[o.dur] = true
+                            end
+                        end
+                    end
+                    if #ds > 0 then
+                        stats.kept = stats.kept + 1
+                        local base = (rule.spellID and meta[rule.spellID]) or {}
+                        local bits = {}
+                        bits[#bits + 1] = "role = " .. q(rule.role or base.role or "other")
+                        bits[#bits + 1] = "voice = " .. q(rule.voice or base.voice or "watch-dodge")
+                        if rule.spellID then bits[#bits + 1] = "spellID = " .. num(rule.spellID) end
+                        if base.eventID then bits[#bits + 1] = "eventID = " .. num(base.eventID) end
+                        bits[#bits + 1] = "firstSeenSec = " .. ds[1]
+                        bits[#bits + 1] = "cdSeriesSec = { " .. table.concat(ds, ", ") .. " }"
+                        bits[#bits + 1] = "severity = " .. num(rule.severity or base.severity or 1)
+                        w(string.format("        { %s },  -- %s  [vu %s]",
+                            table.concat(bits, ", "), rule.name or "?", table.concat(cnt, " ")))
+                    else
+                        note("[%d] identification manuelle : %s — aucune des durées %s n'est observée",
+                            encID, rule.name or rule.spellID, table.concat(rule.dur, "/"))
+                    end
+                end
+                if additive then
+                    for _, ev in ipairs(def.events or {}) do
+                        local got = assigned[ev]
+                        if got and #got > 0 then
+                            stats.kept = stats.kept + 1
+                            local ds, cnt = {}, {}
+                            for _, o in ipairs(got) do
+                                if not used[o.dur] then
+                                    ds[#ds + 1] = num(o.dur); cnt[#cnt + 1] = num(o.dur) .. "×" .. o.n
+                                    used[o.dur] = true
+                                end
+                            end
+                            if #ds > 0 then
+                                local bits = {}
+                                if ev.role then bits[#bits + 1] = "role = " .. q(ev.role) end
+                                if ev.voice then bits[#bits + 1] = "voice = " .. q(ev.voice) end
+                                if ev.spellID then bits[#bits + 1] = "spellID = " .. num(ev.spellID) end
+                                if ev.eventID then bits[#bits + 1] = "eventID = " .. num(ev.eventID) end
+                                bits[#bits + 1] = "firstSeenSec = " .. ds[1]
+                                bits[#bits + 1] = "cdSeriesSec = { " .. table.concat(ds, ", ") .. " }"
+                                bits[#bits + 1] = "severity = " .. num(ev.severity or 1)
+                                w(string.format("        { %s },  -- %s  [vu %s]",
+                                    table.concat(bits, ", "),
+                                    SPELL_NAMES[ev.spellID] or "capacité", table.concat(cnt, " ")))
+                            end
+                        end
+                    end
+                end
+                for _, o in ipairs(obs) do
+                    if not used[o.dur] then
+                        stats.orphan = stats.orphan + 1
+                        w(string.format(
+                            '        { role = "other", voice = "watch-dodge", firstSeenSec = %s, cdSeriesSec = { %s }, severity = 1 },  -- TODO identifier  [vu %s×%d]',
+                            num(o.dur), num(o.dur), num(o.dur), o.n))
+                        note("[%d] durée %s vue %d fois, hors identification manuelle — à compléter",
+                            encID, num(o.dur), o.n)
+                    end
+                end
+                w("    },")
+                w("})")
+                w("")
+                goto continue
+            end
+
             for _, ev in ipairs(def.events or {}) do
                 local got = assigned[ev]
                 if got and #got > 0 then
@@ -293,9 +624,15 @@ for _, dg in ipairs(DUNGEONS) do
                     for _, o in ipairs(got) do
                         ds[#ds + 1] = num(o.dur); cnt[#cnt + 1] = num(o.dur) .. "×" .. o.n
                     end
+                    local ov = ev.spellID and OVERRIDE[ev.spellID]
+                    if ov then
+                        note("[%d] %s : rôle corrigé en %s/%s — %s",
+                            encID, SPELL_NAMES[ev.spellID] or tostring(ev.spellID),
+                            ov.role, ov.voice, ov.why)
+                    end
                     local bits = {}
-                    if ev.role then bits[#bits + 1] = "role = " .. q(ev.role) end
-                    if ev.voice then bits[#bits + 1] = "voice = " .. q(ev.voice) end
+                    bits[#bits + 1] = "role = " .. q((ov and ov.role) or ev.role or "other")
+                    bits[#bits + 1] = "voice = " .. q((ov and ov.voice) or ev.voice or "watch-dodge")
                     if ev.spellID then bits[#bits + 1] = "spellID = " .. num(ev.spellID) end
                     if ev.eventID then bits[#bits + 1] = "eventID = " .. num(ev.eventID) end
                     bits[#bits + 1] = "firstSeenSec = " .. ds[1]
@@ -320,8 +657,12 @@ for _, dg in ipairs(DUNGEONS) do
                 w(string.format(
                     '        { role = "other", voice = "watch-dodge", firstSeenSec = %s, cdSeriesSec = { %s }, severity = 1 },  -- TODO identifier  [vu %s×%d]',
                     num(o.dur), num(o.dur), num(o.dur), o.n))
-                note("[%d] durée %s vue %d fois, capacité inconnue — émise en TODO, rôle et voix à définir",
-                    encID, num(o.dur), o.n)
+                local cr = (COINC_RATE[encID] or {})[o.dur]
+                note("[%d] durée %s vue %d fois, capacité inconnue — émise en TODO%s",
+                    encID, num(o.dur), o.n,
+                    (cr and cr > 0.25)
+                        and string.format(" ; ATTENTION : coïncide avec une durée plus courte dans %.0f %% des cas, possible doublon d'annonce", cr * 100)
+                        or ", rôle et voix à définir")
             end
             w("    },")
             w("})")
