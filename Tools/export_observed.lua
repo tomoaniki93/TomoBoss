@@ -138,6 +138,45 @@ local OVERRIDE = {
     -- Glacial Torment se dissipe par effet anti-Magie : c'est une consigne de
     -- soigneur, pas un dégât de zone.
     [1235548] = { role = "heal", voice = "prepare-dispel", why = "dissipable Magie (journal)" },
+
+    -- Nalorakk. Le déroulé réel : Echoing Maul cible au moins trois joueurs qui
+    -- posent la zone loin du boss, puis Overwhelming Onslaught est canalisé 3 s
+    -- et TOUT LE MONDE soak, puis Forceful Slam frappe le tank seul. Les deux
+    -- premières étaient marquées « tank » alors qu'elles concernent le groupe,
+    -- et la seule vraie mécanique de tank manquait au fichier.
+    [1242860] = { role = "other", voice = "std-drop", why = "zone à poser loin du boss, pas un tank buster" },
+    [1243569] = { role = "other", voice = "prepare-soak", why = "soak de groupe (déroulé)" },
+    [1243011] = { role = "tank", voice = "intercept-add", why = "le tank intercepte les adds d'Echoing Maul" },
+
+    -- The Hoardmonger : cône esquivable par tout le monde, pas une frappe tank.
+    [1253268] = { role = "other", voice = "watch-frontal", why = "cône esquivable (fiche)" },
+
+    -- Lightwarden Ruia. Grievous Thrash inflige un saignement levé seulement à
+    -- pleine vie : consigne de soigneur. Pulverizing Strikes marque plusieurs
+    -- cibles avec des cônes frontaux : c'est un spread. Ni l'une ni l'autre
+    -- n'est un tank buster.
+    [1241058] = { role = "heal", voice = "prepare-dispel", why = "saignement levé à pleine vie (journal)" },
+    [1240210] = { role = "other", voice = "spread-now", why = "cônes sur plusieurs cibles (journal)" },
+
+    -- The Council of Tribes. Whirling Axes frappe tout le monde dans 10 m avec
+    -- recul ; Severing Axe vise un joueur au hasard. Aucune n'est ciblée tank.
+    [266206] = { role = "other", voice = "watch-knockback", why = "AoE + recul dans 10 m (journal)" },
+    [266231] = { role = "other", voice = "prepare-target", why = "cible aléatoire (journal)" },
+
+    -- Mchimba. Awakening Slam ouvre des cryptes et invoque des momies : c'est un
+    -- switch sur adds. Drain Fluids est un DoT qui applique Desiccation jusqu'à
+    -- guérison au-dessus de 90 % : consigne de soigneur.
+    [1312146] = { role = "mechanic", voice = "switch-add", why = "invoque des momies (journal)" },
+    [267618] = { role = "heal", voice = "prepare-dispel", why = "Desiccation levée par le soin (journal)" },
+
+    -- Interruptions annoncées jusqu'ici en mécanique générique.
+    [269369] = { role = "mechanic", voice = "prepare-interrupt", why = "interruptible (fiche)" },
+    [1310547] = { role = "mechanic", voice = "prepare-interrupt", why = "trois casts d'affilée, interruptible (journal)" },
+
+    -- Mécaniques de soin classées ailleurs.
+    [1301202] = { role = "heal", voice = "special-mechanic", why = "ne pas soigner le boss (fiche)" },
+    [265781] = { role = "heal", voice = "prepare-aoe", why = "gros pic de soin (fiche)" },
+    [474478] = { role = "heal", voice = "prepare-aoe", why = "gros pic de soin (fiche)" },
 }
 
 local IDENTIFY = {
@@ -163,6 +202,47 @@ local IDENTIFY = {
           role = "other", voice = "watch-frontal", severity = 1 },
         { dur = { 15, 30 }, spellID = 1264095, name = "Mirror Images",
           role = "mechanic", voice = "prepare-interrupt", severity = 1 },
+    },
+    -- Lightblossom Trinity. Ordre confirmé sur la timeline Blizzard :
+    -- Bedrock Slam (tank) → Thornblade (zone posée à l'écart, Lekshi y dash et
+    -- canalise Fan Of Thorns) → Lightsower Dash (sème les bulbes) →
+    -- Lightblossom Beam (répartition sur les trois fleurs). Les durées 5, 8, 20
+    -- et 35 suivent exactement cet ordre : le rattachement automatique est bon.
+    -- Reste la 45, fréquente et irrégulière : c'est Light Bolt, que Kezkitt
+    -- lance souvent et que les joueurs doivent couper.
+    [3199] = {
+        { dur = { 45 }, name = "Light Bolt",
+          role = "mechanic", voice = "prepare-interrupt", severity = 1, keepOthers = true },
+    },
+    -- Lightwarden Ruia. Le combat se découpe par paliers de vie : Moonkin
+    -- jusqu'à 70 %, Bear jusqu'à 40 %, Haranir jusqu'à la mort. En Haranir le
+    -- boss invoque des adds en forme Moonkin et Bear sans discontinuer.
+    --
+    -- La durée 21 se déclenche entre 56 % et 78 % du combat sur les trois pulls
+    -- retenus, soit la fenêtre Haranir, et 2 à 3 fois par pull — une invocation
+    -- répétée, pas une transition de forme qui n'arriverait qu'une fois.
+    -- Le journal nomme cette capacité Spirits of the Vale.
+    [3201] = {
+        { dur = { 21 }, name = "Spirits of the Vale",
+          role = "mechanic", voice = "summon-adds", severity = 2, keepOthers = true },
+    },
+    -- Nalorakk : Forceful Slam tombe juste après le soak d'Overwhelming
+    -- Onslaught et ne vise que le tank. C'était la seule capacité manquante.
+    [3209] = {
+        { dur = { 10 }, name = "Forceful Slam",
+          role = "tank", voice = "tank-buster", severity = 2, keepOthers = true },
+    },
+    -- Mchimba : Burn Corruption vise un joueur au hasard et laisse une zone en
+    -- feu. Seule capacité du journal absente du fichier.
+    [2142] = {
+        { dur = { 63 }, name = "Burn Corruption",
+          role = "heal", voice = "std-drop", severity = 1, keepOthers = true },
+    },
+    -- Dazar : l'unité boss2 est un gros raptor qui incante un fear à couper.
+    -- La durée 36 est la seule à corréler avec lui.
+    [2143] = {
+        { dur = { 36 }, name = "Fear du raptor (à nommer)",
+          role = "mechanic", voice = "prepare-interrupt", severity = 2, keepOthers = true },
     },
     [3458] = {
         { dur = { 3, 65 }, spellID = 1300876, name = "Ritual of the Fang" },
@@ -573,21 +653,33 @@ for _, dg in ipairs(DUNGEONS) do
                     end
                 end
                 if additive then
+                    -- Les durées réservées par les règles manuelles sont
+                    -- retirées, mais PAS celles partagées entre capacités du
+                    -- rattachement automatique : une collision volontaire doit
+                    -- survivre, sinon le moteur cesse de replier en générique.
+                    local claimed = {}
+                    for k, v in pairs(used) do claimed[k] = v end
                     for _, ev in ipairs(def.events or {}) do
                         local got = assigned[ev]
                         if got and #got > 0 then
-                            stats.kept = stats.kept + 1
                             local ds, cnt = {}, {}
                             for _, o in ipairs(got) do
-                                if not used[o.dur] then
+                                if not claimed[o.dur] then
                                     ds[#ds + 1] = num(o.dur); cnt[#cnt + 1] = num(o.dur) .. "×" .. o.n
                                     used[o.dur] = true
                                 end
                             end
                             if #ds > 0 then
+                                stats.kept = stats.kept + 1
+                                local ov = ev.spellID and OVERRIDE[ev.spellID]
+                                if ov then
+                                    note("[%d] %s : rôle corrigé en %s/%s — %s",
+                                        encID, SPELL_NAMES[ev.spellID] or tostring(ev.spellID),
+                                        ov.role, ov.voice, ov.why)
+                                end
                                 local bits = {}
-                                if ev.role then bits[#bits + 1] = "role = " .. q(ev.role) end
-                                if ev.voice then bits[#bits + 1] = "voice = " .. q(ev.voice) end
+                                bits[#bits + 1] = "role = " .. q((ov and ov.role) or ev.role or "other")
+                                bits[#bits + 1] = "voice = " .. q((ov and ov.voice) or ev.voice or "watch-dodge")
                                 if ev.spellID then bits[#bits + 1] = "spellID = " .. num(ev.spellID) end
                                 if ev.eventID then bits[#bits + 1] = "eventID = " .. num(ev.eventID) end
                                 bits[#bits + 1] = "firstSeenSec = " .. ds[1]

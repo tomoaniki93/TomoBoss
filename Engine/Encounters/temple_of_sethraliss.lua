@@ -61,7 +61,7 @@ R(2127, {
     dungeon = "Temple of Sethraliss",
     matchOnly = true,
     events = {
-        { role = "other", voice = "prepare-dispel", spellID = 1301202, firstSeenSec = 15, cdSeriesSec = { 15 }, severity = 1 },  -- Defiling Taint  [vu 15×12]
+        { role = "heal", voice = "special-mechanic", spellID = 1301202, firstSeenSec = 15, cdSeriesSec = { 15 }, severity = 1 },  -- Defiling Taint  [vu 15×12]
         { role = "other", voice = "phase-change", spellID = 1273408, firstSeenSec = 32.5, cdSeriesSec = { 32.5 }, severity = 0 },  -- Stage One  [vu 32.5×9]
     },
 })

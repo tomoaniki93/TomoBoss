@@ -35,7 +35,7 @@ R(3457, {
     events = {
         { role = "other", voice = "prepare-dispel", spellID = 1299154, firstSeenSec = 1, cdSeriesSec = { 1, 10 }, severity = 1 },  -- Synchronized Venom | AMBIGU : durée 10 partagée  [vu 1×10 10×19]
         { role = "other", voice = "std-move", spellID = 1298949, firstSeenSec = 7, cdSeriesSec = { 7, 16 }, severity = 0 },  -- Tail Scythe  [vu 7×10 16×8]
-        { role = "other", voice = "special-mechanic", spellID = 1310547, firstSeenSec = 10, cdSeriesSec = { 10 }, severity = 2 },  -- Toxic Atrophy | AMBIGU : durée 10 partagée  [vu 10×19]
+        { role = "mechanic", voice = "prepare-interrupt", spellID = 1310547, firstSeenSec = 10, cdSeriesSec = { 10 }, severity = 2 },  -- Toxic Atrophy | AMBIGU : durée 10 partagée  [vu 10×19]
         { role = "other", voice = "watch-dodge", spellID = 1310357, firstSeenSec = 14, cdSeriesSec = { 14, 23 }, severity = 1 },  -- Preparing Toxin  [vu 14×10 23×8]
         { role = "other", voice = "std-move", spellID = 1300686, firstSeenSec = 25, cdSeriesSec = { 25 }, severity = 0 },  -- Assimilation  [vu 25×11]
         { role = "tank", voice = "tank-buster", spellID = 1299940, firstSeenSec = 30, cdSeriesSec = { 30, 39 }, severity = 1 },  -- Vindictive Onslaught  [vu 30×10 39×8]

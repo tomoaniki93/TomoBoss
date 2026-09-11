@@ -32,7 +32,7 @@ R(3102, {
     dungeon = "Murder Row",
     matchOnly = true,
     events = {
-        { role = "other", voice = "watch-dodge", spellID = 474478, eventID = 835, firstSeenSec = 8, cdSeriesSec = { 8 }, severity = 1 },  -- Killing Spree  [vu 8×34]
+        { role = "heal", voice = "prepare-aoe", spellID = 474478, eventID = 835, firstSeenSec = 8, cdSeriesSec = { 8 }, severity = 1 },  -- Killing Spree  [vu 8×34]
         { role = "mechanic", voice = "watch-dodge", spellID = 474765, eventID = 836, firstSeenSec = 12, cdSeriesSec = { 12, 16 }, severity = 1 },  -- Same-Day Delivery  [vu 12×34 16×32]
         { role = "other", voice = "watch-dodge", spellID = 1214357, eventID = 837, firstSeenSec = 18, cdSeriesSec = { 18 }, severity = 2 },  -- Fire Bomb  [vu 18×34]
         { role = "mechanic", voice = "prepare-interrupt", spellID = 1222795, eventID = 838, firstSeenSec = 26, cdSeriesSec = { 26 }, severity = 1 },  -- Envenom  [vu 26×34]
