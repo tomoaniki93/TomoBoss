@@ -1,38 +1,108 @@
 # Changelog
 
-## 2.8.0-rc3 — Flicker-free display, evidence-gated Learn, observed Season 2 data
+## 2.8.2-rc1 — Encounter data verified against the client's own Dungeon Journal
 
-### Data & Provenance
-
-- **All eight Season 2 dungeons regenerated from TomoBoss captures** — Murder Row, Den of Nalorakk, The Blinding Vale, Voidscar Arena, Altar of Fangs, Temple of Sethraliss, Kings' Rest and Ruby Life Pools now ship `provenance = "observed"`. 28 encounters, 121 events, every duration seen at least three times on `ENCOUNTER_TIMELINE_EVENT_ADDED` across 274 recorded pulls. No third-party timing data remains in the Season 2 dungeon pool.
-- **Why raw captures were sufficient here** — These eight dungeons are `matchOnly`, so the predictive engine never starts on them and `cdSeriesSec` is consumed solely by `BT:BuildMatchIndex` as a bag of durations compared against `C_EncounterTimeline`. A duration there is an *identification key*, not a schedule: Blizzard supplies the timing. The accuracy bar is therefore "was this duration actually observed", which the capture log answers directly, with no inference in the path.
-- **Spell identities and editorial metadata preserved** — `spellID`, `eventID`, `role`, `voice` and `severity` carry over unchanged. Those are Blizzard identifiers and TomoBoss authoring choices; only timings were replaced.
-- **Duration collisions preserved rather than resolved** — 18 durations are shared by more than one ability. Each remains attached to every tied ability so the engine still detects the ambiguity and falls back to a generic alert. Silently narrowing a collision would turn a deliberate generic warning into a confident and possibly wrong callout; a neutral voice is better than the wrong one. Each case is listed in the export report for a future `DURATION_RULES` entry.
-- **10 previously unknown mechanics recovered** — Durations observed repeatedly with no matching ability in the old dataset are emitted with a neutral voice and a `TODO identifier` marker instead of being discarded. The most frequent are a 99 s event on The Hoardmonger (3207) seen 24 times, a 45 s event on Lightwarden Ruia (3199) seen 27 times, and a 21 s event on 3201 seen 12 times — none present in the previous data.
-- **5 unconfirmed entries removed** — Durations carried by the previous dataset but never observed in any capture were dropped rather than trusted. All five are on The Council of Tribes (2140), which has only 118 s of recorded combat across 4 pulls; they are more likely undersampled than wrong, and a single longer pull should settle it.
+Follows 2.8.0-rc3, which brought the Season 2 dungeon pool to `provenance = "observed"`. This release verifies that data against Blizzard's own ability records, read at runtime from the player's client.
 
 ### Added
 
-- **`Tools/export_observed.lua`** — Regenerates the eight Season 2 dungeon files from a SavedVariables capture. Replays the real engine to obtain effective definitions (base plus `Season2Corrections`), then attaches observed durations using the same 0.75 s tolerance as `BlizzTimeline`. Writes to `Build/`, never to `Engine/Encounters/`, and emits a report of confirmed, removed, orphan and ambiguous entries. Re-runnable as coverage grows.
-- **Replay verification in the inference engine** — A series must now explain the intervals actually observed: each gap between two observations has to be a sum of *consecutive* series entries, with chaining positions. Multi-entry sums account for missed occurrences, which is normal under observation loss. A gap no sum can explain marks the series as contradicted. The test is local to each interval, so it is immune to accumulated drift, and independent of how the series was derived.
-- **Evidence-based quality gating** — `quality` now requires a minimum number of observed intervals (8 for `good`, 4 for `medium`) on top of pull count, with a dedicated warning reporting the exact interval count when evidence is short.
+- **`/tmb journal` — Dungeon Journal scan.** Walks the live Mythic+ pool via `C_ChallengeMode.GetMapTable` plus the current tier's raids, and records every boss ability with its name, spell ID and Blizzard's own role flags. Indexed by `dungeonEncounterID`, the same identifier `ENCOUNTER_START` reports, so it joins directly to recorded pulls with no mapping table to maintain. No season constant: the pool list updates itself. `/tmb journal <encounterID>` prints one encounter for checking in game. First scan: 41 encounters, 857 abilities.
+- **The section tree is preserved.** The journal nests consequences under the ability that causes them, which distinguishes a timed cast from its follow-up. Rimeshatter appears as a child of Shattering Frostspike rather than as an independent ability, and Fan Of Thorns as a Mythic follow-up to Thornblade. Passives are dropped via `C_Spell.IsSpellPassive`.
+- **Spell-name resolution for the addon's own IDs.** The scan also resolves every spell ID carried by the encounter files into its client name. This bridges a gap documented by NaowhSmartReminders and confirmed here: the journal exposes the *display* spell — routinely the applied aura — while shipped tables often carry the *trigger* spell. Joining on ID alone matched 65 % of entries; joining on the client-resolved name as well brings it to 96 %, and to 98 % of entries that are actually abilities.
+- **Non-English clients supported.** On a translated client the journal returns translated titles, which must not become display names in English encounter files nor serve as a matching key. Titles are then used only through the resolved-name bridge, never as names, and the report states the locale.
+
+### Encounter data
+
+- **27 abilities now carry a role verified against Blizzard's flags** — 16 corrected by hand in rc3, 11 more found by the scan that the reference sheets had missed. The sheets list only abilities that ask something of the player, so a tank buster the tank simply absorbs never appears there while still deserving a callout. Newly flagged as tank: Void Blast (3285), Dark Waves (3287), Fresh Meat (3456), Tail Scythe (3457), Lightning Bite (2125), Overload (2124). Newly flagged as healer: Death Rattle (3457), Synchronized Venom (3457), Serpentstorm (2125), Induction (2126).
+- **Three hand-made attributions independently confirmed.** The journal marks Forceful Slam `tank`, Light Bolt `interruptible` and Spirits of the Vale `important` — the roles assigned in rc3 from fight descriptions alone. Their spell IDs, previously absent, are now recorded.
+- **27 spell IDs replaced by the client's own.** Inherited identifiers came from a third-party table and several were wrong: `Fel Nova` carried 474240, Overwhelming Onslaught 1243569 where the client says 1297792. Adopting the client's makes the join direct instead of resting on names — a fragile key, since 18 titles denote two distinct abilities within one encounter. No in-game effect under `matchOnly`, where identification runs on duration.
+- **Den of Nalorakk re-captured at +8**, adding 29 % more observations on its first two bosses. The duration sets are identical to earlier runs, which settles a question left open in rc3: **key level does not change timeline durations.** The Blinding Vale's break was a difficulty *tier* change, not a key-level one, so one set of values covers every Mythic+ level.
+
+### Data hygiene
+
+- **Near-duplicate durations merged.** The server returns slightly unstable floats: 92.38, 92.39 and 92.4 are one event, but counted separately each half slipped under a different filter threshold and one resurfaced as an orphan. Values within 0.15 s are now grouped before any counting, the representative being the most frequent value rather than the mean — that is the one the server returns most often, so the one that matches best in game. Twelve families were merged, the largest spanning eight values on Lightwarden Ruia.
+- **Per-encounter duration ceiling.** The Hoardmonger has three abilities on a 40 s cycle; every value beyond it is a long-range announcement of a later turn. A ceiling now covers the whole family at once instead of listing values that server noise renews with every capture — 67.4, 68.3, 69.3, 78.1, 79.0, 92.4, 99 were all dropped by a single rule.
+- **Ambiguous journal titles are refused, not guessed.** Where one title covers two abilities whose flags differ, the name no longer decides and the entry is reported rather than assigned at random.
+
+### Fixed
+
+- **The generator was not idempotent, and failed silently.** It attaches observed durations to the *original* definition. Re-run on its own output it started from an already-narrowed definition: durations attached differently, new collisions appeared, and the `OVERRIDE` table — keyed by spell ID — stopped matching because those IDs had just been replaced. Measured: 125 entries and 22 collisions instead of 115 and 11, with 3 journal-derived roles instead of 11. The mistake took nothing more than having installed a previous build. The generator now detects `provenance = "observed"` in its input and stops with the command to restore the source.
+- **An orphan duration was an artefact of rounding.** `92.4` surfaced as an unknown ability while `92.39` was being filtered — the same event, split in two by rounding to hundredths. Fixed by the merging step above.
+
+### Current state
+
+```
+115 entries · 0 orphans · 11 preserved collisions
+27 roles verified against Blizzard's flags · 27 client spell IDs adopted
+330 pulls · 9 481 observations · 41 encounters scanned
+```
+
+### Known limitations
+
+- **Four entries cannot be matched to the journal, correctly so.** Two are phase and form markers — `Stage One` on Avatar of Sethraliss, `Shapeshift: Moonkin` on Lightwarden Ruia — which the journal does not list because they are not spells. Two are naming divergences where the journal labels the same event differently.
+- **Chaos Barrage is announced less often than it is cast.** Kystia casts it around 14 times per pull while no timeline slot fires more than 6 times. `C_EncounterTimeline` does not publish every cast, so a share of interrupts goes unannounced. A limit of `matchOnly`, not of the data.
+- **One collision cannot be expressed in the current rules format.** On Zul'jan the first Axegrinder and Boneslicer both carry a 30 s duration at phases 0 and 30 of a 65 s cycle. `MatchRules` derives the cycle from `grouped[1].time`, so `sequenceGroup` cannot describe this. It needs an explicit `cycle` field in `DURATION_RULES` — an engine change, not an export one.
+- **The Council of Tribes needs slower kills, not more pulls.** Its second and third bosses die before casting at the key level captured.
+- **The two Season 2 raids remain out of scope.** No encounter definitions exist for 3379, 3421, 3429, 3470 or 3492, and coverage is thin. Unlike the dungeons, raid timing feeds prediction and requires the full evidence bar.
+
+## 2.8.1-rc1 — Observed Season 2 data, corrected callout roles, flicker-free display
+
+### Encounter data — now fully observed
+
+- **All eight Season 2 dungeons regenerated from TomoBoss captures** — Murder Row, Den of Nalorakk, The Blinding Vale, Voidscar Arena, Altar of Fangs, Temple of Sethraliss, Kings' Rest and Ruby Life Pools now ship `provenance = "observed"`. 28 encounters, 115 events, every duration seen at least three times on `ENCOUNTER_TIMELINE_EVENT_ADDED` across 322 recorded pulls. No third-party timing data remains in the Season 2 dungeon pool.
+- **Why raw captures were sufficient** — These eight dungeons are `matchOnly`, so the predictive engine never starts on them and `cdSeriesSec` is consumed solely by `BT:BuildMatchIndex` as a bag of durations compared against `C_EncounterTimeline`. A duration there is an *identification key*, not a schedule: Blizzard supplies the timing. The bar is therefore "was this duration actually observed", which the capture log answers directly, with no inference in the path.
+- **Every duration is now named.** No `TODO identifier` entries remain. Each event carries its observation count in a trailing comment, so any value can be traced back to the evidence behind it.
+
+### Callout roles — 16 corrections
+
+This is a behaviour change, not a data refresh. The inherited metadata was announcing the wrong thing.
+
+- **Nalorakk (3209) warned the tank on the wrong abilities.** Echoing Maul and Overwhelming Onslaught were both `role = "tank"`. The first is a zone to drop away from the boss, the second a group-wide soak. Meanwhile **Forceful Slam, the only ability that actually targets the tank, was missing from the dataset entirely**. The tank was alerted twice in error and never when it mattered. Echoing Maul now announces the drop, Overwhelming Onslaught the soak, Forceful Slam the tank hit, and Fury of the War God tells the tank to intercept.
+- **Kystia Manaheart (3101) had names shifted off their durations.** `Fel Spray` sat on the durations of Chaos Barrage, and the most frequent ability of the fight — 69 observations — was labelled `Fel Nova`, a name that appears in no source; the leftover slot had been named after the visible Felstorm pulse. Resolved by correlating timeline fire times with recorded casts and their casting unit: duration 12 is the only one matching a five-second channel on `boss2`, which is Nibbles' Fel Spray. Chaos Barrage now carries an interrupt callout, which the fight's main instruction requires.
+- **Tank busters that weren't** — Earthshatter Slam (dodgeable cone), Grievous Thrash (bleed removed only at full health), Pulverizing Strikes (frontal cones on several targets), Whirling Axes (10-yard AoE with knockback), Severing Axe (random target) and Awakening Slam (summons mummies) were all classed as tank mechanics.
+- **Interrupts announced as generic mechanics** — Deathly Roar, Toxic Atrophy, Light Bolt, Mirror Images and the raptor's fear on Dazar now request an interrupt.
+- **Healer mechanics classed elsewhere** — Glacial Torment (Magic-dispellable), Drain Fluids (Desiccation lifted by healing), Defiling Taint, Serpentine Gust and Killing Spree.
+
+### Data hygiene
+
+- **Redundant announcements removed.** Some encounters publish the same cast twice: a short entry at the right moment and a long one several cycles ahead. The Hoardmonger's 99 s duration appeared 37 times but resolved in 8 % of cases, while its real cycle is 40 s with durations 6, 16 and 30 — exactly its three abilities. Giving these a voice would have double-announced. Eight such durations were dropped, five by an automatic resolution-rate filter and three by hand where the dungeon journal closed the ability list.
+- **Difficulty and retuning breaks detected.** The Blinding Vale's four bosses all change duration sets between two runs on the same evening, which is a difficulty switch; Zul'jan's set changes wholesale three weeks later, across five pulls before and three after, which is a retune. Captures from before each break describe a version no longer played, so per-encounter cutoffs exclude them. Five encounters are affected.
+- **Duration collisions preserved, never silently resolved.** 11 durations remain shared between abilities. Each stays attached to every tied ability so the engine still detects the ambiguity and falls back to a generic alert. Narrowing a collision would turn a deliberate generic warning into a confident and possibly wrong callout; a neutral voice is better than the wrong one.
+- **5 unconfirmed entries removed.** All on The Council of Tribes (2140), which has only 118 s of recorded combat. In Mythic+6 its second and third bosses die before casting, so this is undersampling rather than bad data.
+
+### Added
+
+- **`Tools/export_observed.lua`** — Regenerates the eight Season 2 dungeon files from a SavedVariables capture. Replays the real engine to obtain effective definitions (base plus `Season2Corrections`), then attaches observed durations using the same 0.75 s tolerance as `BlizzTimeline`. Four hand-maintained tables — `CUTOFFS`, `IDENTIFY`, `EXCLUDE` and `OVERRIDE` — record decisions taken on source evidence and take precedence over every automatic filter. Writes to `Build/`, never to `Engine/Encounters/`, and emits a report of confirmed, removed, orphan and ambiguous entries.
+- **Replay verification in the inference engine.** A series must now explain the intervals actually observed: each gap between two observations has to be a sum of *consecutive* series entries, with chaining positions. Multi-entry sums account for missed occurrences, which is normal under observation loss. A gap no sum can explain marks the series as contradicted. The test is local to each interval, so it is immune to accumulated drift, and independent of how the series was derived.
+- **Evidence-based quality gating.** `quality` now requires a minimum number of observed intervals — 8 for `good`, 4 for `medium` — on top of pull count, with a dedicated warning reporting the exact interval count when evidence is short.
 - **New result fields** — `fit` (replay fidelity, 0–1) and `intervals` (usable interval count) are exposed on inference results and surfaced in `/tmb learn`.
 - **`Tools/test_fit.lua`** — Locks the replay guard in both directions: clean data must not be downgraded, an imposed wrong cycle must be. A guard that is too strict is as harmful as none at all, since it would condemn correct data at export time.
 - **`Tools/test_noblink.lua`** — Replays the timeline flicker scenario and asserts the card no longer toggles visibility at the NOW line.
 - **`timeline.holdAtNow` profile setting** — Controls how long a card stays anchored on the NOW line past its deadline (default 1.5 s).
 
-### Fixed
+### Fixed — display
 
-- **TomoTimeline flickered when an ability reached NOW** — `BT:Tick` rewrites `endTime` from the server countdown every 0.3 s, and that countdown pins to 0 as soon as the ability fires. Between two resyncs the local extrapolation went negative, the `-0.05` visibility threshold hid the card, and the next resync brought it back. At the 20 Hz render rate this produced 17 visibility flips over the 2.4 s between the deadline and the server `REMOVED`. Cards are now latched on the NOW line for a grace period; only producer removal or grace expiry hides them.
-- **Cards jumped between rails** — The left/right side was re-arbitrated every tick, so a neighbour entering or leaving the window could flip a card from one side to the other 20 times a second. The side is now locked at first placement, with remaining collisions resolved vertically.
-- **Urgent state oscillated at the threshold** — A remaining time hovering around the urgency threshold repainted the card repeatedly. Entry and exit now use a 0.5 s hysteresis band.
-- **Ring flashed on completion** — `UI/RingGroup.lua` was the only `Cooldown` frame in the addon that never called `SetDrawBling(false)`, so `CooldownFrameTemplate` drew its white completion burst exactly when the ability landed.
-- **Rings vanished and reappeared within the same second** — A ring reaching its deadline was removed at `-0.05` and reposted by the next `STATE_CHANGED`. Rings are now held at zero for a grace period, and `SetCooldown` is only re-issued when the timing change exceeds 0.15 s, which also removes the sweep stutter caused by resyncing on noise.
-- **Central progress ring blinked between abilities** — `Stop()` hid the ring immediately and the next ability reopened it right after. Hiding is now deferred; an incoming `Track()` cancels it, turning the flicker into a continuous transition. The tracked ability also keeps focus briefly past its deadline so the ring closes fully instead of jumping.
-- **Resync applied server noise as if it were drift** — `endTime` is no longer rewritten for changes under 0.15 s, nor during the last 0.75 s where the server value freezes and local extrapolation is smoother. Voice callout accuracy is unaffected, as its matching tolerance is 0.5 s.
-- **Inference could assert a wrong cooldown series with full confidence** — Phase folding can produce perfectly tight clusters on a *wrong* cycle when observations are sparse: the clusters genuinely are tight, so no dispersion measure can detect it. The project's own "sure failure" regression assertion was red, with two of three abilities reporting a false series as `good` and no warning. Replay verification now catches this class and the assertion passes.
-- **Quality was awarded on pull count rather than evidence** — With a 91 s median pull length across 274 recorded pulls, an ability on a 60 s cooldown yields a single interval per pull, so "4 pulls" could mean four intervals. Replay verification then abstained for lack of material, and absence of contradiction was being read as confirmation. Abilities rated `good` drop from 183 to 31, which is the honest count for the evidence on hand.
-- **Inference trace crashed on an undefined variable** — `Learn/Infer.lua` referenced `span`, a leftover from the refactor that replaced the `c[#c] - c[1]` arc span with modulo unrolling. Trace-gated, so players never hit it, but it aborted the regression harness before it reached the assertions above.
+- **TomoTimeline flickered when an ability reached NOW.** `BT:Tick` rewrites `endTime` from the server countdown every 0.3 s, and that countdown pins to 0 as soon as the ability fires. Between two resyncs the local extrapolation went negative, the `-0.05` visibility threshold hid the card, and the next resync brought it back. At the 20 Hz render rate this produced 17 visibility flips over the 2.4 s between the deadline and the server `REMOVED`. Cards are now latched on the NOW line for a grace period; only producer removal or grace expiry hides them.
+- **Cards jumped between rails.** The left/right side was re-arbitrated every tick, so a neighbour entering or leaving the window could flip a card from one side to the other 20 times a second. The side is now locked at first placement, with remaining collisions resolved vertically.
+- **Urgent state oscillated at the threshold.** A remaining time hovering around the urgency threshold repainted the card repeatedly. Entry and exit now use a 0.5 s hysteresis band.
+- **Ring flashed on completion.** `UI/RingGroup.lua` was the only `Cooldown` frame in the addon that never called `SetDrawBling(false)`, so `CooldownFrameTemplate` drew its white completion burst exactly when the ability landed.
+- **Rings vanished and reappeared within the same second.** A ring reaching its deadline was removed at `-0.05` and reposted by the next `STATE_CHANGED`. Rings are now held at zero for a grace period, and `SetCooldown` is only re-issued when the timing change exceeds 0.15 s, which also removes the sweep stutter caused by resyncing on noise.
+- **Central progress ring blinked between abilities.** `Stop()` hid the ring immediately and the next ability reopened it right after. Hiding is now deferred; an incoming `Track()` cancels it, turning the flicker into a continuous transition. The tracked ability also keeps focus briefly past its deadline so the ring closes fully instead of jumping.
+- **Resync applied server noise as if it were drift.** `endTime` is no longer rewritten for changes under 0.15 s, nor during the last 0.75 s where the server value freezes and local extrapolation is smoother. Voice callout accuracy is unaffected, as its matching tolerance is 0.5 s.
+
+### Fixed — inference
+
+- **Inference could assert a wrong cooldown series with full confidence.** Phase folding can produce perfectly tight clusters on a *wrong* cycle when observations are sparse: the clusters genuinely are tight, so no dispersion measure can detect it. The project's own "sure failure" regression assertion was red, with two of three abilities reporting a false series as `good` and no warning. Replay verification now catches this class and the assertion passes.
+- **Quality was awarded on pull count rather than evidence.** With a 98 s median pull length across 322 recorded pulls, an ability on a 60 s cooldown yields a single interval per pull, so "4 pulls" could mean four intervals. Replay verification then abstained for lack of material, and absence of contradiction was being read as confirmation. Abilities rated `good` drop from 221 to 40, which is the honest count for the evidence on hand.
+- **Inference trace crashed on an undefined variable.** `Learn/Infer.lua` referenced `span`, a leftover from the refactor that replaced the `c[#c] - c[1]` arc span with modulo unrolling. Trace-gated, so players never hit it, but it aborted the regression harness before it reached the assertions above.
+
+### Known limitations
+
+- **Chaos Barrage is announced less often than it is cast.** Kystia casts it about 14 times per pull, while no timeline slot fires more than 6 times. `C_EncounterTimeline` does not publish every cast, so a share of interrupts will go unannounced. This is a limit of `matchOnly`, not of the data.
+- **One collision cannot be expressed in the current rules format.** On Zul'jan, the first Axegrinder and Boneslicer both carry a 30 s duration at phases 0 and 30 of a 65 s cycle. `MatchRules` derives the cycle from `grouped[1].time`, so `sequenceGroup` cannot describe this case. Resolving it needs an explicit `cycle` field in `DURATION_RULES` — an engine change, not an export one.
+- **The Council of Tribes needs slower kills, not more pulls.** Its second and third bosses die before casting at the key level captured.
+- **The two Season 2 raids are out of scope.** No encounter definitions exist yet for 3379, 3421, 3429, 3470 or 3492, and capture coverage is thin. Unlike the dungeons, raid timing feeds prediction, so it requires the full evidence bar.
+
 
 ## 2.8.0-rc2 — Flicker-free display, evidence-gated Learn, observed Season 2 data
 

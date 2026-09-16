@@ -203,7 +203,9 @@ function R:OnTimelineAdded(x)
         sname = tostring(info.spellName)
     end
 
-    Store:Add(Store.KIND_TIMELINE, dur, nil, nil, fire, sname)
+    -- `id` est déjà en main pour GetEventTimeRemaining : le conserver ne coûte
+    -- rien et permet d'écrire des règles de désambiguïsation par la suite.
+    Store:Add(Store.KIND_TIMELINE, dur, nil, nil, fire, sname, id)
 end
 
 --------------------------------------------------------------------------

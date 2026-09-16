@@ -64,6 +64,13 @@ local SENTINEL = 900   -- au-delà : signal d'état, jamais un timer joueur
 -- les annonces tombant juste avant la mort du boss. Mesuré sur les captures :
 -- 37 à 100 % pour toutes les vraies durées, 0 et 8 % pour ces deux-là.
 local MIN_RESOLVED = 0.20
+-- Écart en deçà duquel deux durées observées sont la MÊME. Le serveur renvoie
+-- des valeurs flottantes légèrement instables : 92.39 et 92.4 sont un seul
+-- événement, mais comptées séparément chacune peut passer sous les seuils des
+-- filtres et ressortir en orpheline. On les regroupe avant tout comptage.
+-- Les durées réellement distinctes d'une rencontre sont des valeurs d'auteur,
+-- jamais séparées d'un dixième de seconde.
+local MERGE_EPS = 0.15
 -- Proportion d'occurrences coïncidant avec un autre événement au-delà de
 -- laquelle une durée est jugée REDONDANTE.
 --
@@ -77,6 +84,7 @@ local MIN_RESOLVED = 0.20
 -- elles se résolvent normalement. La signature fiable est la coïncidence de
 -- l'instant de déclenchement avec celui d'une durée PLUS COURTE.
 local MAX_COINCIDENT = 0.60
+
 
 -- Les 8 donjons S2 et leurs rencontres, avec le fichier cible.
 local DUNGEONS = {
@@ -130,6 +138,12 @@ local EXCLUDE = {
     -- sont toutes déjà rattachées — Winds of Change porte les durées 10 et 21.5.
     -- La 13, vue 3 fois seulement, ne désigne donc aucune capacité connue.
     [2623] = { 13 },
+    -- The Hoardmonger : trois capacités seulement, cycle de 40 s avec les durées
+    -- 6, 16 et 30. Toute durée nettement au-delà du cycle est forcément une
+    -- annonce à long horizon d'un tour suivant, pas une capacité distincte. Un
+    -- plafond vaut mieux qu'une liste de valeurs : le bruit serveur en produit
+    -- de nouvelles à chaque capture (67.4, 68.3, 69.3, 78.1, 79.0, 92.4, 99...).
+    [3207] = { above = 60 },
 }
 
 -- Corrections éditoriales appliquées à des capacités déjà identifiées, quand la
@@ -179,6 +193,18 @@ local OVERRIDE = {
     [474478] = { role = "heal", voice = "prepare-aoe", why = "gros pic de soin (fiche)" },
 }
 
+-- Attribution d'eventID. Ce ne sont pas des valeurs du jeu : l'eventID des
+-- définitions est une clé d'auteur, que BuildEventIDIndex relie aux règles de
+-- DURATION_RULES. Les identifiants publiés par C_EncounterTimeline sont des
+-- poignées séquentielles renumérotées à chaque pull (245, 246, 247...) et ne
+-- peuvent donc pas servir ici.
+local EVENT_IDS = {
+    -- On indexe sur les DEUX identifiants — celui du dépôt et celui du client —
+    -- puisque le second remplace le premier à l'écriture : une table calée sur
+    -- un seul des deux rate silencieusement la moitié des attributions.
+    [2126] = { [1291618] = 2601, [1309525] = 2602, [1290531] = 2602 },
+}
+
 local IDENTIFY = {
     -- Kystia Manaheart. Attribution établie par CORRÉLATION entre les instants
     -- de déclenchement timeline et les incantations enregistrées, avec l'unité
@@ -211,7 +237,11 @@ local IDENTIFY = {
     -- Reste la 45, fréquente et irrégulière : c'est Light Bolt, que Kezkitt
     -- lance souvent et que les joueurs doivent couper.
     [3199] = {
-        { dur = { 45 }, name = "Light Bolt",
+        -- Light Bolt est le round-robin de Kezkitt. Son annonce arrive parfois
+        -- en retard et sort alors à 42.8, 43.5 ou 44.3 au lieu de 45 : même
+        -- série, déclenchements alignés sur 125 et 170, espacés de 45. La
+        -- fenêtre élargie les rattache au lieu de les laisser en orphelines.
+        { dur = { 45 }, tol = 2.5, spellID = 1235616, name = "Light Bolt",
           role = "mechanic", voice = "prepare-interrupt", severity = 1, keepOthers = true },
     },
     -- Lightwarden Ruia. Le combat se découpe par paliers de vie : Moonkin
@@ -223,19 +253,22 @@ local IDENTIFY = {
     -- répétée, pas une transition de forme qui n'arriverait qu'une fois.
     -- Le journal nomme cette capacité Spirits of the Vale.
     [3201] = {
-        { dur = { 21 }, name = "Spirits of the Vale",
+        { dur = { 21 }, spellID = 1241067, name = "Spirits of the Vale",
           role = "mechanic", voice = "summon-adds", severity = 2, keepOthers = true },
     },
     -- Nalorakk : Forceful Slam tombe juste après le soak d'Overwhelming
     -- Onslaught et ne vise que le tank. C'était la seule capacité manquante.
+    -- spellID confirmés par le relevé de journal du 12/09 : le journal marque
+    -- Heurt vigoureux « tank » et Trait de Lumière « interruptible », ce qui
+    -- valide indépendamment le rôle et la voix posés à la main.
     [3209] = {
-        { dur = { 10 }, name = "Forceful Slam",
+        { dur = { 10 }, spellID = 1297797, name = "Forceful Slam",
           role = "tank", voice = "tank-buster", severity = 2, keepOthers = true },
     },
     -- Mchimba : Burn Corruption vise un joueur au hasard et laisse une zone en
     -- feu. Seule capacité du journal absente du fichier.
     [2142] = {
-        { dur = { 63 }, name = "Burn Corruption",
+        { dur = { 63 }, spellID = 267639, name = "Burn Corruption",
           role = "heal", voice = "std-drop", severity = 1, keepOthers = true },
     },
     -- Dazar : l'unité boss2 est un gros raptor qui incante un fear à couper.
@@ -305,15 +338,121 @@ for _, f in ipairs(ORDER) do
     end
 end
 
+-- Le SavedVariables porte à la fois les pulls et le relevé de journal : il doit
+-- donc être chargé avant l'un comme l'autre.
+assert(loadfile(svPath))()
+
+-- Garde-fou d'idempotence.
+--
+-- Le générateur part de la définition D'ORIGINE et y rattache les durées
+-- observées. Relancé sur sa propre sortie, il repart d'une définition déjà
+-- réduite : les durées se rattachent autrement, de nouvelles collisions
+-- apparaissent et les tables OVERRIDE, indexées par spellID, cessent de
+-- correspondre puisque les identifiants ont été repris du client.
+-- Mesuré : 125 entrées et 22 collisions au lieu de 115 et 11.
+--
+-- L'erreur est facile à commettre — il suffit d'avoir installé une génération
+-- précédente — et silencieuse. On la rend bruyante.
+do
+    local tainted = {}
+    for id, def in pairs(NS.Engine.Encounters or {}) do
+        if def.provenance == "observed" then tainted[#tainted + 1] = id end
+    end
+    if #tainted > 0 then
+        io.stderr:write(string.format([[
+ARRÊT : %d rencontres de Engine/Encounters/ portent déjà provenance = "observed".
+
+Le générateur doit lire les définitions D'ORIGINE, pas une génération précédente.
+Restaure Engine/Encounters/ depuis git avant de relancer :
+
+    git checkout -- Engine/Encounters/
+
+La sortie précédente reste disponible dans son dossier de build.
+]], #tainted))
+        os.exit(1)
+    end
+end
+
+--------------------------------------------------------------------------
+-- 1bis. Relevé du journal, si le joueur en a fait un (/tmb journal).
+--
+-- Le journal porte l'identité et le rôle ; les captures portent le minutage.
+-- Aucune des deux sources n'est un tiers : l'une vient du client du joueur,
+-- l'autre de ses propres pulls. Le relevé est facultatif — sans lui le
+-- générateur retombe sur les tables tenues à la main.
+--------------------------------------------------------------------------
+local JOURNAL = TomoBossDB and TomoBossDB.journal
+
+-- Le journal parle la langue du client. Les fichiers de rencontres sont en
+-- anglais : sur un client francophone, les titres reviennent traduits et ne
+-- doivent servir ni de nom affiché ni de clé d'appariement de repli. Le
+-- spellID, lui, ne dépend pas de la locale — c'est le seul lien fiable.
+local J_LOCALE = JOURNAL and JOURNAL.locale or nil
+local J_ENGLISH = (J_LOCALE == nil) or (J_LOCALE == "enUS") or (J_LOCALE == "enGB")
+
+-- Résolution de NOS spellID en noms du client, produite par le même relevé.
+-- C'est le pont quand le spellID du dépôt et celui du journal diffèrent : les
+-- deux noms viennent du même client, donc ils concordent quelle que soit la langue.
+local J_SPELLNAMES = (JOURNAL and JOURNAL.spellNames) or {}
+
+local jIndex = {}   -- encID -> { bySpell = {...}, byLocal = {...}, list = {...} }
+if JOURNAL and JOURNAL.encounters then
+    for encID, e in pairs(JOURNAL.encounters) do
+        local idx = { bySpell = {}, byName = {}, byLocal = {}, list = e.abilities or {}, name = e.name }
+        for _, a in ipairs(e.abilities or {}) do
+            if a.spellID then idx.bySpell[a.spellID] = a end
+            -- Index par nom seulement si le relevé est anglophone : sinon il
+            -- n'apparierait jamais et pourrait créer de faux rapprochements.
+            if a.title and J_ENGLISH then idx.byName[a.title:lower()] = a end
+            -- Index par titre tel que le client le rend, toutes langues : il
+            -- s'apparie avec les noms résolus de nos propres spellID.
+            --
+            -- Un même titre peut désigner deux capacités distinctes dans une
+            -- rencontre (18 cas relevés). Si leurs indicateurs diffèrent, le
+            -- nom ne tranche plus : on neutralise l'entrée plutôt que de
+            -- rapporter au hasard les indicateurs de l'une ou de l'autre.
+            if a.title then
+                local k = a.title:lower()
+                local prev = idx.byLocal[k]
+                if prev == nil then
+                    idx.byLocal[k] = a
+                elseif prev ~= false then
+                    local pf = prev.flags and table.concat(prev.flags, ",") or ""
+                    local af = a.flags and table.concat(a.flags, ",") or ""
+                    if pf ~= af then idx.byLocal[k] = false end
+                end
+            end
+        end
+        jIndex[tostring(encID)] = idx
+    end
+end
+
+-- Traduction des indicateurs du journal vers le vocabulaire de voix de TomoBoss.
+-- On ne renvoie que ce que les indicateurs établissent vraiment : le reste des
+-- choix éditoriaux reste à l'auteur.
+local function journalRole(a)
+    if not a or not a.flags then return nil end
+    local f = {}
+    for _, v in ipairs(a.flags) do f[v] = true end
+    local role, voice, sev
+    if f.tank then role = "tank"; voice = "tank-buster" end
+    if f.healer then role = "heal" end
+    -- L'interruption prime sur tout : c'est une consigne d'action immédiate,
+    -- et elle vaut quel que soit le rôle visé.
+    if f.interruptible then role = "mechanic"; voice = "prepare-interrupt" end
+    if f.deadly then sev = 2 elseif f.important then sev = sev or 2 end
+    if not role and not voice then return nil end
+    return role, voice, sev, table.concat(a.flags, ",")
+end
+
 --------------------------------------------------------------------------
 -- 2. Observations : durées timeline par rencontre, avec compte.
 --------------------------------------------------------------------------
-assert(loadfile(svPath))()
 local pulls = TomoBossDB and TomoBossDB.profile
     and TomoBossDB.profile.learn and TomoBossDB.profile.learn.pulls
 assert(pulls, "learn.pulls introuvable dans " .. svPath)
 
-local REJECTED, REJECTED_ENC, COINC_RATE = {}, {}, {}
+local REJECTED, REJECTED_ENC, COINC_RATE, MERGED = {}, {}, {}, {}
 
 local function observedFor(encID)
     local list = pulls[tostring(encID)] or pulls[encID]
@@ -321,8 +460,9 @@ local function observedFor(encID)
     local cut = CUTOFFS[tonumber(encID)] or since
     -- Une durée identifiée à la main échappe aux filtres : c'est une décision
     -- prise sur observation en jeu, elle prime sur toute heuristique.
-    local banned = {}
-    for _, d in ipairs(EXCLUDE[tonumber(encID)] or {}) do banned[d] = true end
+    local ex = EXCLUDE[tonumber(encID)] or {}
+    local banned, ceiling = {}, ex.above
+    for _, d in ipairs(ex) do banned[d] = true end
     local pinned = {}
     for _, rule in ipairs(IDENTIFY[tonumber(encID)] or {}) do
         for _, d in ipairs(rule.dur) do pinned[d] = true end
@@ -364,9 +504,9 @@ local function observedFor(encID)
                 end
             end
             for _, a in ipairs(fires) do
+                local d = math.floor(a.dur * 100 + 0.5) / 100
                 for _, b in ipairs(fires) do
                     if b.dur < a.dur - TOL and math.abs(a.at - b.at) <= TOL then
-                        local d = math.floor(a.dur * 100 + 0.5) / 100
                         coinc[d] = (coinc[d] or 0) + 1
                         break
                     end
@@ -380,15 +520,51 @@ local function observedFor(encID)
         if seen[d] and seen[d] > 0 then COINC_RATE[encID][d] = c / seen[d] end
     end
 
+    -- Regroupement des quasi-doublons. Le représentant du groupe est la valeur
+    -- la plus fréquente, pas la moyenne : c'est celle que le serveur renvoie
+    -- le plus souvent, donc celle qui appariera le mieux en jeu.
+    do
+        local ds = {}
+        for d in pairs(seen) do ds[#ds + 1] = d end
+        table.sort(ds)
+        local i = 1
+        while i <= #ds do
+            local group = { ds[i] }
+            local j = i + 1
+            while j <= #ds and (ds[j] - group[#group]) <= MERGE_EPS do
+                group[#group + 1] = ds[j]; j = j + 1
+            end
+            if #group > 1 then
+                local rep, best = group[1], -1
+                local total, tf = 0, 0
+                for _, d in ipairs(group) do
+                    total = total + seen[d]
+                    tf = tf + (fired[d] or 0)
+                    if seen[d] > best then best, rep = seen[d], d end
+                end
+                local parts = {}
+                for _, d in ipairs(group) do
+                    parts[#parts + 1] = tostring(d)
+                    if d ~= rep then seen[d] = nil; fired[d] = nil; coinc[d] = nil end
+                end
+                seen[rep], fired[rep] = total, tf
+                MERGED[#MERGED + 1] = { enc = encID, rep = rep, parts = parts, n = total }
+            end
+            i = j
+        end
+    end
+
     local out = {}
     for d, n in pairs(seen) do
         if n >= MIN_SEEN then
             local rate = (fired[d] or 0) / n
             local dup = (coinc[d] or 0) / n
-            if banned[d] then
+            if banned[d] or (ceiling and d > ceiling) then
                 REJECTED[#REJECTED + 1] = string.format(
-                    "durée %s vue %d fois — écartée manuellement, le journal ne lui associe aucune capacité",
-                    tostring(d), n)
+                    "durée %s vue %d fois — écartée manuellement (%s)",
+                    tostring(d), n,
+                    banned[d] and "le journal ne lui associe aucune capacité"
+                        or string.format("au-delà du plafond de %s s de la rencontre", tostring(ceiling)))
                 REJECTED_ENC[#REJECTED_ENC + 1] = encID
             elseif pinned[d] then
                 out[#out + 1] = { dur = d, n = n }
@@ -587,8 +763,56 @@ for _, dg in ipairs(DUNGEONS) do
                     encID, def.name or "?", d.date, d.nBefore, d.nAfter,
                     d.common, d.union, (d.date:match("^%d+-%d+-%d+")))
             end
+            for _, m in ipairs(MERGED) do
+                if m.enc == encID then
+                    note("[%d] durées %s regroupées sur %s (%d observations) — même événement, bruit serveur",
+                        encID, table.concat(m.parts, " / "), tostring(m.rep), m.n)
+                end
+            end
             for i, msg in ipairs(REJECTED) do
                 if REJECTED_ENC[i] == encID then note("[%d] %s : %s", encID, def.name or "?", msg) end
+            end
+            local jIdx = jIndex[tostring(encID)]
+            if jIdx then
+                -- Capacités de premier niveau que le journal liste et que
+                -- l'export ne couvre pas : candidates aux durées manquantes.
+                local covered = {}
+                for _, ev in ipairs(def.events or {}) do
+                    if ev.spellID then covered[ev.spellID] = true end
+                    local nm = SPELL_NAMES[ev.spellID]
+                    if nm then covered[nm:lower()] = true end
+                    local ln = ev.spellID and J_SPELLNAMES[ev.spellID]
+                    if ln then covered[ln:lower()] = true end
+                end
+                -- Les capacités nommées à la main comptent aussi comme couvertes :
+                -- sans ça le journal signalerait comme manquant ce qu'IDENTIFY
+                -- vient justement de rattacher.
+                for _, rule in ipairs(IDENTIFY[tonumber(encID)] or {}) do
+                    if rule.spellID then covered[rule.spellID] = true end
+                    if rule.name then covered[rule.name:lower()] = true end
+                end
+                local missing = {}
+                for _, a in ipairs(jIdx.list) do
+                    local byName = covered[(a.title or ""):lower()]
+                    if a.depth == 1 and not covered[a.spellID] and not byName then
+                        missing[#missing + 1] = a.title
+                    end
+                end
+                if #missing > 0 then
+                    -- Sur un relevé traduit, une capacité nommée à la main sans
+                    -- spellID ne peut pas être appariée : elle ressortirait
+                    -- « manquante » à tort. On le dit plutôt que de laisser
+                    -- croire à un trou dans les données.
+                    local blind = false
+                    if not J_ENGLISH then
+                        for _, rule in ipairs(IDENTIFY[tonumber(encID)] or {}) do
+                            if not rule.spellID then blind = true end
+                        end
+                    end
+                    note("[%d] %s : au journal mais absentes de l'export — %s%s",
+                        encID, jIdx.name or def.name or "?", table.concat(missing, ", "),
+                        blind and "  (relevé traduit : une entrée nommée à la main sans spellID peut apparaître ici à tort — reporter son spellID dans IDENTIFY)" or "")
+                end
             end
             local manual = IDENTIFY[tonumber(encID)]
             local assigned, orphans, ambiguous = attach(def, obs)
@@ -625,9 +849,13 @@ for _, dg in ipairs(DUNGEONS) do
                 for _, rule in ipairs(manual) do if rule.keepOthers then additive = true end end
                 for _, rule in ipairs(manual) do
                     local ds, cnt = {}, {}
+                    -- `tol` élargit la fenêtre d'une règle. Utile quand le
+                    -- serveur poste une annonce en retard : il publie alors le
+                    -- temps restant, pas l'intervalle, et la valeur dérive de
+                    -- plus que la tolérance de correspondance ordinaire.
                     for _, want in ipairs(rule.dur) do
                         for _, o in ipairs(obs) do
-                            if math.abs(o.dur - want) <= TOL then
+                            if math.abs(o.dur - want) <= (rule.tol or TOL) then
                                 ds[#ds + 1] = num(o.dur)
                                 cnt[#cnt + 1] = num(o.dur) .. "×" .. o.n
                                 used[o.dur] = true
@@ -636,6 +864,18 @@ for _, dg in ipairs(DUNGEONS) do
                     end
                     if #ds > 0 then
                         stats.kept = stats.kept + 1
+                        -- firstSeenSec pointe sur la valeur la PLUS OBSERVÉE,
+                        -- pas sur la plus petite : quand une règle absorbe des
+                        -- annonces en retard, la plus petite est une dérive et
+                        -- afficher 43.54 pour une capacité à 45 induit en erreur.
+                        do
+                            local bi, bn = 1, -1
+                            for k = 1, #ds do
+                                local c = tonumber(cnt[k]:match("×(%d+)$")) or 0
+                                if c > bn then bn, bi = c, k end
+                            end
+                            if bi ~= 1 then ds[1], ds[bi] = ds[bi], ds[1] end
+                        end
                         local base = (rule.spellID and meta[rule.spellID]) or {}
                         local bits = {}
                         bits[#bits + 1] = "role = " .. q(rule.role or base.role or "other")
@@ -722,17 +962,71 @@ for _, dg in ipairs(DUNGEONS) do
                             encID, SPELL_NAMES[ev.spellID] or tostring(ev.spellID),
                             ov.role, ov.voice, ov.why)
                     end
+                    -- Le journal ne parle que si aucune décision manuelle n'a
+                    -- été prise : une correction posée sur observation en jeu
+                    -- reste au-dessus d'un indicateur générique.
+                    local jRole, jVoice, jSev, jFlags
+                    local ja = jIdx and ev.spellID and jIdx.bySpell[ev.spellID]
+                    -- Repli par nom client : couvre le cas sort d'affichage
+                    -- contre sort déclencheur, où les identifiants divergent.
+                    if not ja and jIdx and ev.spellID and J_SPELLNAMES[ev.spellID] then
+                        local cand = jIdx.byLocal[(J_SPELLNAMES[ev.spellID]):lower()]
+                        if cand == false then
+                            note("[%d] %s : titre partagé par deux capacités aux indicateurs différents — journal ignoré pour cette entrée",
+                                encID, J_SPELLNAMES[ev.spellID])
+                            stats.jamb = (stats.jamb or 0) + 1
+                        elseif cand then
+                            ja = cand
+                            stats.jname = (stats.jname or 0) + 1
+                        end
+                    end
+                    if not ja and jIdx and J_ENGLISH and SPELL_NAMES[ev.spellID] then
+                        ja = jIdx.byName[(SPELL_NAMES[ev.spellID]):lower()]
+                    end
+                    if ja and not ov then
+                        jRole, jVoice, jSev, jFlags = journalRole(ja)
+                        if jRole and (jRole ~= ev.role or (jVoice and jVoice ~= ev.voice)) then
+                            note("[%d] %s : journal [%s] -> %s/%s (était %s/%s)",
+                                encID, ja.title, jFlags, jRole, jVoice or ev.voice or "?",
+                                ev.role or "?", ev.voice or "?")
+                            stats.jrole = (stats.jrole or 0) + 1
+                        end
+                    end
+                    -- Le spellID du journal fait foi quand il diffère.
+                    --
+                    -- Les identifiants hérités viennent d'une table tierce et
+                    -- plusieurs sont démontrablement faux : « Fel Nova » portait
+                    -- 474240, Overwhelming Onslaught 1243569 là où le client dit
+                    -- 1297792. Adopter celui du journal rend la jointure directe
+                    -- au lieu de dépendre du nom — jointure fragile, puisque
+                    -- 18 titres désignent deux capacités distinctes.
+                    local useID = ev.spellID
+                    if ja and ja.spellID and ja.spellID ~= ev.spellID then
+                        note("[%d] %s : spellID %s -> %s (celui du client)",
+                            encID, SPELL_NAMES[ev.spellID] or ja.title,
+                            tostring(ev.spellID), tostring(ja.spellID))
+                        useID = ja.spellID
+                        stats.jid = (stats.jid or 0) + 1
+                    end
                     local bits = {}
-                    bits[#bits + 1] = "role = " .. q((ov and ov.role) or ev.role or "other")
-                    bits[#bits + 1] = "voice = " .. q((ov and ov.voice) or ev.voice or "watch-dodge")
-                    if ev.spellID then bits[#bits + 1] = "spellID = " .. num(ev.spellID) end
-                    if ev.eventID then bits[#bits + 1] = "eventID = " .. num(ev.eventID) end
+                    bits[#bits + 1] = "role = " .. q((ov and ov.role) or jRole or ev.role or "other")
+                    bits[#bits + 1] = "voice = " .. q((ov and ov.voice) or jVoice or ev.voice or "watch-dodge")
+                    if useID then bits[#bits + 1] = "spellID = " .. num(useID) end
+                    local eidMap = EVENT_IDS[tonumber(encID)] or {}
+                    local assigned = eidMap[ev.spellID] or (ja and eidMap[ja.spellID])
+                    local eid = assigned or ev.eventID
+                    if eid then bits[#bits + 1] = "eventID = " .. num(eid) end
                     bits[#bits + 1] = "firstSeenSec = " .. ds[1]
                     bits[#bits + 1] = "cdSeriesSec = { " .. table.concat(ds, ", ") .. " }"
-                    bits[#bits + 1] = "severity = " .. num(ev.severity or 1)
+                    bits[#bits + 1] = "severity = " .. num((ov and ov.severity) or jSev or ev.severity or 1)
                     w(string.format("        { %s },  -- %s  [vu %s]",
                         table.concat(bits, ", "),
-                        SPELL_NAMES[ev.spellID] or ev.name or "capacité",
+                        -- Nom affiché : celui du dépôt d'abord. Le titre du
+                        -- journal ne prend le relais que s'il est anglophone et
+                        -- que le dépôt n'a rien, pour ne pas semer du français
+                        -- dans des fichiers anglais.
+                        SPELL_NAMES[ev.spellID] or (J_ENGLISH and ja and ja.title)
+                            or ev.name or "capacité",
                         table.concat(cnt, " ")))
                 else
                     stats.dropped = stats.dropped + 1
@@ -785,7 +1079,23 @@ fh:write(string.format("entrées confirmées       : %d\n", stats.kept))
 fh:write(string.format("entrées retirées         : %d  (durée jamais observée)\n", stats.dropped))
 fh:write(string.format("durées orphelines        : %d  (observées, capacité inconnue)\n", stats.orphan))
 fh:write(string.format("durées ambiguës          : %d  (règle de désambiguïsation à écrire)\n", stats.ambig))
-fh:write(string.format("rencontres sans donnée   : %d\n\n", stats.noData))
+fh:write(string.format("rencontres sans donnée   : %d\n", stats.noData))
+if JOURNAL then
+    fh:write(string.format("relevé journal           : %s (%d rencontres, locale %s%s)\n",
+        JOURNAL.scannedAt or "?",
+        (function() local n=0 for _ in pairs(jIndex) do n=n+1 end return n end)(),
+        tostring(J_LOCALE or "?"),
+        J_ENGLISH and "" or " — titres traduits, appariement par spellID uniquement"))
+    fh:write(string.format("rôles issus du journal   : %d\n", stats.jrole or 0))
+    fh:write(string.format("appariés via nom client  : %d  (spellID divergents)\n", stats.jname or 0))
+    fh:write(string.format("spellID repris du client : %d\n", stats.jid or 0))
+    if (stats.jamb or 0) > 0 then
+        fh:write(string.format("titres ambigus ignorés   : %d\n", stats.jamb))
+    end
+else
+    fh:write("relevé journal           : ABSENT — lancer /tmb journal en jeu puis réexporter\n")
+end
+fh:write("\n")
 fh:write(table.concat(report, "\n"), "\n")
 fh:close()
 print("rapport : " .. rp)

@@ -19,8 +19,8 @@ R(2606, {
     dungeon = "Ruby Life Pools",
     matchOnly = true,
     events = {
-        { role = "other", voice = "summon-adds", spellID = 372864, firstSeenSec = 8, cdSeriesSec = { 8, 40 }, severity = 1 },  -- Ritual of Blazebinding | AMBIGU : durée 40 partagée  [vu 8×4 40×23]
-        { role = "other", voice = "watch-dodge", spellID = 372110, firstSeenSec = 19, cdSeriesSec = { 19, 20 }, severity = 1 },  -- Molten Boulder  [vu 19×4 20×20]
+        { role = "other", voice = "summon-adds", spellID = 372863, firstSeenSec = 8, cdSeriesSec = { 8, 40 }, severity = 1 },  -- Ritual of Blazebinding | AMBIGU : durée 40 partagée  [vu 8×4 40×23]
+        { role = "other", voice = "watch-dodge", spellID = 372107, firstSeenSec = 19, cdSeriesSec = { 19, 20 }, severity = 1 },  -- Molten Boulder  [vu 19×4 20×20]
         { role = "tank", voice = "tank-buster", spellID = 372858, firstSeenSec = 28, cdSeriesSec = { 28, 40 }, severity = 0 },  -- Searing Blows | AMBIGU : durée 40 partagée  [vu 28×4 40×23]
     },
 })
@@ -32,9 +32,9 @@ R(2609, {
     dungeon = "Ruby Life Pools",
     matchOnly = true,
     events = {
-        { role = "other", voice = "watch-explosion", spellID = 1307297, firstSeenSec = 5, cdSeriesSec = { 5, 24 }, severity = 0 },  -- Hailburst | AMBIGU : durée 27 partagée  [vu 5×11 24×38]
-        { role = "other", voice = "watch-explosion", spellID = 373686, firstSeenSec = 12, cdSeriesSec = { 12 }, severity = 0 },  -- Frost Overload  [vu 12×9]
-        { role = "other", voice = "prepare-aoe", spellID = 1307308, firstSeenSec = 15, cdSeriesSec = { 15, 24 }, severity = 1 },  -- Chillstorm | AMBIGU : durée 27 partagée  [vu 15×11 24×38]
+        { role = "other", voice = "watch-explosion", spellID = 396044, firstSeenSec = 5, cdSeriesSec = { 5, 24 }, severity = 0 },  -- Hailburst | AMBIGU : durée 27 partagée  [vu 5×11 24×38]
+        { role = "other", voice = "watch-explosion", spellID = 373680, firstSeenSec = 12, cdSeriesSec = { 12 }, severity = 0 },  -- Frost Overload  [vu 12×9]
+        { role = "other", voice = "prepare-aoe", spellID = 372851, firstSeenSec = 15, cdSeriesSec = { 15, 24 }, severity = 1 },  -- Chillstorm | AMBIGU : durée 27 partagée  [vu 15×11 24×38]
     },
 })
 

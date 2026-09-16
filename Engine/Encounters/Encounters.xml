@@ -3,4 +3,5 @@
     <Include file="MidnightSeason2.xml"/>
     <Include file="Raids.xml"/>
     <Include file="Season2Corrections.lua"/>
+    <Include file="Season2Rules.lua"/>
 </Ui>

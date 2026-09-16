@@ -85,7 +85,17 @@ function Store:IsRecording()
 end
 
 -- Ajoute une observation au pull courant. Coût constant, appelable en combat.
-function Store:Add(kind, dur, npc, unit, fire, sname)
+-- evID : identifiant C_EncounterTimeline de l'événement, pour KIND_TIMELINE.
+-- Ajouté en 8e position : les captures antérieures le laissent simplement nil,
+-- aucun changement de schéma n'est donc nécessaire.
+--
+-- Il débloque la désambiguïsation des durées partagées. Les règles
+-- DURATION_RULES s'apparient sur eventID, pas sur spellID : sans lui, deux
+-- capacités qui partagent une durée ne peuvent être séparées que par un
+-- espacement de phase supposé régulier — faux dès que les capacités ne sont pas
+-- réparties uniformément dans le cycle (Galvazzt : phases 5 et 20 sur 22, là où
+-- l'espacement régulier supposerait 0 et 11).
+function Store:Add(kind, dur, npc, unit, fire, sname, evID)
     local cur = self.current
     if not cur or cur.over then return end
     local n = #cur.obs
@@ -102,6 +112,7 @@ function Store:Add(kind, dur, npc, unit, fire, sname)
         unit,
         fire,
         sname,
+        evID,
     }
 end
 

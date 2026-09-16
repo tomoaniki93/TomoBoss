@@ -19,10 +19,10 @@ R(3456, {
     dungeon = "Altar of Fangs",
     matchOnly = true,
     events = {
-        { role = "other", voice = "watch-dodge", spellID = 1307703, firstSeenSec = 8, cdSeriesSec = { 8, 24 }, severity = 1 },  -- Triple Shot | AMBIGU : durée 24 partagée  [vu 8×24 24×14]
-        { role = "other", voice = "watch-dodge", spellID = 1296050, firstSeenSec = 13, cdSeriesSec = { 13 }, severity = 1 },  -- Regurgitate  [vu 13×14]
-        { role = "other", voice = "watch-shockwave", spellID = 1307894, firstSeenSec = 23, cdSeriesSec = { 23 }, severity = 1 },  -- Ravenous Stomp | AMBIGU : durée 24 partagée  [vu 23×14]
-        { role = "other", voice = "std-move", spellID = 1296216, firstSeenSec = 25, cdSeriesSec = { 25, 45 }, severity = 0 },  -- Ssscavenging  [vu 25×10 45×14]
+        { role = "tank", voice = "tank-buster", spellID = 1307703, firstSeenSec = 8, cdSeriesSec = { 8, 24 }, severity = 1 },  -- Triple Shot | AMBIGU : durée 24 partagée  [vu 8×24 24×14]
+        { role = "other", voice = "watch-dodge", spellID = 1296069, firstSeenSec = 13, cdSeriesSec = { 13 }, severity = 1 },  -- Regurgitate  [vu 13×14]
+        { role = "other", voice = "watch-shockwave", spellID = 1307915, firstSeenSec = 23, cdSeriesSec = { 23 }, severity = 1 },  -- Ravenous Stomp | AMBIGU : durée 24 partagée  [vu 23×14]
+        { role = "other", voice = "std-move", spellID = 1298221, firstSeenSec = 25, cdSeriesSec = { 25, 45 }, severity = 0 },  -- Ssscavenging  [vu 25×10 45×14]
     },
 })
 
@@ -33,13 +33,13 @@ R(3457, {
     dungeon = "Altar of Fangs",
     matchOnly = true,
     events = {
-        { role = "other", voice = "prepare-dispel", spellID = 1299154, firstSeenSec = 1, cdSeriesSec = { 1, 10 }, severity = 1 },  -- Synchronized Venom | AMBIGU : durée 10 partagée  [vu 1×10 10×19]
-        { role = "other", voice = "std-move", spellID = 1298949, firstSeenSec = 7, cdSeriesSec = { 7, 16 }, severity = 0 },  -- Tail Scythe  [vu 7×10 16×8]
-        { role = "mechanic", voice = "prepare-interrupt", spellID = 1310547, firstSeenSec = 10, cdSeriesSec = { 10 }, severity = 2 },  -- Toxic Atrophy | AMBIGU : durée 10 partagée  [vu 10×19]
+        { role = "heal", voice = "prepare-dispel", spellID = 1299189, firstSeenSec = 1, cdSeriesSec = { 1, 10 }, severity = 1 },  -- Synchronized Venom | AMBIGU : durée 10 partagée  [vu 1×10 10×19]
+        { role = "tank", voice = "tank-buster", spellID = 1298949, firstSeenSec = 7, cdSeriesSec = { 7, 16 }, severity = 0 },  -- Tail Scythe  [vu 7×10 16×8]
+        { role = "mechanic", voice = "prepare-interrupt", spellID = 1310974, firstSeenSec = 10, cdSeriesSec = { 10 }, severity = 2 },  -- Toxic Atrophy | AMBIGU : durée 10 partagée  [vu 10×19]
         { role = "other", voice = "watch-dodge", spellID = 1310357, firstSeenSec = 14, cdSeriesSec = { 14, 23 }, severity = 1 },  -- Preparing Toxin  [vu 14×10 23×8]
         { role = "other", voice = "std-move", spellID = 1300686, firstSeenSec = 25, cdSeriesSec = { 25 }, severity = 0 },  -- Assimilation  [vu 25×11]
         { role = "tank", voice = "tank-buster", spellID = 1299940, firstSeenSec = 30, cdSeriesSec = { 30, 39 }, severity = 1 },  -- Vindictive Onslaught  [vu 30×10 39×8]
-        { role = "other", voice = "special-mechanic", spellID = 1299053, firstSeenSec = 44, cdSeriesSec = { 44, 53 }, severity = 2 },  -- Death Rattle  [vu 44×10 53×8]
+        { role = "heal", voice = "special-mechanic", spellID = 1299053, firstSeenSec = 44, cdSeriesSec = { 44, 53 }, severity = 2 },  -- Death Rattle  [vu 44×10 53×8]
     },
 })
 
@@ -52,7 +52,7 @@ R(3458, {
     events = {
         { role = "other", voice = "std-move", spellID = 1300876, firstSeenSec = 3, cdSeriesSec = { 3, 65 }, severity = 0 },  -- Ritual of the Fang  [vu 3×8 65×8]
         { role = "other", voice = "watch-dodge", spellID = 1300901, firstSeenSec = 18, cdSeriesSec = { 18 }, severity = 1 },  -- Ritual Venom  [vu 18×8]
-        { role = "other", voice = "watch-dodge", spellID = 1301111, firstSeenSec = 16, cdSeriesSec = { 16, 30, 36 }, severity = 1 },  -- Axegrinder  [vu 16×6 30×14 36×8]
+        { role = "other", voice = "watch-dodge", spellID = 1301111, firstSeenSec = 30, cdSeriesSec = { 30, 16, 36 }, severity = 1 },  -- Axegrinder  [vu 16×6 30×14 36×8]
         { role = "other", voice = "special-mechanic", spellID = 1301413, firstSeenSec = 30, cdSeriesSec = { 30 }, severity = 2 },  -- Boneslicer  [vu 30×14]
     },
 })

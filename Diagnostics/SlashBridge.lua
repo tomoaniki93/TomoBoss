@@ -41,6 +41,13 @@ local function installDoctorSubcommand()
                 NS.TrashObservatory:RunDoctor()
             end
             return
+        elseif first == "journal" and NS.JournalScan then
+            if second ~= "" and tonumber(second) then
+                NS.JournalScan:Show(tonumber(second))
+            else
+                NS.JournalScan:Scan()
+            end
+            return
         elseif first == "statedump" and NS.StateResolver and type(NS.StateResolver.ShowEvidenceDump) == "function" then
             NS.StateResolver:ShowEvidenceDump()
             return
