@@ -19,51 +19,51 @@ R(3101, {
     dungeon = "Murder Row",
     matchOnly = true,
     events = {
-        { role = "mechanic", voice = "prepare-interrupt", spellID = 1230298, firstSeenSec = 8, cdSeriesSec = { 8, 27.5 }, severity = 2 },  -- Chaos Barrage  [vu 8×34 27.5×32]
-        { role = "other", voice = "watch-frontal", spellID = 1253811, firstSeenSec = 12, cdSeriesSec = { 12, 25 }, severity = 1 },  -- Fel Spray  [vu 12×69 25×3]
-        { role = "mechanic", voice = "prepare-interrupt", spellID = 1264095, firstSeenSec = 15, cdSeriesSec = { 15, 30 }, severity = 1 },  -- Mirror Images  [vu 15×34 30×24]
+        { role = "mechanic", voice = "prepare-interrupt", spellID = 1230298, firstSeenSec = 8, cdSeriesSec = { 8, 27.5 }, severity = 2 },  -- Chaos Barrage  [vu 8×36 27.5×34]
+        { role = "other", voice = "watch-frontal", spellID = 1253811, firstSeenSec = 12, cdSeriesSec = { 12, 25 }, severity = 1 },  -- Fel Spray  [vu 12×74 25×3]
+        { role = "mechanic", voice = "prepare-interrupt", spellID = 1264095, firstSeenSec = 15, cdSeriesSec = { 15, 30 }, severity = 1 },  -- Mirror Images  [vu 15×36 30×27]
     },
 })
 
--- Zaen Bladesorrow  (encounterID 3102) — 11 pull(s) capturé(s)
+-- Zaen Bladesorrow  (encounterID 3102) — 12 pull(s) capturé(s)
 R(3102, {
     name = "Zaen Bladesorrow",
     provenance = "observed",
     dungeon = "Murder Row",
     matchOnly = true,
     events = {
-        { role = "heal", voice = "prepare-aoe", spellID = 474478, eventID = 835, firstSeenSec = 8, cdSeriesSec = { 8 }, severity = 1 },  -- Killing Spree  [vu 8×34]
-        { role = "mechanic", voice = "watch-dodge", spellID = 474765, eventID = 836, firstSeenSec = 12, cdSeriesSec = { 12, 16 }, severity = 1 },  -- Same-Day Delivery  [vu 12×34 16×32]
-        { role = "other", voice = "watch-dodge", spellID = 1214357, eventID = 837, firstSeenSec = 18, cdSeriesSec = { 18 }, severity = 2 },  -- Fire Bomb  [vu 18×34]
-        { role = "tank", voice = "tank-buster", spellID = 1222795, eventID = 838, firstSeenSec = 26, cdSeriesSec = { 26 }, severity = 1 },  -- Envenom  [vu 26×34]
-        { role = "mechanic", voice = "watch-frontal", spellID = 1218347, eventID = 839, firstSeenSec = 36, cdSeriesSec = { 36 }, severity = 2 },  -- Murder in a Row  [vu 36×34]
+        { role = "heal", voice = "prepare-aoe", spellID = 474478, eventID = 835, firstSeenSec = 8, cdSeriesSec = { 8 }, severity = 1 },  -- Killing Spree  [vu 8×38]
+        { role = "mechanic", voice = "watch-dodge", spellID = 474765, eventID = 836, firstSeenSec = 12, cdSeriesSec = { 12, 16 }, severity = 1 },  -- Same-Day Delivery  [vu 12×38 16×36]
+        { role = "other", voice = "watch-dodge", spellID = 1214357, eventID = 837, firstSeenSec = 18, cdSeriesSec = { 18 }, severity = 2 },  -- Fire Bomb  [vu 18×38]
+        { role = "tank", voice = "tank-buster", spellID = 1222795, eventID = 838, firstSeenSec = 26, cdSeriesSec = { 26 }, severity = 1 },  -- Envenom  [vu 26×38]
+        { role = "mechanic", voice = "watch-frontal", spellID = 1218347, eventID = 839, firstSeenSec = 36, cdSeriesSec = { 36 }, severity = 2 },  -- Murder in a Row  [vu 36×38]
     },
 })
 
--- Xathuux the Annihilator  (encounterID 3103) — 10 pull(s) capturé(s)
+-- Xathuux the Annihilator  (encounterID 3103) — 11 pull(s) capturé(s)
 R(3103, {
     name = "Xathuux the Annihilator",
     provenance = "observed",
     dungeon = "Murder Row",
     matchOnly = true,
     events = {
-        { role = "tank", voice = "tank-buster", spellID = 473898, eventID = 845, firstSeenSec = 6, cdSeriesSec = { 6, 27 }, severity = 2 },  -- Legion Strike  [vu 6×25 27×41]
-        { role = "other", voice = "watch-knockback", spellID = 1214663, firstSeenSec = 15, cdSeriesSec = { 15 }, severity = 2 },  -- Axe Toss  [vu 15×25]
-        { role = "tank", voice = "tank-buster", spellID = 1295455, firstSeenSec = 30, cdSeriesSec = { 30 }, severity = 1 },  -- Infernal Crush  [vu 30×25]
-        { role = "other", voice = "watch-dodge", spellID = 474197, firstSeenSec = 35, cdSeriesSec = { 35 }, severity = 1 },  -- Demonic Rage  [vu 35×25]
+        { role = "tank", voice = "tank-buster", spellID = 473898, eventID = 845, firstSeenSec = 6, cdSeriesSec = { 6, 27 }, severity = 2 },  -- Legion Strike  [vu 6×30 27×50]
+        { role = "other", voice = "watch-knockback", spellID = 1214663, firstSeenSec = 15, cdSeriesSec = { 15 }, severity = 2 },  -- Axe Toss  [vu 15×30]
+        { role = "tank", voice = "tank-buster", spellID = 1295455, firstSeenSec = 30, cdSeriesSec = { 30 }, severity = 1 },  -- Infernal Crush  [vu 30×30]
+        { role = "other", voice = "watch-dodge", spellID = 474197, firstSeenSec = 35, cdSeriesSec = { 35 }, severity = 1 },  -- Demonic Rage  [vu 35×30]
     },
 })
 
--- Lithiel Cinderfury  (encounterID 3105) — 11 pull(s) capturé(s)
+-- Lithiel Cinderfury  (encounterID 3105) — 12 pull(s) capturé(s)
 R(3105, {
     name = "Lithiel Cinderfury",
     provenance = "observed",
     dungeon = "Murder Row",
     matchOnly = true,
     events = {
-        { role = "other", voice = "summon-adds", spellID = 474408, firstSeenSec = 10, cdSeriesSec = { 10, 57 }, severity = 0 },  -- Summon Vilefiend  [vu 10×11 57×24]
-        { role = "other", voice = "watch-dodge", spellID = 474457, firstSeenSec = 15, cdSeriesSec = { 15, 55 }, severity = 1 },  -- Fingers of Gul'dan  [vu 15×11 55×23]
-        { role = "other", voice = "watch-dodge", spellID = 1217384, firstSeenSec = 24, cdSeriesSec = { 24, 59 }, severity = 2 },  -- Malefic Wave  [vu 24×11 59×19]
+        { role = "other", voice = "summon-adds", spellID = 474408, firstSeenSec = 10, cdSeriesSec = { 10, 57 }, severity = 0 },  -- Summon Vilefiend  [vu 10×12 57×28]
+        { role = "other", voice = "watch-dodge", spellID = 474457, firstSeenSec = 15, cdSeriesSec = { 15, 55 }, severity = 1 },  -- Fingers of Gul'dan  [vu 15×12 55×27]
+        { role = "other", voice = "watch-dodge", spellID = 1217384, firstSeenSec = 24, cdSeriesSec = { 24, 59 }, severity = 2 },  -- Malefic Wave  [vu 24×12 59×22]
     },
 })
 

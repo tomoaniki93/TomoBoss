@@ -71,6 +71,17 @@ local MIN_RESOLVED = 0.20
 -- Les durées réellement distinctes d'une rencontre sont des valeurs d'auteur,
 -- jamais séparées d'un dixième de seconde.
 local MERGE_EPS = 0.15
+-- Seconde passe, ASYMÉTRIQUE. Le serveur poste parfois une annonce en retard et
+-- publie alors le temps restant : la série à 16 s ressort à 16.8, celle à 45 s à
+-- 43.5. L'écart dépasse la fusion serrée, mais ces valeurs n'apparaissent qu'une
+-- ou deux fois face à des dizaines d'occurrences de la vraie durée.
+--
+-- Le rapport de fréquence est le discriminant, pas l'écart : sur ces captures,
+-- 21 (×5) et 21.5 (×17) sont deux capacités distinctes séparées d'un demi-
+-- dixième, avec un rapport de 3. Une fusion fondée sur la seule distance les
+-- détruirait ; un rapport de 10 les préserve et absorbe le bruit.
+local MERGE_FAR = 1.5    -- écart maximal de cette passe
+local MERGE_RATIO = 10   -- la voisine doit être au moins 10 fois plus fréquente
 -- Proportion d'occurrences coïncidant avec un autre événement au-delà de
 -- laquelle une durée est jugée REDONDANTE.
 --
@@ -241,7 +252,7 @@ local IDENTIFY = {
         -- en retard et sort alors à 42.8, 43.5 ou 44.3 au lieu de 45 : même
         -- série, déclenchements alignés sur 125 et 170, espacés de 45. La
         -- fenêtre élargie les rattache au lieu de les laisser en orphelines.
-        { dur = { 45 }, tol = 2.5, spellID = 1235616, name = "Light Bolt",
+        { dur = { 45 }, spellID = 1235616, name = "Light Bolt",
           role = "mechanic", voice = "prepare-interrupt", severity = 1, keepOthers = true },
     },
     -- Lightwarden Ruia. Le combat se découpe par paliers de vie : Moonkin
@@ -554,6 +565,31 @@ local function observedFor(encID)
         end
     end
 
+    do
+        local ds = {}
+        for d in pairs(seen) do ds[#ds + 1] = d end
+        table.sort(ds, function(a, b) return seen[a] < seen[b] end)
+        for _, d in ipairs(ds) do
+            if seen[d] then
+                local best, bestN
+                for o, c in pairs(seen) do
+                    if o ~= d and math.abs(o - d) <= MERGE_FAR
+                        and c >= seen[d] * MERGE_RATIO
+                        and (not bestN or c > bestN) then
+                        best, bestN = o, c
+                    end
+                end
+                if best then
+                    MERGED[#MERGED + 1] = { enc = encID, rep = best,
+                        parts = { tostring(d), tostring(best) }, n = seen[best] + seen[d], far = true }
+                    seen[best] = seen[best] + seen[d]
+                    fired[best] = (fired[best] or 0) + (fired[d] or 0)
+                    seen[d], fired[d], coinc[d] = nil, nil, nil
+                end
+            end
+        end
+    end
+
     local out = {}
     for d, n in pairs(seen) do
         if n >= MIN_SEEN then
@@ -765,8 +801,9 @@ for _, dg in ipairs(DUNGEONS) do
             end
             for _, m in ipairs(MERGED) do
                 if m.enc == encID then
-                    note("[%d] durées %s regroupées sur %s (%d observations) — même événement, bruit serveur",
-                        encID, table.concat(m.parts, " / "), tostring(m.rep), m.n)
+                    note("[%d] durées %s regroupées sur %s (%d observations) — %s",
+                        encID, table.concat(m.parts, " / "), tostring(m.rep), m.n,
+                        m.far and "annonce tardive absorbée par la durée dominante" or "même événement, bruit serveur")
                 end
             end
             for i, msg in ipairs(REJECTED) do

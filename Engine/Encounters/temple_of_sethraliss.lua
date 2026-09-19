@@ -21,8 +21,8 @@ R(2124, {
     events = {
         { role = "other", voice = "watch-dodge", spellID = 1289059, firstSeenSec = 1, cdSeriesSec = { 1, 5, 45 }, severity = 1 },  -- Gale Force  [vu 1×14 5×28 45×41]
         { role = "other", voice = "watch-dodge", spellID = 1288049, firstSeenSec = 5, cdSeriesSec = { 5, 9, 45 }, severity = 2 },  -- Thunder and Lightning  [vu 5×28 9×11 45×41]
-        { role = "other", voice = "prepare-aoe", spellID = 1311805, firstSeenSec = 12, cdSeriesSec = { 12, 25, 25.55, 29, 45 }, severity = 1 },  -- capacité  [vu 12×6 25×21 25.55×3 29×12 45×41]
-        { role = "tank", voice = "tank-buster", spellID = 1288428, firstSeenSec = 35, cdSeriesSec = { 35, 35.27, 39, 45 }, severity = 0 },  -- capacité  [vu 35×9 35.27×6 39×11 45×41]
+        { role = "other", voice = "prepare-aoe", spellID = 1311805, firstSeenSec = 12, cdSeriesSec = { 12, 25, 25.55, 29, 45 }, severity = 1 },  -- capacité  [vu 12×6 25×22 25.55×3 29×12 45×41]
+        { role = "tank", voice = "tank-buster", spellID = 1288428, firstSeenSec = 35, cdSeriesSec = { 35, 35.27, 39, 45 }, severity = 0 },  -- capacité  [vu 35×9 35.27×6 39×12 45×41]
     },
 })
 

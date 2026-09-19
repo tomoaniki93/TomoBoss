@@ -1,4 +1,5 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
     <Include file="InterruptTracker.lua"/>
     <Include file="TrashCD.lua"/>
+    <Include file="Metronome.lua"/>
 </Ui>

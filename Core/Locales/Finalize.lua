@@ -18,3 +18,13 @@ for _, code in ipairs(supported) do
 end
 local code = GetLocale and GetLocale() or "enUS"
 NS.L = NS.Locales[code] or NS.Locales.enUS
+
+-- Repli vers l'anglais pour toute clé absente de la langue choisie.
+--
+-- Sans lui, une chaîne ajoutée au fichier de base mais pas encore traduite
+-- ressort nil, et SetText(nil) laisse un libellé vide dans l'interface. L'audit
+-- ci-dessus continue de signaler les manques : le repli évite l'accident,
+-- il ne dispense pas de traduire.
+if NS.L ~= NS.Locales.enUS then
+    setmetatable(NS.L, { __index = NS.Locales.enUS })
+end

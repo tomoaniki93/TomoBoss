@@ -85,6 +85,17 @@ NS.defaults = {
             showIcon   = true,
             fontSize   = 13,
         },
+        -- Métronome de groupe : un battement régulier tant qu'un joueur désigné
+        -- est dans le groupe ET que l'on est en combat, hors rencontre de boss.
+        -- `names` accepte « Nom » ou « Nom-Royaume » ; la casse est ignorée.
+        metronome = {
+            enabled  = true,
+            interval = 10,                            -- secondes entre deux battements
+            sound    = "Top",                         -- Media/Sounds/<sound>.ogg
+            channel  = nil,                           -- nil = suit le canal son général
+            names    = { ["Taluani-Varimathras"] = true },
+        },
+
         trash = {
             enabled     = true,
             voiceOnKick = false,

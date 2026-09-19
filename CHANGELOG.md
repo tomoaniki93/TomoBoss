@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.8.2-rc1 — Encounter data verified against the client's own Dungeon Journal
+## 2.8.2-rc1 — Encounter data verified against the client's own Dungeon Journal - Encounter Surprise for Taluani
 
 Follows 2.8.0-rc3, which brought the Season 2 dungeon pool to `provenance = "observed"`. This release verifies that data against Blizzard's own ability records, read at runtime from the player's client.
 

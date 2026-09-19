@@ -19,7 +19,7 @@ R(3199, {
     dungeon = "The Blinding Vale",
     matchOnly = true,
     events = {
-        { role = "mechanic", voice = "prepare-interrupt", spellID = 1235616, firstSeenSec = 45, cdSeriesSec = { 45, 44.28, 43.54 }, severity = 1 },  -- Light Bolt  [vu 43.54×3 44.28×4 45×35]
+        { role = "mechanic", voice = "prepare-interrupt", spellID = 1235616, firstSeenSec = 45, cdSeriesSec = { 45, 44.28 }, severity = 1 },  -- Light Bolt  [vu 44.28×4 45×38]
         { role = "other", voice = "watch-dodge", spellID = 1235640, firstSeenSec = 8, cdSeriesSec = { 8, 10 }, severity = 1 },  -- Thornblade | round-robin LittleWigs sur 40-45 s — non transposable  [vu 8×4 10×3]
         { role = "tank", voice = "tank-buster", spellID = 1234753, firstSeenSec = 5, cdSeriesSec = { 5 }, severity = 0 },  -- Bedrock Slam | round-robin LittleWigs sur 40-45 s — non transposable  [vu 5×5]
         { role = "other", voice = "dodge-charge", spellID = 1234850, firstSeenSec = 20, cdSeriesSec = { 20 }, severity = 2 },  -- Lightsower Dash | round-robin LittleWigs sur 40-45 s — non transposable  [vu 20×5]
