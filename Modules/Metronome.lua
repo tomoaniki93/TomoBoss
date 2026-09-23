@@ -93,12 +93,15 @@ end
 function M:Play()
     local c = cfg()
     if not c then return end
+    self._ticks = (self._ticks or 0) + 1
+    self._lastPlay = GetTime()
     local file = SOUND_PATH .. ((c.sound or "Top") .. ".ogg")
     local channel = c.channel
         or (NS.db.profile.ui and NS.db.profile.ui.general and NS.db.profile.ui.general.soundChannel)
         or "Master"
     if not PlaySoundFile then return end
     local willPlay = PlaySoundFile(file, channel)
+    self._lastFile, self._lastOK = file, willPlay
     -- Averti une seule fois : un fichier manquant ne doit pas inonder le chat
     -- à chaque battement.
     if willPlay == false and not self._warned then
@@ -148,3 +151,63 @@ f:SetScript("OnEvent", function(_, event)
 end)
 
 M._frame = f
+
+--------------------------------------------------------------------------
+-- Diagnostic — /tmb metro
+--------------------------------------------------------------------------
+-- Trois conditions doivent tenir ensemble ; quand le métronome se tait, la
+-- seule question utile est LAQUELLE manque. Le rapport les donne toutes plutôt
+-- que de laisser deviner.
+function M:Report()
+    local c = cfg()
+    local function yn(v) return v and "|cff8bd5caoui|r" or "|cffed8796non|r" end
+
+    NS:Print("— métronome —")
+    if not c then NS:Print("  configuration absente (profil non migré ?)"); return end
+
+    NS:Print(string.format("  activé          : %s", yn(c.enabled)))
+    NS:Print(string.format("  intervalle      : %s s", tostring(c.interval or 10)))
+
+    local names = {}
+    for n, on in pairs(c.names or {}) do if on then names[#names + 1] = n end end
+    table.sort(names)
+    NS:Print(string.format("  noms configurés : %s",
+        #names > 0 and table.concat(names, ", ") or "|cffed8796aucun|r"))
+
+    -- Ce que le client voit réellement du groupe : c'est ici que se cache la
+    -- plupart des cas « ça ne se déclenche pas ».
+    local seen = {}
+    local function note(unit)
+        if not UnitExists(unit) then return end
+        local full = GetUnitName and GetUnitName(unit, true) or UnitName(unit)
+        full = NS:SafeString(full)
+        if not full then seen[#seen + 1] = unit .. "=<illisible>"
+        elseif NS:IsSecret(full) then seen[#seen + 1] = unit .. "=<secret>"
+        else seen[#seen + 1] = unit .. "=" .. full end
+    end
+    note("player")
+    if IsInRaid and IsInRaid() then
+        for i = 1, (GetNumGroupMembers and GetNumGroupMembers() or 0) do note("raid" .. i) end
+    else
+        for i = 1, 4 do note("party" .. i) end
+    end
+    NS:Print("  groupe vu       : " .. (#seen > 0 and table.concat(seen, "  ") or "seul"))
+
+    NS:Print(string.format("  joueur présent  : %s", yn(self:TriggerPresent())))
+    NS:Print(string.format("  en combat       : %s", yn(InCombatLockdown and InCombatLockdown())))
+    NS:Print(string.format("  rencontre boss  : %s  (drapeau %s, API %s)",
+        yn(inBossFight()), tostring(self._encounter),
+        tostring(IsEncounterInProgress and IsEncounterInProgress())))
+    NS:Print(string.format("  minuteur actif  : %s", yn(self._ticker ~= nil)))
+    NS:Print(string.format("  battements      : %d", self._ticks or 0))
+    if self._lastPlay then
+        NS:Print(string.format("  dernier         : il y a %.0f s  (%s, lecture %s)",
+            GetTime() - self._lastPlay, tostring(self._lastFile), tostring(self._lastOK)))
+    end
+end
+
+-- Joue le son une fois, hors de toute condition — pour vérifier le fichier.
+function M:Test()
+    self._warned = nil
+    self:Play()
+end

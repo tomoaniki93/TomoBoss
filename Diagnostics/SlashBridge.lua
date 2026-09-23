@@ -41,6 +41,9 @@ local function installDoctorSubcommand()
                 NS.TrashObservatory:RunDoctor()
             end
             return
+        elseif first == "metro" and NS.Metronome then
+            if second == "test" then NS.Metronome:Test() else NS.Metronome:Report() end
+            return
         elseif first == "journal" and NS.JournalScan then
             if second ~= "" and tonumber(second) then
                 NS.JournalScan:Show(tonumber(second))

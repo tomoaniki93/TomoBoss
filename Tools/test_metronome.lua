@@ -21,6 +21,7 @@ _G.CreateFrame = function()
     f.SetScript = function(_, _, fn) f._on = fn end
     return f
 end
+_G.GetTime = function() return _G.__now or 0 end
 local NS = { db = { profile = { metronome = {
     enabled = true, interval = 10, sound = "Top",
     names = { ["Taluani-Varimathras"] = true } } } } }

@@ -11,6 +11,7 @@
 ## AddonCompartmentFuncOnLeave: TomoBoss_OnAddonCompartmentLeave
 
 # Libraries and core
+Libs\LibTomoKeystoneSync-1.0\LibTomoKeystoneSync-1.0.lua
 Libs\Libs.xml
 Core\Core.xml
 Voice\Catalog.xml

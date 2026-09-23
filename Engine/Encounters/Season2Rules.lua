@@ -16,29 +16,27 @@ if type(NS) ~= "table" then return end
 
 NS.DURATION_RULES = NS.DURATION_RULES or {}
 
--- Galvazzt (Temple de Sethraliss).
+-- Aucune règle active pour l'instant.
 --
--- Ses deux seules capacités partagent la durée 22, qui représente 45 des 55
--- observations : le combat était donc annoncé en générique presque de bout en
--- bout. Les instants de déclenchement montrent deux séries entrelacées sur un
--- même cycle, décalées d'environ quinze secondes :
+-- Galvazzt a été tenté puis RETIRÉ. Ses deux capacités partagent la durée 22,
+-- et les instants de déclenchement semblaient former deux séries entrelacées
+-- sur un cycle régulier, décalées d'une quinzaine de secondes :
 --
---   5 · 20 · 28 · 42 · 51 · 65 · 74 · 95 · 103 · 118 · 126
---   A    B    A    B    A    B    A     ...
+--   5 · 20 · 27 · 43 · 50 · 66 · 72 · 89 · 95 · 112 · 117 · 134 · 139
 --
--- Lightning Spire ouvre à 5 s, Induction à 20 s, et ces deux ouvertures sont
--- identiques sur les six pulls capturés — c'est ce qui autorise des offsets
--- fixes plutôt que l'espacement régulier de repli, qui supposerait 0 et 11 et
--- désignerait la mauvaise capacité une fois sur deux.
+-- Les ouvertures sont effectivement stables — 5 et 20 sur les sept pulls
+-- capturés. Mais le cycle, lui, ne l'est pas : médiane 23,06 s, moyenne
+-- 24,45 s, maximum 29,16 s, pour des écarts consécutifs allant de 4,9 à
+-- 20,7 s. Deux phases séparées de sept secondes seulement dans un cycle de
+-- vingt-deux ne survivent pas à cette dérive.
 --
--- Le cycle réel est d'environ 23 s alors que la durée annoncée est 22 : l'écart
--- est absorbé par la correction de dérive de BlizzTimeline, qui s'applique au
--- groupe entier et non à chaque membre.
-NS.DURATION_RULES[2126] = {
-    { time = 22, eventID = 2601, sequenceGroup = "galvazzt", sequenceOrder = 1 },
-    { time = 22, eventID = 2602, sequenceGroup = "galvazzt", sequenceOrder = 2 },
-
-    -- Offsets de phase, mesurés : premier déclenchement de chaque série.
-    { sync = true, eventID = 2601, time = 5 },
-    { sync = true, eventID = 2602, time = 20 },
-}
+-- Mesuré par rejeu sur les observations réelles (Tools/test_rules.lua) :
+--
+--   décalages 5 / 20   -> 31 % d'attributions fausses
+--   espacement régulier -> 65 %
+--
+-- Une annonce fausse une fois sur trois vaut moins que le repli générique.
+-- La collision reste donc non tranchée, et c'est le bon résultat.
+--
+-- Toute règle ajoutée ici doit passer Tools/test_rules.lua avant livraison :
+-- une régularité constatée sur un pull ne prouve rien sur sept.

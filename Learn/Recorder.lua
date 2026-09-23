@@ -40,6 +40,19 @@ local PENDING_TIMEOUT = 30   -- une incantation en cours abandonnée au-delà
 -- laisse à ENCOUNTER_END le temps d'arriver, et il annule la clôture différée.
 local END_GRACE = 3.0
 
+-- Plafond de report de la clôture différée.
+--
+-- Certaines rencontres enchaînent plusieurs boss et le combat RETOMBE entre
+-- eux : sur Le Conseil des tribus, le premier boss meurt, PLAYER_REGEN_ENABLED
+-- arrive, et trois secondes plus tard le pull était commité — les deux boss
+-- suivants se battaient sans enregistrement ouvert, ENCOUNTER_START n'étant
+-- tiré qu'une fois pour toute la rencontre.
+--
+-- Tant que IsEncounterInProgress() est vrai, la rencontre continue : on
+-- re-arme au lieu de clore. Le plafond évite qu'un pull reste ouvert
+-- indéfiniment si ENCOUNTER_END ne vient jamais.
+local ENCOUNTER_HOLD_MAX = 300
+
 local function cfg() return NS.db.profile.learn end
 
 --------------------------------------------------------------------------
@@ -142,15 +155,27 @@ function R:FinishSoon(outcome)
     if not Store:IsRecording() then return end
     if self._closing then return end
     self._closing = true
-    C_Timer.After(END_GRACE, function()
+    self._holdSince = self._holdSince or GetTime()
+    local function attempt()
         if not R._closing then return end        -- ENCOUNTER_END a tranché
+        -- La rencontre est toujours en cours : le combat est simplement retombé
+        -- entre deux boss d'un enchaînement. On laisse l'enregistrement ouvert.
+        local held = GetTime() - (R._holdSince or 0)
+        if IsEncounterInProgress and IsEncounterInProgress()
+            and held < ENCOUNTER_HOLD_MAX then
+            C_Timer.After(END_GRACE, attempt)
+            return
+        end
         R._closing = nil
+        R._holdSince = nil
         R:Finish(outcome)
-    end)
+    end
+    C_Timer.After(END_GRACE, attempt)
 end
 
 function R:Finish(outcome)
     self._closing = nil                          -- annule toute clôture différée
+    self._holdSince = nil
     if not Store:IsRecording() then return end
     local key, n = Store:Commit(outcome)
     self._pending, self._seenTL = nil, nil

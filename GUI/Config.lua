@@ -215,7 +215,7 @@ local function ScrollablePage(page, contentHeight)
 end
 
 function Config:BuildGeneral(outer)
-    local page = ScrollablePage(outer, 800)
+    local page = ScrollablePage(outer, 900)
     local prof = NS.db.profile
     local lay = Layout(page)
 
@@ -389,7 +389,41 @@ function Config:BuildGeneral(outer)
 
         local mNDesc = page:CreateFontString(nil, "OVERLAY")
         NS.Theme:Font(mNDesc, 11, "muted"); mNDesc:SetText(L.METRO_NAMES_DESC)
-        lay:Add(mNDesc, 18)
+        lay:Add(mNDesc, 20)
+
+        local mSLbl = page:CreateFontString(nil, "OVERLAY")
+        NS.Theme:Font(mSLbl, 11, "muted"); mSLbl:SetText(L.METRO_SOUND)
+        lay:Add(mSLbl, 16)
+
+        local mSnd = NS.Theme:CreateEditBox(page, 240, 24)
+        mSnd:SetText(m.sound or "Top")
+        local function commitSound()
+            local v = (mSnd:GetText() or ""):match("^%s*(.-)%s*$")
+            -- L'extension est ajoutée par le module : la saisir ici donnerait
+            -- « Top.ogg.ogg ».
+            v = v:gsub("%.ogg$", "")
+            if v == "" then v = "Top" end
+            m.sound = v
+            mSnd:SetText(v)
+        end
+        mSnd:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+        mSnd:HookScript("OnEditFocusLost", commitSound)
+        lay:Add(mSnd, 0)
+
+        -- Bouton d'essai à droite du champ : il joue le son hors de toute
+        -- condition, ce qui sépare « mauvais fichier » de « conditions non
+        -- réunies » sans avoir à entrer en combat.
+        local mTest = NS.Theme:CreateButton(page, L.METRO_TEST, 90, 24)
+        mTest:SetPoint("LEFT", mSnd, "RIGHT", 8, 0)
+        mTest:SetScript("OnClick", function()
+            commitSound()
+            if NS.Metronome then NS.Metronome:Test() end
+        end)
+        lay:Add(page:CreateFontString(nil, "OVERLAY"), 12)
+
+        local mSDesc = page:CreateFontString(nil, "OVERLAY")
+        NS.Theme:Font(mSDesc, 11, "muted"); mSDesc:SetText(L.METRO_SOUND_DESC)
+        lay:Add(mSDesc, 18)
     end
 end
 

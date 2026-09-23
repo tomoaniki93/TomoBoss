@@ -47,7 +47,7 @@ R(2623, {
     events = {
         { role = "tank", voice = "tank-buster", spellID = 381512, firstSeenSec = 5, cdSeriesSec = { 5, 22.5 }, severity = 0 },  -- Stormslam  [vu 5×9 22.5×16]
         { role = "other", voice = "watch-dodge", spellID = 381862, firstSeenSec = 12, cdSeriesSec = { 12, 16, 20 }, severity = 1 },  -- Inferno Spit | AMBIGU : durée 16 partagée  [vu 12×5 16×38 20×22]
-        { role = "other", voice = "watch-knockback", spellID = 381517, firstSeenSec = 10, cdSeriesSec = { 10, 21.5 }, severity = 0 },  -- Winds of Change | AMBIGU : durée 21.5 partagée  [vu 10×5 21.5×17]
+        { role = "other", voice = "watch-knockback", spellID = 381517, firstSeenSec = 10, cdSeriesSec = { 10, 21.5 }, severity = 0 },  -- Winds of Change | AMBIGU : durée 21.5 partagée  [vu 10×6 21.5×17]
         { role = "other", voice = "watch-frontal", spellID = 381525, firstSeenSec = 1, cdSeriesSec = { 1, 16, 20 }, severity = 1 },  -- Roaring Firebreath | AMBIGU : durée 16 partagée  [vu 1×5 16×38 20×22]
         { role = "other", voice = "watch-explosion", spellID = 381516, firstSeenSec = 21, cdSeriesSec = { 21, 25 }, severity = 2 },  -- Interrupting Cloudburst | AMBIGU : durée 21 partagée  [vu 21×5 25×13]
     },

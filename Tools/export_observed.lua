@@ -80,8 +80,22 @@ local MERGE_EPS = 0.15
 -- 21 (×5) et 21.5 (×17) sont deux capacités distinctes séparées d'un demi-
 -- dixième, avec un rapport de 3. Une fusion fondée sur la seule distance les
 -- détruirait ; un rapport de 10 les préserve et absorbe le bruit.
+-- Le bruit va dans LES DEUX SENS : une annonce tardive publie un temps restant
+-- plus court (43.5 pour 45), mais le relevé peut aussi sortir plus long
+-- (16.8 pour 16). C'est la garde « valeur ronde » ci-dessous qui protège les
+-- vraies capacités, pas la direction.
+--
+-- Contrôle sur ces captures : 21 et 21.5 sont deux capacités distinctes de
+-- Kyrakka, toutes deux rondes — préservées. 43.54, 44.19 et 16.8 ne le sont
+-- pas — absorbées.
 local MERGE_FAR = 1.5    -- écart maximal de cette passe
-local MERGE_RATIO = 10   -- la voisine doit être au moins 10 fois plus fréquente
+local MERGE_RATIO = 5    -- la voisine plus longue doit être 5 fois plus fréquente
+
+-- Une durée d'auteur est toujours RONDE — entier ou demi-seconde. Un reste
+-- d'annonce tardive ne l'est jamais : 43.54, 24.35, 10.96. Seules les valeurs
+-- non rondes sont donc absorbables ; sans cette garde, la passe fusionnait
+-- 19 dans 20 et 9 dans 10, qui sont des capacités distinctes.
+local function isAuthored(d) return math.abs(d * 2 - math.floor(d * 2 + 0.5)) < 1e-6 end
 -- Proportion d'occurrences coïncidant avec un autre événement au-delà de
 -- laquelle une durée est jugée REDONDANTE.
 --
@@ -570,7 +584,7 @@ local function observedFor(encID)
         for d in pairs(seen) do ds[#ds + 1] = d end
         table.sort(ds, function(a, b) return seen[a] < seen[b] end)
         for _, d in ipairs(ds) do
-            if seen[d] then
+            if seen[d] and not isAuthored(d) then
                 local best, bestN
                 for o, c in pairs(seen) do
                     if o ~= d and math.abs(o - d) <= MERGE_FAR

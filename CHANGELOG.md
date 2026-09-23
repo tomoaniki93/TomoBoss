@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.8.3 — Keystone sync, journal-verified roles, multi-phase recording fix, group metronome
+
+### Fixed
+
+- **Complete metronome localisation.** The nine group-metronome settings now have native strings in every supported locale instead of falling back to English outside `frFR` and `enUS`.
+- **Multi-boss encounters stopped recording after the first boss.** Where combat drops between two bosses of one encounter, `PLAYER_REGEN_ENABLED` armed the deferred close and the pull was committed three seconds later — while `ENCOUNTER_START` only fires once for the whole encounter, so the remaining bosses fought with no recording open. On The Council of Tribes this captured 17–40 s of Kula and nothing else, every pull marked `abandon` despite being a kill, because the pull closed before `ENCOUNTER_END` could report the outcome. The deferred close now re-arms while `IsEncounterInProgress()` holds, capped at 300 s so a pull can never stay open if `ENCOUNTER_END` never arrives. First pull after the fix: **136 s, outcome `kill`, 13 distinct durations instead of 4**, and the encounter went from 2 recorded abilities to 6. This affected every phased encounter, not just the Council.
+- **The export generator was not idempotent, and failed silently.** It attaches observed durations to the *original* definition. Re-run on its own output it started from an already-narrowed definition: durations attached differently, new collisions appeared, and `OVERRIDE` — keyed by spell ID — stopped matching because those IDs had just been replaced. Measured: 125 entries and 22 collisions instead of 115 and 11, with 3 journal-derived roles instead of 11. Nothing more than having installed a previous build was needed to trigger it. The generator now detects `provenance = "observed"` in its input and stops with the command to restore the source.
+- **A duration could surface as an unknown ability because of rounding.** `92.4` appeared as an orphan while `92.39` was being filtered — the same event, split in two by rounding to hundredths.
+- **Untranslated strings rendered empty.** `NS.L` fell back to `enUS` only when the whole locale was missing, so a key added to the base file but not yet translated resolved to `nil` and `SetText(nil)` left a blank label. `NS.L` now falls back to English per key. `NS.LocaleAudit` still reports what is missing: the fallback prevents the accident, it does not excuse the translation.
+- **The General settings page overflowed its window.** 764 px of content in roughly 616 px of usable height. It now scrolls, which also leaves room for future settings.
+
+### Added
+
+- **`LibTomoKeystoneSync-1.0` — shared Mythic+ keystone exchange.** TomoBoss now embeds a lightweight `TOMOKEYS` protocol client that discovers the player's key and exchanges map, level, class, specialization and rating data with the party, raid or guild. It exposes lookup and callback APIs for other addons, rate-limits broadcasts, validates incoming packets and defers to TomoMod when that addon already owns the transport, avoiding duplicate messages.
+- **`/tmb journal` — Dungeon Journal scan.** Walks the live Mythic+ pool via `C_ChallengeMode.GetMapTable` plus the current tier's raids, and records every boss ability with its name, spell ID and Blizzard's own role flags. Indexed by `dungeonEncounterID`, the same identifier `ENCOUNTER_START` reports, so it joins directly to recorded pulls with no mapping table. No season constant: the pool list updates itself. `/tmb journal <encounterID>` prints one encounter for checking in game. First scan: 41 encounters, 857 abilities.
+- **The section tree is preserved**, which distinguishes a timed cast from its follow-up: Rimeshatter appears as a child of Shattering Frostspike, Fan Of Thorns as a Mythic follow-up to Thornblade. Passives are dropped via `C_Spell.IsSpellPassive`.
+- **Spell-name resolution for the addon's own IDs.** The scan also resolves every spell ID carried by the encounter files into its client name. The journal exposes the *display* spell — routinely the applied aura — while shipped tables often carry the *trigger* spell: joining on ID alone matched 65 % of entries, and adding the client-resolved name brings it to 96 %, or 98 % of entries that are actually abilities.
+- **`/tmb metro` — metronome diagnostics.** Reports every condition at once, including the group as the client actually renders it, flagging `<secret>` or unreadable names. Three conditions must hold together; when nothing plays, the only useful question is which one is missing. `/tmb metro test` plays the sound outside all conditions.
+- **Group metronome.** Plays a steady tick while a chosen player is in the group and you are in combat, silent during boss encounters. The exclusion is doubled by `IsEncounterInProgress()`, since a `/reload` mid-encounter misses `ENCOUNTER_START` and the tick would start during the fight. Configurable from the General tab: enable, interval, trigger names, sound file, and a test button. Entirely local — nothing is sent to the named player.
+- **`Tools/test_rules.lua`** — Replays BlizzTimeline's phase logic on real observations and counts misattributions, so a `DURATION_RULES` entry can be validated before shipping.
+- **Timeline event IDs are recorded.** Added as an optional eighth field, so existing captures stay readable with it unset.
+
+### Encounter data
+
+- **28 encounters, 119 events, all `provenance = "observed"`**, every duration seen at least three times across 401 recorded pulls. One entry still rests on third-party data: `Debilitating Backhand` on The Council of Tribes, whose durations have been seen once each — a coverage gap, not an error.
+- **27 abilities carry a role verified against Blizzard's flags**, 12 of them corrected by the scan and missed by every reference sheet. Sheets list only abilities that ask something of the player, so a tank buster the tank simply absorbs never appears there while still deserving a callout. Newly flagged as tank: Void Blast, Dark Waves, Fresh Meat, Tail Scythe, Lightning Bite, Overload. Newly flagged as healer: Death Rattle, Synchronized Venom, Serpentstorm, Induction.
+- **Three hand-made attributions independently confirmed.** The journal marks Forceful Slam `tank`, Light Bolt `interruptible` and Spirits of the Vale `important` — the roles assigned from fight descriptions alone.
+- **27 spell IDs replaced by the client's own.** Inherited identifiers came from a third-party table and several were wrong: `Fel Nova` carried 474240 for an ability that does not exist under that name, Overwhelming Onslaught 1243569 where the client says 1297792.
+- **Key level does not change timeline durations.** Verified from +4 to +10 across five dungeons with identical duration sets. The Blinding Vale's earlier break was a difficulty *tier* change, not a key-level one, so one set of values covers every Mythic+ level.
+
+### Data hygiene
+
+- **Near-duplicate durations merged.** The server returns slightly unstable values, and a late announcement publishes the remaining time rather than the interval: 43.54 for a 45 s series, 16.8 for a 16 s one. Counted separately, each half slipped under a different filter threshold and resurfaced as an orphan. Values within 0.15 s are grouped outright; beyond that a second pass absorbs a rare value into a neighbour at least five times more frequent. The deciding test is neither distance nor direction — noise runs both ways — but **roundness**: an authored duration is always a whole or half second, a leftover announcement never is. Without that guard the pass merged 19 into 20 and 9 into 10, which are distinct abilities.
+- **Per-encounter duration ceiling.** The Hoardmonger has three abilities on a 40 s cycle; everything beyond it is a long-range announcement of a later turn. A ceiling covers the family at once rather than listing values that server noise renews with every capture.
+- **Ambiguous journal titles are refused, not guessed.** Where one title covers two abilities whose flags differ, the name no longer decides and the case is reported.
+
+### Withdrawn
+
+- **The Galvazzt duration rule was written, tested and removed.** Its two abilities share the duration 22, which accounts for most of the fight, and their openings are perfectly stable at 5 s and 20 s across seven pulls. The cycle is not: median 23.06 s, mean 24.45 s, maximum 29.16 s, with consecutive gaps from 4.9 s to 20.7 s. Two phases seven seconds apart in a 22 s cycle do not survive that drift. Replayed against the real observations, the rule misattributed **31 %** of events — better than even spacing at 65 %, and still far worse than saying nothing. The collision stays unresolved, which is the correct outcome: a neutral voice beats a wrong one. The reasoning and figures are kept in `Season2Rules.lua` so the same wrong conclusion is not re-derived.
+
+### Known limitations
+
+- **Chaos Barrage is announced less often than it is cast.** Kystia casts it around 14 times per pull while no timeline slot fires more than 6 times; `C_EncounterTimeline` does not publish every cast. A limit of `matchOnly`, not of the data.
+- **12 duration collisions remain unresolved** and fall back to a generic alert. That is correct, not silent.
+- **The two Season 2 raids remain out of scope.** No encounter definitions exist for 3379, 3421, 3429, 3470 or 3492, and coverage is thin. Unlike the dungeons, raid timing feeds prediction and requires the full evidence bar.
+
 ## 2.8.2-rc1 — Encounter data verified against the client's own Dungeon Journal - Encounter Surprise for Taluani
 
 Follows 2.8.0-rc3, which brought the Season 2 dungeon pool to `provenance = "observed"`. This release verifies that data against Blizzard's own ability records, read at runtime from the player's client.
