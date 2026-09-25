@@ -89,11 +89,19 @@ NS.defaults = {
         -- est dans le groupe ET que l'on est en combat, hors rencontre de boss.
         -- `names` accepte « Nom » ou « Nom-Royaume » ; la casse est ignorée.
         metronome = {
-            enabled  = true,
             interval = 10,                            -- secondes entre deux battements
             sound    = "Top",                         -- Media/Sounds/<sound>.ogg
             channel  = nil,                           -- nil = suit le canal son général
             names    = { ["Taluani-Varimathras"] = true },
+            -- Périodes d'activité, format "MM-JJ", bornes incluses.
+            -- Une liste vide signifie « toute l'année ».
+            -- Une plage dont la fin précède le début franchit le nouvel an.
+            dates = {
+                { from = "01-24", to = "01-26" },
+                { from = "04-01", to = "04-03" },
+                { from = "07-09", to = "07-14" },
+                { from = "12-20", to = "12-31" },
+            },
         },
 
         trash = {

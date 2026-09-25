@@ -28,6 +28,37 @@ local SOUND_PATH = "Interface\\AddOns\\TomoBoss\\Media\\Sounds\\"
 local function cfg() return NS.db and NS.db.profile and NS.db.profile.metronome end
 
 --------------------------------------------------------------------------
+-- Périodes d'activité
+--------------------------------------------------------------------------
+-- Les bornes sont au format "MM-JJ", donc à largeur fixe et zéro-remplies :
+-- la comparaison lexicographique y est équivalente à la comparaison de date,
+-- sans avoir à découper ni convertir.
+--
+-- Une plage dont la fin précède le début franchit le nouvel an : "12-20".."01-05"
+-- couvre alors la fin d'une année ET le début de la suivante, ce qu'un simple
+-- encadrement ne saurait exprimer.
+--
+-- Liste absente ou vide : actif toute l'année, pour qu'un profil qui n'a jamais
+-- vu ce réglage ne se retrouve pas muet sans explication.
+local function inRange(today, from, to)
+    if not (from and to) then return false end
+    if from <= to then return today >= from and today <= to end
+    return today >= from or today <= to
+end
+
+function M:InSeason(today)
+    local c = cfg()
+    if not c then return false end
+    local list = c.dates
+    if type(list) ~= "table" or #list == 0 then return true end
+    today = today or date("%m-%d")
+    for _, r in ipairs(list) do
+        if inRange(today, r.from, r.to) then return true end
+    end
+    return false
+end
+
+--------------------------------------------------------------------------
 -- Présence du joueur déclencheur
 --------------------------------------------------------------------------
 -- Compare le nom court ET le nom complet. GetUnitName(unit, true) renvoie
@@ -84,7 +115,8 @@ end
 
 function M:ShouldRun()
     local c = cfg()
-    if not c or not c.enabled then return false end
+    if not c then return false end
+    if not self:InSeason() then return false end
     if inBossFight() then return false end
     if not (InCombatLockdown and InCombatLockdown()) then return false end
     return self:TriggerPresent()
@@ -165,7 +197,16 @@ function M:Report()
     NS:Print("— métronome —")
     if not c then NS:Print("  configuration absente (profil non migré ?)"); return end
 
-    NS:Print(string.format("  activé          : %s", yn(c.enabled)))
+    local today = date("%m-%d")
+    local per = {}
+    for _, r in ipairs(c.dates or {}) do
+        per[#per + 1] = string.format("%s→%s%s", tostring(r.from), tostring(r.to),
+            inRange(today, r.from, r.to) and " |cff8bd5ca(en cours)|r" or "")
+    end
+    NS:Print(string.format("  aujourd'hui     : %s", today))
+    NS:Print(string.format("  périodes        : %s",
+        #per > 0 and table.concat(per, "  ") or "toute l'année"))
+    NS:Print(string.format("  dans la période : %s", yn(self:InSeason())))
     NS:Print(string.format("  intervalle      : %s s", tostring(c.interval or 10)))
 
     local names = {}

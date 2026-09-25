@@ -22,9 +22,16 @@ _G.CreateFrame = function()
     return f
 end
 _G.GetTime = function() return _G.__now or 0 end
+_G.date = function(fmt) return _G.__today or "07-10" end
 local NS = { db = { profile = { metronome = {
-    enabled = true, interval = 10, sound = "Top",
-    names = { ["Taluani-Varimathras"] = true } } } } }
+    interval = 10, sound = "Top",
+    names = { ["Taluani-Varimathras"] = true },
+    dates = {
+        { from = "01-24", to = "01-26" },
+        { from = "04-01", to = "04-03" },
+        { from = "07-09", to = "07-14" },
+        { from = "12-20", to = "12-31" },
+    } } } } }
 function NS:SafeString(v) return type(v)=="string" and v or nil end
 function NS:IsSecret() return false end
 function NS:Print(m) print("   [print] "..m) end
@@ -69,9 +76,37 @@ check("nom court, meme royaume, casse differente", state(), true)
 _G.__combat = false; fire("PLAYER_REGEN_ENABLED")
 check("fin de combat -> arret", state(), false)
 
-NS.db.profile.metronome.enabled = false
-_G.__combat = true; fire("PLAYER_REGEN_DISABLED")
-check("desactive -> silence", state(), false)
+-- On revient en combat : le test precedent en est sorti.
+_G.__combat = true
+_G.__today = "07-15"; M:Restart()
+check("lendemain de la periode -> silence", state(), false)
+_G.__today = "07-09"; M:Restart()
+check("premier jour de la periode -> battement", state(), true)
+_G.__today = "07-14"; M:Restart()
+check("dernier jour de la periode -> battement", state(), true)
+
+print("\n=== periodes ===")
+local function season(d) _G.__today = d; return M:InSeason() end
+check("24 janvier inclus",            season("01-24"), true)
+check("26 janvier inclus",            season("01-26"), true)
+check("27 janvier exclu",             season("01-27"), false)
+check("1er avril inclus",             season("04-01"), true)
+check("4 avril exclu",                season("04-04"), false)
+check("20 decembre inclus",           season("12-20"), true)
+check("31 decembre inclus",           season("12-31"), true)
+check("19 decembre exclu",            season("12-19"), false)
+check("15 juin exclu",                season("06-15"), false)
+
+-- Une plage qui franchit le nouvel an ne peut pas s'exprimer par un simple
+-- encadrement : c'est le cas que la comparaison lexicographique seule raterait.
+NS.db.profile.metronome.dates = { { from = "12-28", to = "01-03" } }
+check("31 decembre dans une plage a cheval", season("12-31"), true)
+check("2 janvier dans une plage a cheval",   season("01-02"), true)
+check("15 juillet hors plage a cheval",      season("07-15"), false)
+
+-- Liste vide : actif toute l'annee, pour ne pas rendre muet un profil ancien.
+NS.db.profile.metronome.dates = {}
+check("liste vide -> toute l'annee", season("06-15"), true)
 
 print("")
 if fails > 0 then error(fails.." echec(s)", 0) end

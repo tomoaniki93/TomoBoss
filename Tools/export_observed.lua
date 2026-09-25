@@ -88,7 +88,16 @@ local MERGE_EPS = 0.15
 -- Contrôle sur ces captures : 21 et 21.5 sont deux capacités distinctes de
 -- Kyrakka, toutes deux rondes — préservées. 43.54, 44.19 et 16.8 ne le sont
 -- pas — absorbées.
-local MERGE_FAR = 1.5    -- écart maximal de cette passe
+-- Plancher : une entrée de durée nulle ou quasi nulle n'annonce rien, c'est un
+-- marqueur d'état. La borne reste sous 1 s car certaines capacités réelles
+-- sortent à 1 s (Roaring Firebreath sur Kyrakka).
+local MIN_DURATION = 0.5
+
+-- Fenêtre élargie à 3 s : une annonce en retard peut décaler de plus de deux
+-- secondes (32.85 pour une série à 35). L'élargissement est sans danger parce
+-- que seule une valeur NON RONDE peut être absorbée — les durées d'auteur,
+-- entières ou demi-secondes, sont protégées quelle que soit la fenêtre.
+local MERGE_FAR = 3.0    -- écart maximal de cette passe
 local MERGE_RATIO = 5    -- la voisine plus longue doit être 5 fois plus fréquente
 
 -- Une durée d'auteur est toujours RONDE — entier ou demi-seconde. Un reste
@@ -497,7 +506,8 @@ local function observedFor(encID)
         if cut and p.date and p.date < cut then goto skip end
         nPulls = nPulls + 1
         for _, o in ipairs(p.obs or {}) do
-            if o[2] == K_TL and type(o[3]) == "number" and o[3] < SENTINEL then
+            if o[2] == K_TL and type(o[3]) == "number"
+                and o[3] >= MIN_DURATION and o[3] < SENTINEL then
                 local d = math.floor(o[3] * 100 + 0.5) / 100
                 seen[d] = (seen[d] or 0) + 1
             end

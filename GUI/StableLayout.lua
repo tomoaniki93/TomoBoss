@@ -642,8 +642,13 @@ end
 --------------------------------------------------------------------------
 -- Général : uniquement réglages globaux + actions d'interface.
 --------------------------------------------------------------------------
-function Config:BuildStableGeneral(page)
+function Config:BuildStableGeneral(outer)
     local prof = NS.db.profile
+
+    -- Le métronome a porté cette page au-delà de la hauteur disponible : le
+    -- champ du fichier son et son bouton d'essai se dessinaient sous le bord du
+    -- panneau, hors d'atteinte. Même traitement que les autres pages longues.
+    local page = ScrollBody(outer, 0, 700)
     local lay = Layout(page)
     lay:Add(section(page, L.STABLE_GENERAL_TITLE), 22)
 
@@ -717,6 +722,123 @@ function Config:BuildStableGeneral(page)
     hint:SetWidth(500); hint:SetJustifyH("LEFT")
     hint:SetText(L.UNLOCK_DESC)
     lay:Add(hint, 30)
+
+    ----------------------------------------------------------------------
+    -- Métronome de groupe
+    ----------------------------------------------------------------------
+    local m = prof.metronome
+    if m then
+        lay:Gap(12)
+        lay:Add(section(page, L.METRO_TITLE), 22)
+
+        local mDesc = page:CreateFontString(nil, "OVERLAY")
+        NS.Theme:Font(mDesc, 11, "muted")
+        mDesc:SetWidth(470); mDesc:SetJustifyH("LEFT")
+        mDesc:SetText(L.METRO_ENABLED_DESC)
+        lay:Add(mDesc, 42)
+
+        -- Il n'y a pas d'interrupteur : ce sont les périodes qui décident. On
+        -- les affiche donc, ainsi que l'état du jour, pour que le silence soit
+        -- explicable sans ouvrir un fichier.
+        local mSeason = page:CreateFontString(nil, "OVERLAY")
+        NS.Theme:Font(mSeason, 11, "muted")
+        mSeason:SetWidth(470); mSeason:SetJustifyH("LEFT")
+        local per = {}
+        for _, r in ipairs(m.dates or {}) do
+            per[#per + 1] = string.format("%s → %s", tostring(r.from), tostring(r.to))
+        end
+        local active = NS.Metronome and NS.Metronome:InSeason()
+        mSeason:SetText(string.format("%s %s\n%s",
+            L.METRO_PERIODS,
+            #per > 0 and table.concat(per, "   ") or L.METRO_ALL_YEAR,
+            active and L.METRO_IN_SEASON or L.METRO_OUT_SEASON))
+        lay:Add(mSeason, 40)
+
+        local mInt = NS.Theme:CreateSlider(page, {
+            label = L.METRO_INTERVAL, min = 3, max = 30, step = 1,
+            value = m.interval or 10, width = 330,
+            fmt = function(v) return string.format("%d s", v) end,
+        })
+        mInt:SetCallback(function(v)
+            m.interval = math.floor(v + 0.5)
+            if NS.Metronome then NS.Metronome:Restart() end
+        end)
+        lay:Add(mInt, 46)
+
+        local mNLbl = page:CreateFontString(nil, "OVERLAY")
+        NS.Theme:Font(mNLbl, 11, "muted"); mNLbl:SetText(L.METRO_NAMES)
+        lay:Add(mNLbl, 16)
+
+        -- `names` est un ensemble ; l'interface le présente comme une liste
+        -- séparée par des virgules, plus simple à éditer à la main.
+        local function namesToText()
+            local out = {}
+            for name, on in pairs(m.names or {}) do
+                if on then out[#out + 1] = name end
+            end
+            table.sort(out)
+            return table.concat(out, ", ")
+        end
+
+        local mBox = NS.Theme:CreateEditBox(page, 330, 24)
+        mBox:SetText(namesToText())
+        local function commitNames()
+            local set = {}
+            for name in (mBox:GetText() or ""):gmatch("[^,]+") do
+                name = name:match("^%s*(.-)%s*$")
+                if name ~= "" then set[name] = true end
+            end
+            m.names = set
+            mBox:SetText(namesToText())
+            if NS.Metronome then NS.Metronome:Restart() end
+        end
+        mBox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+        -- Validation à la perte de focus : sans elle, fermer la fenêtre sans
+        -- appuyer sur Entrée perdrait la saisie.
+        mBox:HookScript("OnEditFocusLost", commitNames)
+        lay:Add(mBox, 28)
+
+        local mNDesc = page:CreateFontString(nil, "OVERLAY")
+        NS.Theme:Font(mNDesc, 11, "muted")
+        mNDesc:SetWidth(470); mNDesc:SetJustifyH("LEFT")
+        mNDesc:SetText(L.METRO_NAMES_DESC)
+        lay:Add(mNDesc, 20)
+
+        local mSLbl = page:CreateFontString(nil, "OVERLAY")
+        NS.Theme:Font(mSLbl, 11, "muted"); mSLbl:SetText(L.METRO_SOUND)
+        lay:Add(mSLbl, 16)
+
+        local mSnd = NS.Theme:CreateEditBox(page, 220, 24)
+        mSnd:SetText(m.sound or "Top")
+        local function commitSound()
+            local v = (mSnd:GetText() or ""):match("^%s*(.-)%s*$")
+            -- L'extension est ajoutée par le module : la saisir ici donnerait
+            -- « Top.ogg.ogg ».
+            v = v:gsub("%.ogg$", "")
+            if v == "" then v = "Top" end
+            m.sound = v
+            mSnd:SetText(v)
+        end
+        mSnd:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+        mSnd:HookScript("OnEditFocusLost", commitSound)
+        lay:Add(mSnd, 28)
+
+        -- Bouton d'essai à droite du champ : il joue le son hors de toute
+        -- condition, ce qui sépare « mauvais fichier » de « conditions non
+        -- réunies » sans avoir à entrer en combat.
+        local mTest = NS.Theme:CreateButton(page, L.METRO_TEST, 110, 24)
+        mTest:SetPoint("LEFT", mSnd, "RIGHT", 10, 0)
+        mTest:SetScript("OnClick", function()
+            commitSound()
+            if NS.Metronome then NS.Metronome:Test() end
+        end)
+
+        local mSDesc = page:CreateFontString(nil, "OVERLAY")
+        NS.Theme:Font(mSDesc, 11, "muted")
+        mSDesc:SetWidth(470); mSDesc:SetJustifyH("LEFT")
+        mSDesc:SetText(L.METRO_SOUND_DESC)
+        lay:Add(mSDesc, 20)
+    end
 end
 
 --------------------------------------------------------------------------
