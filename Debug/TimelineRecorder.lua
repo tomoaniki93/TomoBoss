@@ -123,8 +123,13 @@ function R:OnAdded(id, matchDur, fireDur, ev, how, info)
             field(how), field(ev.spellID), field(ev.eventID),
             field(ev.severity), field(ev.voice), srv)
     else
-        tail = string.format("  » <aucun>  (nom serveur : %s)",
-            info and field(info.spellName) or "?")
+        -- L'icône est reportée telle quelle, sans SafeNumber : le but de cette
+        -- ligne est justement de montrer si le jeu la masque ou non. En raid
+        -- c'est le seul champ d'identité qui puisse encore passer, et la
+        -- réponse doit se lire sur une capture, pas se supposer.
+        tail = string.format("  » <aucun>  (nom serveur : %s, icône : %s)",
+            info and field(info.spellName) or "?",
+            info and field(info.iconFileID) or "?")
     end
     push("[%6.2f]  ADDED    id:%-6s match:%-8s réel:%-8s%s",
         stamp(), field(id), num(matchDur, "%.3f"), num(fireDur, "%.3f"), tail)

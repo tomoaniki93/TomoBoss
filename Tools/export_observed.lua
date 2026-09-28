@@ -229,9 +229,12 @@ local OVERRIDE = {
 
 -- Attribution d'eventID. Ce ne sont pas des valeurs du jeu : l'eventID des
 -- définitions est une clé d'auteur, que BuildEventIDIndex relie aux règles de
--- DURATION_RULES. Les identifiants publiés par C_EncounterTimeline sont des
--- poignées séquentielles renumérotées à chaque pull (245, 246, 247...) et ne
--- peuvent donc pas servir ici.
+-- DURATION_RULES. Les identifiants publiés par C_EncounterTimeline sont un
+-- COMPTEUR DE SESSION : ils avancent avec les événements et ne repartent de zéro
+-- qu'au /reload ou au changement d'instance — un second pull du même combat
+-- reprend la numérotation là où elle en était. Un identifiant qui réapparaît
+-- porte donc une autre capacité dans 198 cas sur 292 (Tools/test_identity.lua).
+-- Ils ne peuvent pas servir ici.
 local EVENT_IDS = {
     -- On indexe sur les DEUX identifiants — celui du dépôt et celui du client —
     -- puisque le second remplace le premier à l'écriture : une table calée sur

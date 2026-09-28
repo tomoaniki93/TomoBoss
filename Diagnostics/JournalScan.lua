@@ -118,9 +118,30 @@ local function walk(sectionID, out, depth, parentTitle, seen)
                     end
                 end
             end
+            -- Icône du sort.
+            --
+            -- Sous Midnight, C_EncounterTimeline masque le nom serveur et le
+            -- GUID du lanceur ; en raid il ne reste RIEN qui identifie la
+            -- capacité — l'identifiant d'événement est un compteur de session,
+            -- pas une identité (relevé : pull suivant du même combat, le
+            -- compteur reprend là où il s'était arrêté).
+            --
+            -- L'icône, elle, n'est pas masquée : BlizzTimeline lit déjà
+            -- info.iconFileID pour dessiner la barre générique. C'est donc le
+            -- seul pont d'identité qui reste, et il ne vaut que si les deux
+            -- côtés le portent : le journal ici, les captures dans le Store.
+            local icon
+            if C_Spell and C_Spell.GetSpellInfo then
+                local ok, si = pcall(C_Spell.GetSpellInfo, info.spellID)
+                if ok and type(si) == "table" then
+                    icon = si.iconID or si.originalIconID
+                end
+            end
+
             out[#out + 1] = {
                 title   = info.title,
                 spellID = info.spellID,
+                icon    = icon,
                 flags   = labels,
                 depth   = depth,
                 parent  = parentTitle,

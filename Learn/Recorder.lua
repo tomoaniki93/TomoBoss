@@ -228,9 +228,19 @@ function R:OnTimelineAdded(x)
         sname = tostring(info.spellName)
     end
 
-    -- `id` est déjà en main pour GetEventTimeRemaining : le conserver ne coûte
-    -- rien et permet d'écrire des règles de désambiguïsation par la suite.
-    Store:Add(Store.KIND_TIMELINE, dur, nil, nil, fire, sname, id)
+    -- L'icône est le dernier champ d'identité que le jeu ne masque pas :
+    -- BlizzTimeline la lit déjà pour dessiner la barre générique. En donjon on
+    -- s'en passait, le dépôt portait des définitions à qui rattacher les durées.
+    -- En raid il n'y a aucune définition de départ, et ni le nom serveur ni le
+    -- GUID du lanceur ne sont lisibles : sans l'icône, une durée observée reste
+    -- anonyme et n'a rien à annoncer de plus que le repli générique.
+    -- Le relevé de journal (/tmb journal) porte l'icône de l'autre côté.
+    local icon = NS:SafeNumber(info.iconFileID)
+
+    -- `id` est déjà en main pour GetEventTimeRemaining : on le conserve pour le
+    -- diagnostic, mais c'est un compteur de session — jamais une clé (voir
+    -- l'en-tête de Learn/Store.lua).
+    Store:Add(Store.KIND_TIMELINE, dur, nil, nil, fire, sname, id, icon)
 end
 
 --------------------------------------------------------------------------

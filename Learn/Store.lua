@@ -9,7 +9,7 @@
 -- SCHÉMA v2 — l'identité n'est plus un NOM (illisible sous Midnight) mais le
 -- couple (npcID, durée mesurée), plus la durée-identité de la timeline.
 --
---   obs[i] = { t, kind, dur, npc, unit, fire, sname }
+--   obs[i] = { t, kind, dur, npc, unit, fire, sname, evID, icon }
 --     t     : secondes depuis le début du pull (2 décimales)
 --     kind  : 1 incantation | 2 canalisation | 3 timeline | 4 instantané | 5 interrompu
 --     dur   : durée MESURÉE au chronomètre (kind 1/2/5), durée-identité (kind 3), 0 (kind 4)
@@ -17,6 +17,14 @@
 --     unit  : jeton d'unité — diagnostic, permet de voir d'où vient une observation
 --     fire  : kind 3 uniquement — instant prévu de déclenchement, depuis t0
 --     sname : nom serveur, UNIQUEMENT quand il est lisible. Bonus, jamais une dépendance.
+--     evID  : identifiant d'événement de la timeline. DIAGNOSTIC UNIQUEMENT — les
+--             captures montrent que c'est un compteur de SESSION : un second pull
+--             du même combat sans /reload reprend la numérotation là où elle en
+--             était. Il n'identifie donc pas une capacité, et ne doit jamais
+--             servir de clé de correspondance.
+--     icon  : iconFileID de l'événement. En raid sous Midnight le nom serveur et
+--             le GUID sont masqués : l'icône est le seul lien restant entre une
+--             durée observée et une capacité du journal.
 
 local NS = select(2, ...)
 local Store = {}
@@ -95,7 +103,7 @@ end
 -- espacement de phase supposé régulier — faux dès que les capacités ne sont pas
 -- réparties uniformément dans le cycle (Galvazzt : phases 5 et 20 sur 22, là où
 -- l'espacement régulier supposerait 0 et 11).
-function Store:Add(kind, dur, npc, unit, fire, sname, evID)
+function Store:Add(kind, dur, npc, unit, fire, sname, evID, icon)
     local cur = self.current
     if not cur or cur.over then return end
     local n = #cur.obs
@@ -113,6 +121,7 @@ function Store:Add(kind, dur, npc, unit, fire, sname, evID)
         fire,
         sname,
         evID,
+        icon,
     }
 end
 

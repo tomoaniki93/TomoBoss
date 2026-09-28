@@ -1,5 +1,67 @@
 # Changelog
 
+## 2.8.5 — Icon capture, a corrected identity claim, and the Venomous Abyss surveyed
+
+No encounter data changed in this release. It exists because 2.8.4 shipped a claim that the captures disprove, and because the first full raid capture showed exactly what is still missing before raid encounters can be written at all.
+
+### Fixed
+
+- **The recorded timeline event ID is not an identity.** 2.8.4 added it to the store as an eighth field, described as something disambiguation rules could later be written against. The raid captures show it is a **session counter**: it advances with events and restarts only on `/reload` or on changing instance, so a second pull of the same fight resumes the numbering where the previous one stopped. It does reappear across pulls — which is the trap, since that looks like stability — but when it does, it carries a *different* ability in **198 cases out of 292**. On Merektha, IDs 45 to 52 hold 13/36/5/25/44/49 in one pull and 36/5/25/44/49/13 in the next: the same sequence shifted by one, because the two pulls did not see the same number of events. The field is kept, for diagnostics only, and both `Learn/Store.lua` and the export generator now say so where someone would reach for it. No shipped data was affected: the `eventID` values in `Engine/Encounters/` come from the authored EventBridge table, never from a capture — verified before this was written.
+- **The generator's description of those IDs was wrong in the same direction.** It called them "sequential handles renumbered on every pull". They are not renumbered per pull; the comment now states the measured behaviour and points at the test.
+
+### Added
+
+- **The event icon is recorded, on both sides of the join.** Under Midnight, a raid timeline publishes no readable spell name and no caster GUID — measured across 1 902 raid observations: **zero** readable names, **zero** npcIDs. `info.iconFileID` is the one identity field the game does not mask, and `BlizzTimeline` already reads it to draw the generic bar; it was simply never stored. It is now the ninth field of an observation, and `/tmb journal` records each journal ability's icon alongside its spell ID. With both sides carrying it, duration → icon → spell ID → name and role resolves without a hand-written mapping. Older captures keep working with the field unset.
+- **The diagnostic log prints the icon.** Whether an icon survives in raid is a question for a capture, not for a guess. An unidentified event now logs `icône : 1234567` or `icône : <secret>`, so one pull settles it. If it comes through, the mapping below becomes automatic; if it does not, the manual sheet is the route.
+- **`Tools/test_identity.lua`** — Runs against a SavedVariables and establishes which field can serve as a matching key: that a reappearing event ID carries a different ability more often than the same one, that the numbering continues across pulls, and — the contrast that gives the first two their meaning — that the duration does repeat, on the very same captures. Written after its own first assertion failed: "an event ID never reappears" was too strong, and the data said so.
+- **`Tools/raid_worksheet.lua`** — Produces the mapping sheet for a raid: per encounter, every observed duration with its count and its position in the cycle, against the journal's ability list with Blizzard's role flags. The two halves of the join, side by side, on measured figures rather than recollection.
+
+### Findings — The Venomous Abyss (instance 3004)
+
+Surveyed, not shipped. 27 pulls, 1 902 observations, 980 of them timeline events, across all eight encounters.
+
+- **The timing is sound, and several fights are strictly periodic.** Sszorak repeats a 150 s cycle identically on **100 %** of its triggers, *Les crochets jumeaux* 186 s on 96 %, *Vashnik le Malveillant* 82 s on 86 %. (Boss names are given as the capturing client reports them — this raid has no verified English strings in the addon yet.) Four more show a cycle that repeats and then changes with the phase.
+- **Six of the eight clear the dungeon bar.** 85 % to 100 % of their timeline observations fall on durations seen at least three times — Sszorak on five durations, no exceptions at all.
+- **What blocks them is identity, not evidence.** This corrects the standing note carried since 2.8.1. The reason given there — that raid timing feeds prediction and so demands a higher bar — does not hold: this raid publishes `C_EncounterTimeline` exactly as the dungeons do, so `matchOnly` applies unchanged and a duration is an identification key, not a schedule. The real obstacle is that nothing names the ability. Names and GUIDs are masked, the event ID is a counter, and correlating timeline triggers against recorded casts succeeds on only 2–16 % of events. A nameless duration adds nothing over the generic bar `BlizzTimeline` already draws from the server's own severity: what a definition contributes is the name, the role and the voice.
+- **Two encounters would not qualify even with identity.** Ula'tek shows no stable cycle and only 52 % of its observations on repeated durations, its two kills bearing almost no timings in common. *L'Autel annelé* repeats only 29 % of its schedule. Those need pulls, not a patch.
+- **The earlier note also listed the wrong encounters.** 3379 is *Nymrissa Mande-vagues*, in *La grotte des Marées* — the other Season 2 raid, not this one. The Venomous Abyss is 3420, 3421, 3429, 3445, 3455, 3470, 3492 and 3497.
+
+### Encounter data
+
+- **Unchanged from 2.8.4** — 28 encounters, 120 events, every duration seen at least three times, nothing resting on a third-party timing.
+
+### Known limitations
+
+- **No raid encounter is shipped.** Six of the eight Venomous Abyss fights have timing good enough to export the moment an identity source exists — an icon that survives the capture, or the mapping sheet filled in by hand.
+- **12 duration collisions remain unresolved** and fall back to a generic alert. That is correct, not silent.
+- **Chaos Barrage is announced less often than it is cast.** `C_EncounterTimeline` does not publish every cast; a limit of `matchOnly`, not of the data.
+- **The metronome re-evaluates the date on entering and leaving combat.** Playing through midnight in continuous combat means it stops only at the next lull.
+
+## 2.8.4 — Metronome reaches the interface, seasonal windows, fully observed Season 2 data
+
+### Fixed
+
+- **The metronome settings never appeared.** 2.8.3 shipped the section, correctly written and correctly configured, into `GUI/Config.lua` — a page the addon no longer displays. `GUI/StableLayout.lua` loads afterwards and replaces the tab table with its own builders, so `BuildGeneral` had been dead code for some time. The section now lives in `BuildStableGeneral`, adapted to that file's own conventions. The duplicate has been removed from `Config.lua` rather than left to drift: two divergent copies of one setting cost more at the next change than they save today.
+- **The General page overflowed its panel.** With the metronome added, the sound field and its test button were drawn below the panel edge and could not be reached. The page now uses `ScrollBody`, the same treatment already applied to the Voice, Interrupts and Blizzard-timeline pages.
+- **A zero-second duration was exported as an unknown ability.** Adderis and Aspix publishes timeline entries with no countdown; these are state markers, not announcements, and the merge pass protected them precisely because zero is a round value. Durations below 0.5 s are now dropped — under the shortest real ability in the pool, Roaring Firebreath at 1 s.
+- **Late announcements beyond two seconds were kept as separate abilities.** The merge window was 1.5 s, and a delayed announcement can drift further: 32.85 for a 35 s series. The window is now 3 s. Widening it is safe because only a **non-round** value can ever be absorbed — authored durations, whole or half seconds, stay protected at any width. Verified against 14.75 on Whirling Axes, a quarter-second value that survives.
+
+### Changed
+
+- **The metronome no longer has an on/off switch; dates decide.** It runs only inside the configured periods: **24–26 January, 1–3 April, 9–14 July, and 20–31 December**. Bounds are inclusive at both ends. Ranges are written `MM-DD`, a fixed-width zero-padded form where string comparison is equivalent to date comparison — no splitting, no conversion. A range whose end precedes its start spans the new year, which a simple bounds check cannot express; the case is covered even though none of the configured periods need it. An empty list means all year, so a profile that has never seen this setting does not fall silent without explanation.
+- **The interface explains the silence.** With no switch to look at, the General page now lists the active periods and states whether today falls inside one. `/tmb metro` reports the same, highlighting the current period when there is one.
+
+### Encounter data
+
+- **The Season 2 dungeon pool is now entirely observed.** 28 encounters, 120 events, zero entries still resting on third-party timings and zero unidentified durations. `Debilitating Backhand` on The Council of Tribes was the last holdout: its durations had been seen once each, and the additional Kings' Rest pulls brought it over the threshold.
+
+### Known limitations
+
+- **The metronome re-evaluates the date on entering and leaving combat.** Playing through midnight in continuous combat means it stops only at the next lull. That seemed preferable to a timer running permanently to watch the calendar.
+- **12 duration collisions remain unresolved** and fall back to a generic alert. That is correct, not silent.
+- **Chaos Barrage is announced less often than it is cast.** `C_EncounterTimeline` does not publish every cast; a limit of `matchOnly`, not of the data.
+- **The two Season 2 raids remain out of scope.** No encounter definitions exist for 3379, 3421, 3429, 3470 or 3492, and coverage is thin.
+
 ## 2.8.3 — Keystone sync, journal-verified roles, multi-phase recording fix, group metronome
 
 ### Fixed
