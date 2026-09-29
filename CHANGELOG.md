@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.8.6 — A second voice pack, merged without replacing the first
+
+The voice pack recorded alongside 2.8.5 — preparation calls for incoming casts — arrives here, with the first encounter wired to it. No change to the capture format or the interface.
+
+### Added
+
+- **109 new announcements, added beside the existing ones rather than over them.** A second recorded pack — preparation calls for incoming casts — arrived under its own naming convention: 111 files of which exactly **four** matched a catalogue key, so dropped into `Media/Voice/` as they were, 107 would never have played. `Core/Media.lua` registers one path per catalogue entry, and nothing pointed at them. Every file now carries a `prep-` key in a new **Anticipation** category, so the 185 original entries keep their own voices and nothing is replaced — verified: **zero** existing lines changed. The catalogue goes from 185 entries to 294, and the new lines appear on their own in the Voice tab's preview list and in the custom-fight editor, with no interface change.
+- **The two packs disagreed with each other, and would have been silent in one language.** Four announcements carried an underscore in `enUS` and a hyphen in `frFR` — `break_link` / `break-link`, `break_shield`, `phase_change`, `stop_casting`. A catalogue entry holds one filename, shared by every pack, so whichever spelling was chosen the other language had no file. Names are normalised on merge.
+- **Two announcements were left out rather than registered half-present.** `get_to_work` and `lethal_ended` exist only in `enUS`. That matters more than it looks: `LSM:Fetch` returns the registered path without checking the disk, so the fallback to the default pack in `Voice/Engine.lua` never fires for a *missing file* — only for an unregistered pack. A half-present entry is silent, with nothing in the log. The merge therefore creates an entry only when the file exists in every shipped pack; a check confirms all **294** entries resolve in both.
+- **`Tools/voice_merge.py`** — Performs the merge: normalises names, refuses any key or filename collision instead of overwriting, copies into each pack, and appends a marked block to the catalogue.
+- **Display labels come from the filenames, not from listening.** They describe what each name announces; the Voice tab's preview button is the way to confirm the recording matches.
+
+### Encounter data
+
+- **Zaen Bladesorrow was carrying two abilities on one entry.** The durations 12 and 16 sat together on Same-Day Delivery, because the pre-migration definition held five abilities and the generator had six durations to place. The captures separate them: at the trigger instant, 12 matches a 3 s **channel** from `boss1` (36 observations) and 16 a 3 s **cast** (30 observations). A channel and a cast are not the same ability. The 42 s cycle agrees — 8 Killing Spree, 12, 18 Fire Bomb, 26 Envenom, 28 (the 16), 36 Murder in a Row — and the journal supplies the pair: Fel-Infused Freight (1201553) is the Mythic child of Same-Day Delivery (474765). The entry is now split, which also removes one of the collisions that fell back to a generic alert.
+- **The first callout from the new pack is wired.** Fire Bomb spawns three barrels, one of them green; Fel-Infused Freight then targets two players, who use it to destroy one — and only the green one may fall. That announcement has to arrive before the target is chosen, so the event carries `prep-green-barrel` at severity 2 with a 3 s pre-alert. It gets no `eventID`: the repository's belongs to Same-Day Delivery, and `EventBridge:WillPlaySound` indexes on it, so a shared identifier would have the game play the wrong line.
+- **Two inherited callouts corrected from the fight itself.** Fire Bomb asked players to dodge; it spawns the barrels and asks them to spread, so it now carries `prep-spread`. Murder in a Row asked them to watch a frontal; it makes each player take cover behind a barrel and then destroys them, which is a line-of-sight break, so it carries `std-los` with a 3 s pre-alert — being behind the barrel matters before the shot, not as it lands. Both descriptions came from the third-party data the migration inherited, and neither matched what the fight does.
+- **The second delivery of the cycle deliberately gets no barrel callout.** The barrels recalled on the following cycle are not green, so only one occurrence per cycle deserves the instruction. Recorded in the file so the question is not reopened.
+- **`Tools/test_voice.lua`** — Checks that every announcement a repository encounter names can actually be played: that the voice key exists in the catalogue (389 references), that every catalogue entry has its file in every shipped pack (294 × 2), and that no two keys share a file. All three failure modes are silent in game — no error, only a debug line — which is why they are asserted here.
+
+### Known limitations
+
+- **Display labels come from the filenames, not from listening.** They describe what each name announces; the Voice tab's preview button is the way to confirm the recording matches. Three files sit well outside the pack's own median of 0.92 s — `prep-lucio` at 9.9 s, `prep-kick-customer` at 4.0 s, `prep-housekeeping` at 3.1 s — worth hearing before assigning them to an event.
+- **Two announcements of the 109 are wired to an encounter.** The rest are selectable; which event should use which is an editorial pass, one fight at a time.
+- Everything listed under 2.8.5 still stands.
+
 ## 2.8.5 — Icon capture, a corrected identity claim, and the Venomous Abyss surveyed
 
 No encounter data changed in this release. It exists because 2.8.4 shipped a claim that the captures disprove, and because the first full raid capture showed exactly what is still missing before raid encounters can be written at all.
